@@ -1,0 +1,16 @@
+{
+  "name": "electron-hello-world",
+  "version": "1.0.0",
+  "description": "Simple Electron boilerplate showing a Hello World window",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc && cp index.html dist/index.html",
+    "start": "npm run build && electron ."
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.7.4"
+  },
+  "license": "MIT"
+}

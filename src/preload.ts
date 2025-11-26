@@ -4,6 +4,7 @@ type Task = {
   id: number;
   text: string;
   done: boolean;
+  position: number;
 };
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -13,6 +14,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-task-done', id, done) as Promise<{ id: number; done: boolean }>,
   updateTaskText: (id: number, text: string) =>
     ipcRenderer.invoke('update-task-text', id, text) as Promise<{ id: number; text: string } | { error: string }>,
+  updateTaskOrder: (orderedIds: number[]) =>
+    ipcRenderer.invoke('update-task-order', orderedIds) as Promise<{ success: boolean }>,
 });
 
 declare global {
@@ -22,6 +25,7 @@ declare global {
       getTasks: () => Promise<Task[]>;
       updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
       updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
+      updateTaskOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
     };
   }
 }

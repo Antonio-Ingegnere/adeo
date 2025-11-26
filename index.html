@@ -61,6 +61,26 @@
       .task-row input[type='checkbox'] {
         margin: 0;
       }
+      .task-row.drag-over {
+        background: #eef3ff;
+      }
+      .task-row.dragging {
+        opacity: 0.6;
+      }
+      .drag-handle {
+        width: 14px;
+        height: 14px;
+        display: inline-block;
+        background: repeating-linear-gradient(
+          to bottom,
+          #b0b0b0 0,
+          #b0b0b0 1px,
+          transparent 1px,
+          transparent 5px
+        );
+        cursor: grab;
+        flex-shrink: 0;
+      }
       .overlay {
         position: fixed;
         inset: 0;
@@ -162,6 +182,19 @@
       const cancelEditBtn = document.getElementById('cancel-edit');
       const saveEditBtn = document.getElementById('save-edit');
       let editingTaskId = null;
+      let dragIndex = null;
+
+      const saveTaskOrder = async () => {
+        try {
+          const orderedIds = tasks.map((task) => task.id);
+          tasks.forEach((task, index) => {
+            task.position = index;
+          });
+          await window.electronAPI.updateTaskOrder(orderedIds);
+        } catch (error) {
+          console.error('Failed to save task order', error);
+        }
+      };
 
       const renderTasks = () => {
         if (!tasksList) return;
@@ -178,6 +211,47 @@
         tasks.forEach((task, index) => {
           const label = document.createElement('label');
           label.className = 'task-row';
+          label.dataset.index = String(index);
+
+          const handle = document.createElement('span');
+          handle.className = 'drag-handle';
+          handle.title = 'Drag to reorder';
+          handle.setAttribute('draggable', 'true');
+          handle.addEventListener('dragstart', (event) => {
+            dragIndex = index;
+            label.classList.add('dragging');
+            event.dataTransfer?.setData('text/plain', String(index));
+            event.dataTransfer?.setDragImage(label, 10, 10);
+            if (event.dataTransfer) {
+              event.dataTransfer.effectAllowed = 'move';
+            }
+          });
+          handle.addEventListener('dragend', () => {
+            dragIndex = null;
+            label.classList.remove('dragging');
+          });
+
+          label.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            label.classList.add('drag-over');
+            event.dataTransfer?.setDropEffect('move');
+          });
+          label.addEventListener('dragleave', () => {
+            label.classList.remove('drag-over');
+          });
+          label.addEventListener('drop', (event) => {
+            event.preventDefault();
+            label.classList.remove('drag-over');
+            const targetIndex = Number(label.dataset.index);
+            if (dragIndex === null || Number.isNaN(targetIndex) || dragIndex === targetIndex) {
+              return;
+            }
+            const [moved] = tasks.splice(dragIndex, 1);
+            tasks.splice(targetIndex, 0, moved);
+            dragIndex = null;
+            renderTasks();
+            saveTaskOrder();
+          });
 
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
@@ -203,6 +277,7 @@
             openEditModal(task.id);
           });
 
+          label.appendChild(handle);
           label.appendChild(checkbox);
           label.appendChild(textSpan);
           tasksList.appendChild(label);

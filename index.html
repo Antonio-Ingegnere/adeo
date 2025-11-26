@@ -93,9 +93,10 @@
         border: none;
         background: transparent;
         cursor: pointer;
-        color: #666;
+        color: #b0b0b0;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         padding: 4px;
       }
       .expand-btn:hover {
@@ -127,6 +128,23 @@
       }
       .task-details strong {
         font-weight: 600;
+      }
+      .expand-chevrons {
+        width: 14px;
+        height: 14px;
+        display: inline-block;
+        margin-top: -5px;
+      }
+      .expand-chevrons svg {
+        width: 100%;
+        height: 100%;
+      }
+      .expand-chevrons path {
+        stroke: currentColor;
+        stroke-width: 1;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
       .task-details .task-list {
         list-style: none;
@@ -481,7 +499,14 @@
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'expand-btn';
             toggleBtn.title = isExpanded ? 'Collapse details' : 'Expand details';
-            toggleBtn.innerHTML = isExpanded ? '&#9650;' : '&#9660;';
+            toggleBtn.innerHTML = `
+              <span class="expand-chevrons" aria-hidden="true">
+                <svg viewBox="0 0 14 14" focusable="false">
+                  <path d="M2 3 L7 8 L12 3" />
+                  <path d="M2 8 L7 13 L12 8" />
+                </svg>
+              </span>
+            `;
             toggleBtn.addEventListener('click', (event) => {
               event.preventDefault();
               event.stopPropagation();

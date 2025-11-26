@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 type Task = {
   id: number;
   text: string;
+  details: string;
   done: boolean;
   position: number;
 };
@@ -16,6 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-task-text', id, text) as Promise<{ id: number; text: string } | { error: string }>,
   updateTaskOrder: (orderedIds: number[]) =>
     ipcRenderer.invoke('update-task-order', orderedIds) as Promise<{ success: boolean }>,
+  updateTaskDetails: (id: number, details: string) =>
+    ipcRenderer.invoke('update-task-details', id, details) as Promise<{ id: number; details: string }>,
 });
 
 declare global {
@@ -26,6 +29,7 @@ declare global {
       updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
       updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
       updateTaskOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+      updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
     };
   }
 }

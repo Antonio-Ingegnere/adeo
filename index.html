@@ -50,7 +50,7 @@
       }
       .task-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 8px;
         padding: 10px 12px;
         border-bottom: 1px solid #e0e0e0;
@@ -59,7 +59,7 @@
         border-bottom: none;
       }
       .task-row input[type='checkbox'] {
-        margin: 0;
+        margin: 2px 0 0;
       }
       .task-row.drag-over {
         background: #eef3ff;
@@ -86,6 +86,48 @@
         );
         cursor: grab;
         flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .task-main {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .task-details {
+        color: #555;
+        font-size: 13px;
+        line-height: 1.4;
+        text-align: left;
+      }
+      .task-details ul {
+        margin: 4px 0 0;
+        padding-left: 18px;
+      }
+      .task-details p {
+        margin: 2px 0;
+      }
+      .task-details code {
+        background: #f0f0f0;
+        padding: 0 4px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .task-details strong {
+        font-weight: 600;
+      }
+      .task-details .task-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 4px 0 0;
+      }
+      .task-details .task-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .task-details .task-list input[type='checkbox'] {
+        pointer-events: none;
+        margin: 0;
       }
       .overlay {
         position: fixed;
@@ -169,6 +211,16 @@
             type="text"
             style="width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px;"
           />
+          <div style="margin-top: 12px; text-align: left;">
+            <label for="edit-details" style="display: block; margin-bottom: 6px; color: #333; font-weight: 600;">
+              Details (Markdown supported)
+            </label>
+            <textarea
+              id="edit-details"
+              rows="4"
+              style="width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px; resize: vertical;"
+            ></textarea>
+          </div>
           <div class="modal-actions">
             <button id="cancel-edit" class="btn">Cancel</button>
             <button id="save-edit" class="btn primary">Save</button>
@@ -185,6 +237,7 @@
       const emptyState = document.getElementById('empty-state');
       const overlay = document.getElementById('edit-overlay');
       const editInput = document.getElementById('edit-input');
+      const editDetailsInput = document.getElementById('edit-details');
       const cancelEditBtn = document.getElementById('cancel-edit');
       const saveEditBtn = document.getElementById('save-edit');
       const dropIndicator = document.createElement('div');
@@ -192,6 +245,86 @@
       let editingTaskId = null;
       let dragIndex = null;
       let dropIndex = null;
+
+      const escapeHtml = (text) =>
+        text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      const renderInline = (text) => {
+        return text
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      };
+
+      const renderMarkdown = (text) => {
+        const escaped = escapeHtml(text || '');
+        const lines = escaped.split(/\r?\n/);
+        let html = '';
+        let inList = false;
+        let inTaskList = false;
+
+        const closeList = () => {
+          if (inList) {
+            html += '</ul>';
+            inList = false;
+          }
+          if (inTaskList) {
+            html += '</ul>';
+            inTaskList = false;
+          }
+        };
+
+        lines.forEach((line) => {
+          const listMatch = line.match(/^\s*[-*]\s+(.*)/);
+          const taskMatch = line.match(/^\s*(?:-|\*)?\s*\[\s?([xX ])\s?\]\s+(.*)/);
+          const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
+
+          if (headerMatch) {
+            closeList();
+            const level = headerMatch[1].length;
+            const content = renderInline(headerMatch[2]);
+            html += `<h${level}>${content}</h${level}>`;
+            return;
+          }
+
+          if (taskMatch) {
+            if (inList) {
+              html += '</ul>';
+              inList = false;
+            }
+            if (!inTaskList) {
+              html += '<ul class="task-list">';
+              inTaskList = true;
+            }
+            const checked = taskMatch[1].toLowerCase() === 'x';
+            html += `<li><input type="checkbox" disabled ${checked ? 'checked' : ''} /> ${renderInline(
+              taskMatch[2]
+            )}</li>`;
+            return;
+          }
+
+          if (listMatch) {
+            if (inTaskList) {
+              html += '</ul>';
+              inTaskList = false;
+            }
+            if (!inList) {
+              html += '<ul>';
+              inList = true;
+            }
+            html += `<li>${renderInline(listMatch[1])}</li>`;
+          } else if (line.trim() === '') {
+            closeList();
+            html += '<br>';
+          } else {
+            closeList();
+            html += `<p>${renderInline(line)}</p>`;
+          }
+        });
+
+        closeList();
+        return html;
+      };
 
       const removeDropIndicator = () => {
         if (dropIndicator.parentNode) {
@@ -312,9 +445,20 @@
             openEditModal(task.id);
           });
 
+          const detailsDiv = document.createElement('div');
+          detailsDiv.className = 'task-details';
+          detailsDiv.innerHTML = renderMarkdown(task.details || '');
+
+          const mainBlock = document.createElement('div');
+          mainBlock.className = 'task-main';
+          mainBlock.appendChild(textSpan);
+          if (task.details?.trim()) {
+            mainBlock.appendChild(detailsDiv);
+          }
+
           label.appendChild(handle);
           label.appendChild(checkbox);
-          label.appendChild(textSpan);
+          label.appendChild(mainBlock);
           tasksList.appendChild(label);
         });
       };
@@ -342,32 +486,39 @@
 
       const openEditModal = (taskId) => {
         const task = tasks.find((t) => t.id === taskId);
-        if (!overlay || !editInput || !task) return;
+        if (!overlay || !editInput || !editDetailsInput || !task) return;
         editingTaskId = taskId;
         editInput.value = task.text;
+        editDetailsInput.value = task.details || '';
         overlay.classList.add('open');
         setTimeout(() => editInput.focus(), 0);
       };
 
       const closeEditModal = () => {
-        if (!overlay || !editInput) return;
+        if (!overlay || !editInput || !editDetailsInput) return;
         overlay.classList.remove('open');
         editInput.value = '';
+        editDetailsInput.value = '';
         editingTaskId = null;
       };
 
       const saveEdit = async () => {
-        if (!editingTaskId || !editInput) return;
+        if (!editingTaskId || !editInput || !editDetailsInput) return;
         const newText = editInput.value.trim();
+        const newDetails = editDetailsInput.value;
         if (!newText) return;
         try {
-          const result = await window.electronAPI.updateTaskText(editingTaskId, newText);
-          if (!result || result.error) {
+          const [textResult] = await Promise.all([
+            window.electronAPI.updateTaskText(editingTaskId, newText),
+            window.electronAPI.updateTaskDetails(editingTaskId, newDetails),
+          ]);
+          if (!textResult || textResult.error) {
             return;
           }
           const idx = tasks.findIndex((t) => t.id === editingTaskId);
           if (idx !== -1) {
             tasks[idx].text = newText;
+            tasks[idx].details = newDetails;
             renderTasks();
           }
           closeEditModal();

@@ -15,11 +15,12 @@ function ensureDb(): BetterSqliteDatabase {
 function initializeDatabase(): void {
   const dbPath = path.join(app.getPath('userData'), 'tasks.db');
   db = new Database(dbPath);
-  //db.prepare('DROP TABLE IF EXISTS tasks').run();
+  db.prepare('DROP TABLE IF EXISTS tasks').run();
   db.prepare(`
     CREATE TABLE IF NOT EXISTS tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       text TEXT NOT NULL,
+      details TEXT NOT NULL DEFAULT '',
       done INTEGER NOT NULL DEFAULT 0,
       position INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -61,19 +62,22 @@ ipcMain.handle('add-task', async (_event, text: string) => {
     maxPos: number | null;
   };
   const nextPosition = typeof nextPositionRow?.maxPos === 'number' ? nextPositionRow.maxPos + 1 : 0;
-  const result = database.prepare('INSERT INTO tasks (text, done, position) VALUES (?, 0, ?)').run(trimmed, nextPosition);
-  const task = { id: Number(result.lastInsertRowid), text: trimmed, done: false, position: nextPosition };
+  const result = database
+    .prepare('INSERT INTO tasks (text, details, done, position) VALUES (?, ?, 0, ?)')
+    .run(trimmed, '', nextPosition);
+  const task = { id: Number(result.lastInsertRowid), text: trimmed, details: '', done: false, position: nextPosition };
   return task;
 });
 
 ipcMain.handle('get-tasks', async () => {
   const database = ensureDb();
   const rows = database
-    .prepare('SELECT id, text, done, position FROM tasks ORDER BY position ASC, id ASC')
-    .all() as Array<{ id: number; text: string; done: number; position: number }>;
+    .prepare('SELECT id, text, details, done, position FROM tasks ORDER BY position ASC, id ASC')
+    .all() as Array<{ id: number; text: string; details: string; done: number; position: number }>;
   return rows.map((row) => ({
     id: row.id,
     text: row.text,
+    details: row.details,
     done: Boolean(row.done),
     position: row.position,
   }));
@@ -93,6 +97,12 @@ ipcMain.handle('update-task-text', async (_event, id: number, text: string) => {
   const database = ensureDb();
   database.prepare('UPDATE tasks SET text = ? WHERE id = ?').run(trimmed, id);
   return { id, text: trimmed };
+});
+
+ipcMain.handle('update-task-details', async (_event, id: number, details: string) => {
+  const database = ensureDb();
+  database.prepare('UPDATE tasks SET details = ? WHERE id = ?').run(details ?? '', id);
+  return { id, details: details ?? '' };
 });
 
 ipcMain.handle('update-task-order', async (_event, orderedIds: number[]) => {

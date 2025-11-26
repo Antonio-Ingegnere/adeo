@@ -3,6 +3,8 @@ import Database from 'better-sqlite3';
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import path from 'path';
 
+const APP_NAME = 'Adeo';
+
 let db: BetterSqliteDatabase | null = null;
 let mainWindow: BrowserWindow | null = null;
 let showCompleted = true;
@@ -54,7 +56,7 @@ function setupMenu(window: BrowserWindow): void {
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: APP_NAME,
             submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }],
           } as Electron.MenuItemConstructorOptions,
         ]
@@ -163,6 +165,7 @@ ipcMain.handle('get-settings', async () => {
 });
 
 app.on('ready', () => {
+  app.setName(APP_NAME);
   initializeDatabase();
   createWindow();
   if (mainWindow) {

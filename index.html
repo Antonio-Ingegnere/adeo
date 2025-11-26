@@ -67,6 +67,12 @@
       .task-row.dragging {
         opacity: 0.6;
       }
+      .drop-indicator {
+        height: 3px;
+        background: #4a8ef7;
+        border-radius: 999px;
+        margin: 0 12px;
+      }
       .drag-handle {
         width: 14px;
         height: 14px;
@@ -181,8 +187,17 @@
       const editInput = document.getElementById('edit-input');
       const cancelEditBtn = document.getElementById('cancel-edit');
       const saveEditBtn = document.getElementById('save-edit');
+      const dropIndicator = document.createElement('div');
+      dropIndicator.className = 'drop-indicator';
       let editingTaskId = null;
       let dragIndex = null;
+      let dropIndex = null;
+
+      const removeDropIndicator = () => {
+        if (dropIndicator.parentNode) {
+          dropIndicator.parentNode.removeChild(dropIndicator);
+        }
+      };
 
       const saveTaskOrder = async () => {
         try {
@@ -199,6 +214,7 @@
       const renderTasks = () => {
         if (!tasksList) return;
 
+        removeDropIndicator();
         tasksList.innerHTML = '';
 
         if (tasks.length === 0) {
@@ -228,27 +244,46 @@
           });
           handle.addEventListener('dragend', () => {
             dragIndex = null;
+            dropIndex = null;
             label.classList.remove('dragging');
+            removeDropIndicator();
           });
 
           label.addEventListener('dragover', (event) => {
             event.preventDefault();
-            label.classList.add('drag-over');
-            event.dataTransfer?.setDropEffect('move');
+            const rect = label.getBoundingClientRect();
+            const isBefore = event.clientY < rect.top + rect.height / 2;
+            const targetIndex = Number(label.dataset.index);
+            dropIndex = isBefore ? targetIndex : targetIndex + 1;
+            removeDropIndicator();
+            if (label.parentNode) {
+              if (isBefore) {
+                label.parentNode.insertBefore(dropIndicator, label);
+              } else {
+                label.parentNode.insertBefore(dropIndicator, label.nextSibling);
+              }
+            }
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = 'move';
+            }
           });
-          label.addEventListener('dragleave', () => {
-            label.classList.remove('drag-over');
-          });
+          label.addEventListener('dragleave', () => {});
           label.addEventListener('drop', (event) => {
             event.preventDefault();
-            label.classList.remove('drag-over');
-            const targetIndex = Number(label.dataset.index);
-            if (dragIndex === null || Number.isNaN(targetIndex) || dragIndex === targetIndex) {
+            removeDropIndicator();
+            if (dragIndex === null || dropIndex === null) {
+              return;
+            }
+            if (dragIndex === dropIndex || dragIndex + 1 === dropIndex) {
+              dragIndex = null;
+              dropIndex = null;
               return;
             }
             const [moved] = tasks.splice(dragIndex, 1);
-            tasks.splice(targetIndex, 0, moved);
+            const adjustedIndex = dragIndex < dropIndex ? dropIndex - 1 : dropIndex;
+            tasks.splice(adjustedIndex, 0, moved);
             dragIndex = null;
+            dropIndex = null;
             renderTasks();
             saveTaskOrder();
           });
@@ -350,6 +385,37 @@
           console.error('Failed to load tasks', error);
         }
       };
+
+      tasksList?.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        if (tasks.length === 0) {
+          dropIndex = 0;
+          removeDropIndicator();
+          tasksList.appendChild(dropIndicator);
+        } else if (event.target === tasksList) {
+          dropIndex = tasks.length;
+          removeDropIndicator();
+          tasksList.appendChild(dropIndicator);
+        }
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+      });
+      tasksList?.addEventListener('drop', (event) => {
+        event.preventDefault();
+        if (dragIndex === null || dropIndex === null) {
+          removeDropIndicator();
+          return;
+        }
+        const [moved] = tasks.splice(dragIndex, 1);
+        const adjustedIndex = dragIndex < dropIndex ? dropIndex - 1 : dropIndex;
+        tasks.splice(adjustedIndex, 0, moved);
+        dragIndex = null;
+        dropIndex = null;
+        renderTasks();
+        saveTaskOrder();
+        removeDropIndicator();
+      });
 
       button?.addEventListener('click', addTask);
       input?.addEventListener('keypress', (event) => {

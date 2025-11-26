@@ -78,6 +78,16 @@ ipcMain.handle('update-task-done', async (_event, id: number, done: boolean) => 
   return { id, done };
 });
 
+ipcMain.handle('update-task-text', async (_event, id: number, text: string) => {
+  const trimmed = text?.trim();
+  if (!trimmed) {
+    return { error: 'Task text is empty' };
+  }
+  const database = ensureDb();
+  database.prepare('UPDATE tasks SET text = ? WHERE id = ?').run(trimmed, id);
+  return { id, text: trimmed };
+});
+
 app.on('ready', () => {
   initializeDatabase();
   createWindow();

@@ -31,6 +31,57 @@
         color: #666;
         font-size: 14px;
       }
+      .task-text {
+        color: #222;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .task-text:hover {
+        color: #1d72f3;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .overlay.open {
+        display: flex;
+      }
+      .modal {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        width: min(420px, 100%);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+      }
+      .modal h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: #111;
+      }
+      .modal-actions {
+        margin-top: 14px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .btn {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #d6d6d6;
+        background: #f7f7f7;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .btn.primary {
+        border: none;
+        background: #1d72f3;
+        color: #fff;
+      }
     </style>
   </head>
   <body>
@@ -62,6 +113,20 @@
           </div>
         </div>
       </div>
+      <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
+        <div class="modal">
+          <h2>Edit task</h2>
+          <input
+            id="edit-input"
+            type="text"
+            style="width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px;"
+          />
+          <div class="modal-actions">
+            <button id="cancel-edit" class="btn">Cancel</button>
+            <button id="save-edit" class="btn primary">Save</button>
+          </div>
+        </div>
+      </div>
     </div>
     <script>
       const input = document.getElementById('message-input');
@@ -70,6 +135,11 @@
       const tasks = [];
       const tasksList = document.getElementById('tasks-list');
       const emptyState = document.getElementById('empty-state');
+      const overlay = document.getElementById('edit-overlay');
+      const editInput = document.getElementById('edit-input');
+      const cancelEditBtn = document.getElementById('cancel-edit');
+      const saveEditBtn = document.getElementById('save-edit');
+      let editingTaskId = null;
 
       const renderTasks = () => {
         if (!tasksList) return;
@@ -108,9 +178,13 @@
 
           const textSpan = document.createElement('span');
           textSpan.textContent = task.text;
-          textSpan.style.color = '#222';
-          textSpan.style.fontSize = '14px';
+          textSpan.className = 'task-text';
           textSpan.style.textDecoration = task.done ? 'line-through' : 'none';
+          textSpan.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openEditModal(task.id);
+          });
 
           label.appendChild(checkbox);
           label.appendChild(textSpan);
@@ -139,6 +213,42 @@
         }
       };
 
+      const openEditModal = (taskId) => {
+        const task = tasks.find((t) => t.id === taskId);
+        if (!overlay || !editInput || !task) return;
+        editingTaskId = taskId;
+        editInput.value = task.text;
+        overlay.classList.add('open');
+        setTimeout(() => editInput.focus(), 0);
+      };
+
+      const closeEditModal = () => {
+        if (!overlay || !editInput) return;
+        overlay.classList.remove('open');
+        editInput.value = '';
+        editingTaskId = null;
+      };
+
+      const saveEdit = async () => {
+        if (!editingTaskId || !editInput) return;
+        const newText = editInput.value.trim();
+        if (!newText) return;
+        try {
+          const result = await window.electronAPI.updateTaskText(editingTaskId, newText);
+          if (!result || result.error) {
+            return;
+          }
+          const idx = tasks.findIndex((t) => t.id === editingTaskId);
+          if (idx !== -1) {
+            tasks[idx].text = newText;
+            renderTasks();
+          }
+          closeEditModal();
+        } catch (error) {
+          console.error('Failed to update task text', error);
+        }
+      };
+
       const loadTasks = async () => {
         try {
           const existingTasks = await window.electronAPI.getTasks();
@@ -153,6 +263,19 @@
       input?.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
           addTask();
+        }
+      });
+
+      cancelEditBtn?.addEventListener('click', () => closeEditModal());
+      saveEditBtn?.addEventListener('click', () => saveEdit());
+      editInput?.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          saveEdit();
+        }
+      });
+      overlay?.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+          closeEditModal();
         }
       });
 

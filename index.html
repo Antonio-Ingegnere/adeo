@@ -87,6 +87,13 @@
           const listMatch = line.match(/^\s*[-*]\s+(.*)/);
           const taskMatch = line.match(/^\s*(?:-|\*)?\s*\[\s?([xX ])\s?\]\s+(.*)/);
           const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
+          const hrMatch = line.match(/^\s*-{3,}\s*$/);
+
+          if (hrMatch) {
+            closeList();
+            html += '<hr class="md-hr">';
+            return;
+          }
 
           if (headerMatch) {
             closeList();

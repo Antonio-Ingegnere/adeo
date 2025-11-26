@@ -159,6 +159,12 @@ body {
   font-weight: 600;
 }
 
+.task-details .md-hr {
+  border: none;
+  border-top: 1px solid #d6d6d6;
+  margin: 8px 0;
+}
+
 .task-details .task-list {
   list-style: none;
   padding-left: 0;

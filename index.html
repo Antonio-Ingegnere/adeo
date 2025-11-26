@@ -39,6 +39,28 @@
       .task-text:hover {
         color: #1d72f3;
       }
+      .tasks-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        background: #fafafa;
+        border: 1px solid #e8e8e8;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .task-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .task-row:last-child {
+        border-bottom: none;
+      }
+      .task-row input[type='checkbox'] {
+        margin: 0;
+      }
       .overlay {
         position: fixed;
         inset: 0;
@@ -104,7 +126,7 @@
       </div>
       <div id="tasks" style="margin-top: 20px; text-align: left;">
         <p style="margin: 0 0 8px; color: #444; font-weight: 600;">All tasks</p>
-        <div id="tasks-list" style="display: flex; flex-direction: column; gap: 8px;">
+        <div id="tasks-list" class="tasks-list">
           <div
             id="empty-state"
             style="padding: 10px 12px; border: 1px dashed #d6d6d6; border-radius: 8px; color: #777;"
@@ -155,12 +177,7 @@
 
         tasks.forEach((task, index) => {
           const label = document.createElement('label');
-          label.style.display = 'flex';
-          label.style.alignItems = 'center';
-          label.style.gap = '8px';
-          label.style.padding = '10px 12px';
-          label.style.border = '1px solid #e8e8e8';
-          label.style.borderRadius = '8px';
+          label.className = 'task-row';
 
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';

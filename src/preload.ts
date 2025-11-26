@@ -12,6 +12,11 @@ type Settings = {
   showCompleted: boolean;
 };
 
+type Project = {
+  id: number;
+  name: string;
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
   addTask: (text: string) => ipcRenderer.invoke('add-task', text) as Promise<Task | { error: string }>,
   getTasks: () => ipcRenderer.invoke('get-tasks') as Promise<Task[]>,
@@ -29,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('show-completed-changed', listener);
     return () => ipcRenderer.removeListener('show-completed-changed', listener);
   },
+  addProject: (name: string) => ipcRenderer.invoke('add-project', name) as Promise<Project | { error: string }>,
+  getProjects: () => ipcRenderer.invoke('get-projects') as Promise<Project[]>,
 });
 
 declare global {
@@ -42,6 +49,8 @@ declare global {
       updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
       getSettings: () => Promise<Settings>;
       onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
+      addProject: (name: string) => Promise<Project | { error: string }>;
+      getProjects: () => Promise<Project[]>;
     };
   }
 }

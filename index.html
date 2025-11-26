@@ -224,7 +224,7 @@
         projects.forEach((project) => {
           const item = document.createElement('div');
           item.className = 'project-pill';
-          item.textContent = project;
+          item.textContent = typeof project === 'string' ? project : project.name;
           projectsList.appendChild(item);
         });
       };
@@ -484,9 +484,15 @@
         if (!projectInput) return;
         const name = projectInput.value.trim();
         if (!name) return;
-        projects.push(name);
-        closeProjectModal();
-        renderProjects();
+        window.electronAPI
+          .addProject(name)
+          .then((created) => {
+            if (!created || created.error) return;
+            projects.push({ id: created.id, name: created.name });
+            closeProjectModal();
+            renderProjects();
+          })
+          .catch((error) => console.error('Failed to add project', error));
       };
 
       const loadTasks = async () => {
@@ -506,6 +512,16 @@
           renderTasks();
         } catch (error) {
           console.error('Failed to load settings', error);
+        }
+      };
+
+      const loadProjects = async () => {
+        try {
+          const existingProjects = await window.electronAPI.getProjects();
+          projects = existingProjects ?? [];
+          renderProjects();
+        } catch (error) {
+          console.error('Failed to load projects', error);
         }
       };
 
@@ -589,6 +605,7 @@
       });
 
       loadSettings().then(() => loadTasks());
+      loadProjects();
       projectsToggle.textContent = projectsExpanded ? '▾' : '▸';
       renderProjects();
     </script>

@@ -38,6 +38,13 @@ function initializeDatabase(): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
 }
 
 function createWindow(): void {
@@ -178,6 +185,24 @@ ipcMain.handle('update-task-order', async (_event, orderedIds: number[]) => {
 
 ipcMain.handle('get-settings', async () => {
   return { showCompleted };
+});
+
+ipcMain.handle('add-project', async (_event, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'Project name is empty' };
+  }
+  const database = ensureDb();
+  const result = database.prepare('INSERT INTO projects (name) VALUES (?)').run(trimmed);
+  return { id: Number(result.lastInsertRowid), name: trimmed };
+});
+
+ipcMain.handle('get-projects', async () => {
+  const database = ensureDb();
+  const rows = database
+    .prepare('SELECT id, name FROM projects ORDER BY id ASC')
+    .all() as Array<{ id: number; name: string }>;
+  return rows;
 });
 
 app.on('ready', () => {

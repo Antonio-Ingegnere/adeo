@@ -42,10 +42,28 @@ function createWindow(): void {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 function setupMenu(window: BrowserWindow): void {
+  const isMac = process.platform === 'darwin';
   const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }],
+          } as Electron.MenuItemConstructorOptions,
+        ]
+      : [
+          {
+            label: 'File',
+            submenu: [{ role: 'quit' }],
+          } as Electron.MenuItemConstructorOptions,
+        ]),
     {
       label: 'View',
       submenu: [
@@ -162,9 +180,7 @@ app.on('ready', () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
 
 app.on('before-quit', () => {

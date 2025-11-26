@@ -16,6 +16,13 @@ body {
   text-align: center;
 }
 
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+  align-items: start;
+}
+
 .headline {
   font-size: 28px;
   margin: 0 0 8px;
@@ -180,6 +187,63 @@ body {
 .task-details .task-list input[type='checkbox'] {
   pointer-events: auto;
   margin: 0;
+}
+
+.projects-panel {
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  background: #fafafa;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.projects-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.projects-title {
+  margin: 0;
+  color: #444;
+  font-weight: 600;
+}
+
+.icon-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #666;
+  font-size: 18px;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  color: #1d72f3;
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-pill {
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: left;
 }
 
 .expand-btn {

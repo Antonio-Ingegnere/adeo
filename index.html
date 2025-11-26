@@ -10,14 +10,30 @@
     <div class="card">
       <h1 class="headline">Hello World</h1>
       <p class="meta">Electron v<span id="app-version">...</span></p>
-      <div class="input-row">
-        <input id="message-input" type="text" placeholder="Type a message" class="text-input" />
-        <button id="add-button" class="primary-button">Add</button>
-      </div>
-      <div id="tasks" class="tasks-section">
-        <p class="tasks-title">All tasks</p>
-        <div id="tasks-list" class="tasks-list">
-          <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
+      <div class="content-grid">
+        <div class="projects-panel">
+          <div class="projects-header">
+            <div class="projects-title-wrap">
+              <button id="projects-toggle" class="icon-button" aria-label="Toggle projects">▸</button>
+              <p class="projects-title">Projects</p>
+            </div>
+            <button id="add-project-button" class="icon-button" aria-label="Add project">+</button>
+          </div>
+          <div id="projects-list" class="projects-list">
+            <div id="projects-empty" class="empty-state">No projects yet. Click + to add one.</div>
+          </div>
+        </div>
+        <div>
+          <div class="input-row">
+            <input id="message-input" type="text" placeholder="Type a message" class="text-input" />
+            <button id="add-button" class="primary-button">Add</button>
+          </div>
+          <div id="tasks" class="tasks-section">
+            <p class="tasks-title">All tasks</p>
+            <div id="tasks-list" class="tasks-list">
+              <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
+            </div>
+          </div>
         </div>
       </div>
       <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
@@ -31,6 +47,16 @@
           <div class="modal-actions">
             <button id="cancel-edit" class="btn">Cancel</button>
             <button id="save-edit" class="btn primary">Save</button>
+          </div>
+        </div>
+      </div>
+      <div id="project-overlay" class="overlay" role="dialog" aria-modal="true">
+        <div class="modal">
+          <h2>Add project</h2>
+          <input id="project-input" type="text" class="text-input modal-input" placeholder="Project name" />
+          <div class="modal-actions">
+            <button id="cancel-project" class="btn">Cancel</button>
+            <button id="save-project" class="btn primary">Save</button>
           </div>
         </div>
       </div>
@@ -49,11 +75,21 @@
       const saveEditBtn = document.getElementById('save-edit');
       const dropIndicator = document.createElement('div');
       dropIndicator.className = 'drop-indicator';
+      const projectsList = document.getElementById('projects-list');
+      const projectsEmpty = document.getElementById('projects-empty');
+      const projectsToggle = document.getElementById('projects-toggle');
+      const addProjectBtn = document.getElementById('add-project-button');
+      const projectOverlay = document.getElementById('project-overlay');
+      const projectInput = document.getElementById('project-input');
+      const cancelProjectBtn = document.getElementById('cancel-project');
+      const saveProjectBtn = document.getElementById('save-project');
       let editingTaskId = null;
       let dragIndex = null;
       let dropIndex = null;
       const expandedDetails = new Set();
       let showCompleted = true;
+      let projects = [];
+      let projectsExpanded = true;
 
       const escapeHtml = (text) =>
         text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -169,6 +205,28 @@
         if (dropIndicator.parentNode) {
           dropIndicator.parentNode.removeChild(dropIndicator);
         }
+      };
+
+      const renderProjects = () => {
+        if (!projectsList) return;
+        projectsList.innerHTML = '';
+        if (!projectsExpanded) {
+          projectsList.style.display = 'none';
+          return;
+        }
+        projectsList.style.display = 'flex';
+        if (projects.length === 0) {
+          if (projectsEmpty) {
+            projectsList.appendChild(projectsEmpty);
+          }
+          return;
+        }
+        projects.forEach((project) => {
+          const item = document.createElement('div');
+          item.className = 'project-pill';
+          item.textContent = project;
+          projectsList.appendChild(item);
+        });
       };
 
       const saveTaskOrder = async () => {
@@ -409,6 +467,28 @@
         }
       };
 
+      const openProjectModal = () => {
+        if (!projectOverlay || !projectInput) return;
+        projectOverlay.classList.add('open');
+        projectInput.value = '';
+        setTimeout(() => projectInput.focus(), 0);
+      };
+
+      const closeProjectModal = () => {
+        if (!projectOverlay || !projectInput) return;
+        projectOverlay.classList.remove('open');
+        projectInput.value = '';
+      };
+
+      const saveProject = () => {
+        if (!projectInput) return;
+        const name = projectInput.value.trim();
+        if (!name) return;
+        projects.push(name);
+        closeProjectModal();
+        renderProjects();
+      };
+
       const loadTasks = async () => {
         try {
           const existingTasks = await window.electronAPI.getTasks();
@@ -488,7 +568,29 @@
         renderTasks();
       });
 
+      projectsToggle?.addEventListener('click', () => {
+        projectsExpanded = !projectsExpanded;
+        projectsToggle.textContent = projectsExpanded ? '▾' : '▸';
+        renderProjects();
+      });
+
+      addProjectBtn?.addEventListener('click', () => openProjectModal());
+      saveProjectBtn?.addEventListener('click', () => saveProject());
+      cancelProjectBtn?.addEventListener('click', () => closeProjectModal());
+      projectInput?.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          saveProject();
+        }
+      });
+      projectOverlay?.addEventListener('click', (event) => {
+        if (event.target === projectOverlay) {
+          closeProjectModal();
+        }
+      });
+
       loadSettings().then(() => loadTasks());
+      projectsToggle.textContent = projectsExpanded ? '▾' : '▸';
+      renderProjects();
     </script>
   </body>
 </html>

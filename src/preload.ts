@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   addList: (name: string) => ipcRenderer.invoke('add-list', name) as Promise<List | { error: string }>,
   getLists: () => ipcRenderer.invoke('get-lists') as Promise<List[]>,
+  updateListName: (id: number, name: string) =>
+    ipcRenderer.invoke('update-list-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
 });
 
 declare global {
@@ -51,6 +53,7 @@ declare global {
       onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
       addList: (name: string) => Promise<List | { error: string }>;
       getLists: () => Promise<List[]>;
+      updateListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
     };
   }
 }

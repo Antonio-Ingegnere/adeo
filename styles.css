@@ -247,6 +247,7 @@ body {
   border-radius: 8px;
   font-size: 14px;
   text-align: left;
+  cursor: pointer;
 }
 
 .expand-btn {

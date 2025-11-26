@@ -97,6 +97,7 @@
       let showCompleted = true;
       let lists = [];
       let listsExpanded = true;
+      let editingListId = null;
 
       const escapeHtml = (text) =>
         text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -232,6 +233,7 @@
           const item = document.createElement('div');
           item.className = 'list-pill';
           item.textContent = typeof list === 'string' ? list : list.name;
+          item.addEventListener('dblclick', () => openEditListModal(list.id));
           listsList.appendChild(item);
         });
       };
@@ -481,25 +483,50 @@
         setTimeout(() => listInput.focus(), 0);
       };
 
+      const openEditListModal = (listId) => {
+        const list = lists.find((l) => l.id === listId);
+        if (!list || !listOverlay || !listInput) return;
+        editingListId = listId;
+        listOverlay.classList.add('open');
+        listInput.value = list.name;
+        setTimeout(() => listInput.focus(), 0);
+      };
+
       const closeListModal = () => {
         if (!listOverlay || !listInput) return;
         listOverlay.classList.remove('open');
         listInput.value = '';
+        editingListId = null;
       };
 
       const saveList = () => {
         if (!listInput) return;
         const name = listInput.value.trim();
         if (!name) return;
-        window.electronAPI
-          .addList(name)
-          .then((created) => {
-            if (!created || created.error) return;
-            lists.push({ id: created.id, name: created.name });
-            closeListModal();
-            renderLists();
-          })
-          .catch((error) => console.error('Failed to add list', error));
+        if (editingListId) {
+          window.electronAPI
+            .updateListName(editingListId, name)
+            .then((updated) => {
+              if (!updated || updated.error) return;
+              const idx = lists.findIndex((l) => l.id === editingListId);
+              if (idx !== -1) {
+                lists[idx].name = updated.name;
+              }
+              closeListModal();
+              renderLists();
+            })
+            .catch((error) => console.error('Failed to update list', error));
+        } else {
+          window.electronAPI
+            .addList(name)
+            .then((created) => {
+              if (!created || created.error) return;
+              lists.push({ id: created.id, name: created.name });
+              closeListModal();
+              renderLists();
+            })
+            .catch((error) => console.error('Failed to add list', error));
+        }
       };
 
       const loadTasks = async () => {

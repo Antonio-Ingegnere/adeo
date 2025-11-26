@@ -205,6 +205,16 @@ ipcMain.handle('get-lists', async () => {
   return rows;
 });
 
+ipcMain.handle('update-list-name', async (_event, id: number, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'List name is empty' };
+  }
+  const database = ensureDb();
+  database.prepare('UPDATE lists SET name = ? WHERE id = ?').run(trimmed, id);
+  return { id, name: trimmed };
+});
+
 app.on('ready', () => {
   initializeDatabase();
   createWindow();

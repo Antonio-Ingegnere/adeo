@@ -250,6 +250,12 @@ body {
   cursor: pointer;
 }
 
+.list-pill.selected {
+  border-color: #1d72f3;
+  background: #eef3ff;
+  color: #1d72f3;
+}
+
 .expand-btn {
   margin-left: auto;
   border: none;

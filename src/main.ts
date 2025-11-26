@@ -35,6 +35,7 @@ function initializeDatabase(): void {
       details TEXT NOT NULL DEFAULT '',
       done INTEGER NOT NULL DEFAULT 0,
       position INTEGER NOT NULL DEFAULT 0,
+      list_id INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -45,6 +46,16 @@ function initializeDatabase(): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+
+  const taskColumns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>;
+  const hasListId = taskColumns.some((col) => col.name === 'list_id');
+  if (!hasListId) {
+    try {
+      db.prepare('ALTER TABLE tasks ADD COLUMN list_id INTEGER').run();
+    } catch (error) {
+      console.error('Failed to add list_id column to tasks', error);
+    }
+  }
 }
 
 function createWindow(): void {
@@ -117,7 +128,7 @@ ipcMain.handle('show-message', async (_event, text: string) => {
   });
 });
 
-ipcMain.handle('add-task', async (_event, text: string) => {
+ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) => {
   const trimmed = text?.trim();
   if (!trimmed) {
     return { error: 'Task text is empty' };
@@ -129,23 +140,31 @@ ipcMain.handle('add-task', async (_event, text: string) => {
   };
   const nextPosition = typeof nextPositionRow?.maxPos === 'number' ? nextPositionRow.maxPos + 1 : 0;
   const result = database
-    .prepare('INSERT INTO tasks (text, details, done, position) VALUES (?, ?, 0, ?)')
-    .run(trimmed, '', nextPosition);
-  const task = { id: Number(result.lastInsertRowid), text: trimmed, details: '', done: false, position: nextPosition };
+    .prepare('INSERT INTO tasks (text, details, done, position, list_id) VALUES (?, ?, 0, ?, ?)')
+    .run(trimmed, '', nextPosition, listId ?? null);
+  const task = {
+    id: Number(result.lastInsertRowid),
+    text: trimmed,
+    details: '',
+    done: false,
+    position: nextPosition,
+    listId: listId ?? null,
+  };
   return task;
 });
 
 ipcMain.handle('get-tasks', async () => {
   const database = ensureDb();
   const rows = database
-    .prepare('SELECT id, text, details, done, position FROM tasks ORDER BY position ASC, id ASC')
-    .all() as Array<{ id: number; text: string; details: string; done: number; position: number }>;
+    .prepare('SELECT id, text, details, done, position, list_id as listId FROM tasks ORDER BY position ASC, id ASC')
+    .all() as Array<{ id: number; text: string; details: string; done: number; position: number; listId: number | null }>;
   return rows.map((row) => ({
     id: row.id,
     text: row.text,
     details: row.details,
     done: Boolean(row.done),
     position: row.position,
+    listId: row.listId ?? null,
   }));
 });
 

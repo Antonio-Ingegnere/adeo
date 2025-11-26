@@ -97,6 +97,8 @@
       let showCompleted = true;
       let lists = [];
       let listsExpanded = true;
+      let selectedListId = null;
+      const tasksTitleEl = document.querySelector('.tasks-title');
       let editingListId = null;
 
       const escapeHtml = (text) =>
@@ -207,7 +209,23 @@
         return container;
       };
 
-      const getVisibleTasks = () => (showCompleted ? tasks : tasks.filter((t) => !t.done));
+      const getVisibleTasks = () => {
+        let base = showCompleted ? tasks : tasks.filter((t) => !t.done);
+        if (selectedListId !== null) {
+          base = base.filter((t) => t.listId === selectedListId);
+        }
+        return base;
+      };
+
+      const updateTasksTitle = () => {
+        if (!tasksTitleEl) return;
+        if (selectedListId === null) {
+          tasksTitleEl.textContent = 'All tasks';
+          return;
+        }
+        const list = lists.find((l) => l.id === selectedListId);
+        tasksTitleEl.textContent = list ? list.name : 'Tasks';
+      };
 
       const removeDropIndicator = () => {
         if (dropIndicator.parentNode) {
@@ -223,6 +241,17 @@
           return;
         }
         listsList.style.display = 'flex';
+        const allItem = document.createElement('div');
+        allItem.className = `list-pill${selectedListId === null ? ' selected' : ''}`;
+        allItem.textContent = 'All lists';
+        allItem.addEventListener('click', () => {
+          selectedListId = null;
+          updateTasksTitle();
+          renderLists();
+          renderTasks();
+        });
+        listsList.appendChild(allItem);
+
         if (lists.length === 0) {
           if (listsEmpty) {
             listsList.appendChild(listsEmpty);
@@ -231,8 +260,15 @@
         }
         lists.forEach((list) => {
           const item = document.createElement('div');
-          item.className = 'list-pill';
+          const isSelected = selectedListId === list.id;
+          item.className = `list-pill${isSelected ? ' selected' : ''}`;
           item.textContent = typeof list === 'string' ? list : list.name;
+          item.addEventListener('click', () => {
+            selectedListId = list.id;
+            updateTasksTitle();
+            renderLists();
+            renderTasks();
+          });
           item.addEventListener('dblclick', () => openEditListModal(list.id));
           listsList.appendChild(item);
         });
@@ -417,7 +453,7 @@
         if (!text) return;
 
         try {
-          const createdTask = await window.electronAPI.addTask(text);
+          const createdTask = await window.electronAPI.addTask(text, selectedListId);
           if (!createdTask || createdTask.error) {
             return;
           }
@@ -512,6 +548,9 @@
               if (idx !== -1) {
                 lists[idx].name = updated.name;
               }
+              if (selectedListId === editingListId) {
+                updateTasksTitle();
+              }
               closeListModal();
               renderLists();
             })
@@ -533,6 +572,11 @@
         try {
           const existingTasks = await window.electronAPI.getTasks();
           tasks.splice(0, tasks.length, ...existingTasks);
+          tasks.forEach((t) => {
+            if (t.listId === undefined) {
+              t.listId = null;
+            }
+          });
           renderTasks();
         } catch (error) {
           console.error('Failed to load tasks', error);
@@ -554,6 +598,7 @@
           const existingLists = await window.electronAPI.getLists();
           lists = existingLists ?? [];
           renderLists();
+          updateTasksTitle();
         } catch (error) {
           console.error('Failed to load lists', error);
         }

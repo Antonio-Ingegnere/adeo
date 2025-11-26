@@ -6,6 +6,7 @@ type Task = {
   details: string;
   done: boolean;
   position: number;
+  listId: number | null;
 };
 
 type Settings = {
@@ -18,7 +19,8 @@ type List = {
 };
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  addTask: (text: string) => ipcRenderer.invoke('add-task', text) as Promise<Task | { error: string }>,
+  addTask: (text: string, listId?: number | null) =>
+    ipcRenderer.invoke('add-task', text, listId) as Promise<Task | { error: string }>,
   getTasks: () => ipcRenderer.invoke('get-tasks') as Promise<Task[]>,
   updateTaskDone: (id: number, done: boolean) =>
     ipcRenderer.invoke('update-task-done', id, done) as Promise<{ id: number; done: boolean }>,
@@ -43,7 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 declare global {
   interface Window {
     electronAPI: {
-      addTask: (text: string) => Promise<Task | { error: string }>;
+      addTask: (text: string, listId?: number | null) => Promise<Task | { error: string }>;
       getTasks: () => Promise<Task[]>;
       updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
       updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;

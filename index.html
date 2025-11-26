@@ -11,16 +11,23 @@
       <h1 class="headline">Hello World</h1>
       <p class="meta">Electron v<span id="app-version">...</span></p>
       <div class="content-grid">
-        <div class="projects-panel">
-          <div class="projects-header">
-            <div class="projects-title-wrap">
-              <button id="projects-toggle" class="icon-button" aria-label="Toggle projects">▸</button>
-              <p class="projects-title">Projects</p>
+        <div class="lists-panel">
+          <div class="lists-header">
+            <div class="lists-title-wrap">
+              <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
+                <span class="expand-chevrons" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" focusable="false">
+                    <path d="M2 3 L7 8 L12 3" />
+                    <path d="M2 8 L7 13 L12 8" />
+                  </svg>
+                </span>
+              </button>
+              <p class="lists-title">Lists</p>
             </div>
-            <button id="add-project-button" class="icon-button" aria-label="Add project">+</button>
+            <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
           </div>
-          <div id="projects-list" class="projects-list">
-            <div id="projects-empty" class="empty-state">No projects yet. Click + to add one.</div>
+          <div id="lists-list" class="lists-list">
+            <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
           </div>
         </div>
         <div>
@@ -50,13 +57,13 @@
           </div>
         </div>
       </div>
-      <div id="project-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div id="list-overlay" class="overlay" role="dialog" aria-modal="true">
         <div class="modal">
-          <h2>Add project</h2>
-          <input id="project-input" type="text" class="text-input modal-input" placeholder="Project name" />
+          <h2>Add list</h2>
+          <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" />
           <div class="modal-actions">
-            <button id="cancel-project" class="btn">Cancel</button>
-            <button id="save-project" class="btn primary">Save</button>
+            <button id="cancel-list" class="btn">Cancel</button>
+            <button id="save-list" class="btn primary">Save</button>
           </div>
         </div>
       </div>
@@ -75,21 +82,21 @@
       const saveEditBtn = document.getElementById('save-edit');
       const dropIndicator = document.createElement('div');
       dropIndicator.className = 'drop-indicator';
-      const projectsList = document.getElementById('projects-list');
-      const projectsEmpty = document.getElementById('projects-empty');
-      const projectsToggle = document.getElementById('projects-toggle');
-      const addProjectBtn = document.getElementById('add-project-button');
-      const projectOverlay = document.getElementById('project-overlay');
-      const projectInput = document.getElementById('project-input');
-      const cancelProjectBtn = document.getElementById('cancel-project');
-      const saveProjectBtn = document.getElementById('save-project');
+      const listsList = document.getElementById('lists-list');
+      const listsEmpty = document.getElementById('lists-empty');
+      const listsToggle = document.getElementById('lists-toggle');
+      const addListBtn = document.getElementById('add-list-button');
+      const listOverlay = document.getElementById('list-overlay');
+      const listInput = document.getElementById('list-input');
+      const cancelListBtn = document.getElementById('cancel-list');
+      const saveListBtn = document.getElementById('save-list');
       let editingTaskId = null;
       let dragIndex = null;
       let dropIndex = null;
       const expandedDetails = new Set();
       let showCompleted = true;
-      let projects = [];
-      let projectsExpanded = true;
+      let lists = [];
+      let listsExpanded = true;
 
       const escapeHtml = (text) =>
         text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -207,25 +214,25 @@
         }
       };
 
-      const renderProjects = () => {
-        if (!projectsList) return;
-        projectsList.innerHTML = '';
-        if (!projectsExpanded) {
-          projectsList.style.display = 'none';
+      const renderLists = () => {
+        if (!listsList) return;
+        listsList.innerHTML = '';
+        if (!listsExpanded) {
+          listsList.style.display = 'none';
           return;
         }
-        projectsList.style.display = 'flex';
-        if (projects.length === 0) {
-          if (projectsEmpty) {
-            projectsList.appendChild(projectsEmpty);
+        listsList.style.display = 'flex';
+        if (lists.length === 0) {
+          if (listsEmpty) {
+            listsList.appendChild(listsEmpty);
           }
           return;
         }
-        projects.forEach((project) => {
+        lists.forEach((list) => {
           const item = document.createElement('div');
-          item.className = 'project-pill';
-          item.textContent = typeof project === 'string' ? project : project.name;
-          projectsList.appendChild(item);
+          item.className = 'list-pill';
+          item.textContent = typeof list === 'string' ? list : list.name;
+          listsList.appendChild(item);
         });
       };
 
@@ -467,32 +474,32 @@
         }
       };
 
-      const openProjectModal = () => {
-        if (!projectOverlay || !projectInput) return;
-        projectOverlay.classList.add('open');
-        projectInput.value = '';
-        setTimeout(() => projectInput.focus(), 0);
+      const openListModal = () => {
+        if (!listOverlay || !listInput) return;
+        listOverlay.classList.add('open');
+        listInput.value = '';
+        setTimeout(() => listInput.focus(), 0);
       };
 
-      const closeProjectModal = () => {
-        if (!projectOverlay || !projectInput) return;
-        projectOverlay.classList.remove('open');
-        projectInput.value = '';
+      const closeListModal = () => {
+        if (!listOverlay || !listInput) return;
+        listOverlay.classList.remove('open');
+        listInput.value = '';
       };
 
-      const saveProject = () => {
-        if (!projectInput) return;
-        const name = projectInput.value.trim();
+      const saveList = () => {
+        if (!listInput) return;
+        const name = listInput.value.trim();
         if (!name) return;
         window.electronAPI
-          .addProject(name)
+          .addList(name)
           .then((created) => {
             if (!created || created.error) return;
-            projects.push({ id: created.id, name: created.name });
-            closeProjectModal();
-            renderProjects();
+            lists.push({ id: created.id, name: created.name });
+            closeListModal();
+            renderLists();
           })
-          .catch((error) => console.error('Failed to add project', error));
+          .catch((error) => console.error('Failed to add list', error));
       };
 
       const loadTasks = async () => {
@@ -515,13 +522,13 @@
         }
       };
 
-      const loadProjects = async () => {
+      const loadLists = async () => {
         try {
-          const existingProjects = await window.electronAPI.getProjects();
-          projects = existingProjects ?? [];
-          renderProjects();
+          const existingLists = await window.electronAPI.getLists();
+          lists = existingLists ?? [];
+          renderLists();
         } catch (error) {
-          console.error('Failed to load projects', error);
+          console.error('Failed to load lists', error);
         }
       };
 
@@ -584,30 +591,40 @@
         renderTasks();
       });
 
-      projectsToggle?.addEventListener('click', () => {
-        projectsExpanded = !projectsExpanded;
-        projectsToggle.textContent = projectsExpanded ? '▾' : '▸';
-        renderProjects();
+      listsToggle?.addEventListener('click', () => {
+        listsExpanded = !listsExpanded;
+        const icon = listsToggle.querySelector('svg path:first-of-type');
+        const icon2 = listsToggle.querySelector('svg path:last-of-type');
+        if (listsExpanded) {
+          icon?.setAttribute('d', 'M2 3 L7 8 L12 3');
+          icon2?.setAttribute('d', 'M2 8 L7 13 L12 8');
+        } else {
+          icon?.setAttribute('d', 'M2 8 L7 3 L12 8');
+          icon2?.setAttribute('d', 'M2 13 L7 8 L12 13');
+        }
+        renderLists();
       });
 
-      addProjectBtn?.addEventListener('click', () => openProjectModal());
-      saveProjectBtn?.addEventListener('click', () => saveProject());
-      cancelProjectBtn?.addEventListener('click', () => closeProjectModal());
-      projectInput?.addEventListener('keypress', (event) => {
+      addListBtn?.addEventListener('click', () => openListModal());
+      saveListBtn?.addEventListener('click', () => saveList());
+      cancelListBtn?.addEventListener('click', () => closeListModal());
+      listInput?.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
-          saveProject();
+          saveList();
         }
       });
-      projectOverlay?.addEventListener('click', (event) => {
-        if (event.target === projectOverlay) {
-          closeProjectModal();
+      listOverlay?.addEventListener('click', (event) => {
+        if (event.target === listOverlay) {
+          closeListModal();
         }
       });
 
       loadSettings().then(() => loadTasks());
-      loadProjects();
-      projectsToggle.textContent = projectsExpanded ? '▾' : '▸';
-      renderProjects();
+      loadLists();
+      // Initialize lists chevrons orientation
+      listsToggle?.dispatchEvent(new Event('click'));
+      listsToggle?.dispatchEvent(new Event('click'));
+      renderLists();
     </script>
   </body>
 </html>

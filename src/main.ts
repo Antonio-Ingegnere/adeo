@@ -39,7 +39,7 @@ function initializeDatabase(): void {
     )
   `).run();
   db.prepare(`
-    CREATE TABLE IF NOT EXISTS projects (
+    CREATE TABLE IF NOT EXISTS lists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -187,20 +187,20 @@ ipcMain.handle('get-settings', async () => {
   return { showCompleted };
 });
 
-ipcMain.handle('add-project', async (_event, name: string) => {
+ipcMain.handle('add-list', async (_event, name: string) => {
   const trimmed = name?.trim();
   if (!trimmed) {
-    return { error: 'Project name is empty' };
+    return { error: 'List name is empty' };
   }
   const database = ensureDb();
-  const result = database.prepare('INSERT INTO projects (name) VALUES (?)').run(trimmed);
+  const result = database.prepare('INSERT INTO lists (name) VALUES (?)').run(trimmed);
   return { id: Number(result.lastInsertRowid), name: trimmed };
 });
 
-ipcMain.handle('get-projects', async () => {
+ipcMain.handle('get-lists', async () => {
   const database = ensureDb();
   const rows = database
-    .prepare('SELECT id, name FROM projects ORDER BY id ASC')
+    .prepare('SELECT id, name FROM lists ORDER BY id ASC')
     .all() as Array<{ id: number; name: string }>;
   return rows;
 });

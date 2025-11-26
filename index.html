@@ -48,28 +48,31 @@
       </div>
       <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
         <div class="modal">
-          <h2>Edit task</h2>
-          <div class="modal-body">
-            <div class="modal-left">
-              <div class="modal-title-row">
-                <input id="edit-done" type="checkbox" />
-                <input id="edit-input" type="text" class="text-input modal-input" />
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="modal-left">
+                <div class="modal-title-row">
+                  <input id="edit-done" type="checkbox" />
+                  <input id="edit-input" type="text" class="text-input modal-input" />
+                </div>
+                <div class="modal-details">
+                  <label for="edit-details" class="modal-label">Details (Markdown supported)</label>
+                  <textarea id="edit-details" rows="4" class="details-textarea"></textarea>
+                </div>
               </div>
-              <div class="modal-details">
-                <label for="edit-details" class="modal-label">Details (Markdown supported)</label>
-                <textarea id="edit-details" rows="4" class="details-textarea"></textarea>
+              <div class="modal-right">
+                <div class="modal-right-content">
+                  <h3>List</h3>
+                  <select id="modal-list-select" class="select-input" style="width: 100%;">
+                    <option value="">No list</option>
+                  </select>
+                </div>
               </div>
             </div>
-            <div class="modal-right">
-              <h3>Lists</h3>
-              <select id="modal-list-select" class="select-input" style="width: 100%;">
-                <option value="">No list</option>
-              </select>
+            <div class="modal-actions">
+              <button id="cancel-edit" class="btn">Cancel</button>
+              <button id="save-edit" class="btn primary">Save</button>
             </div>
-          </div>
-          <div class="modal-actions">
-            <button id="cancel-edit" class="btn">Cancel</button>
-            <button id="save-edit" class="btn primary">Save</button>
           </div>
         </div>
       </div>

@@ -53,8 +53,14 @@ body {
   flex: 1;
   padding: 8px 12px;
   font-size: 14px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  border: none;
+  border-bottom: 1px solid #d6d6d6;
+  border-radius: 0;
+}
+
+.text-input:focus {
+  outline: none;
+  border-bottom-color: #a6a6a6;
 }
 
 .primary-button {
@@ -317,21 +323,43 @@ body {
 .modal {
   background: #fff;
   border-radius: 12px;
-  padding: 20px;
-  width: min(420px, 100%);
+  padding: 0;
+  width: 60vw;
+  height: 60vh;
+  max-width: 900px;
+  max-height: 700px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.modal-content {
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to right, #fff 0%, #fff 65%, #f7f7f7 65%, #f7f7f7 100%);
 }
 
 .modal-body {
   display: grid;
   grid-template-columns: 1.3fr 0.7fr;
-  gap: 12px;
+  gap: 0;
+  flex: 1;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .modal-left {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px;
 }
 
 .modal-title-row {
@@ -342,19 +370,63 @@ body {
 
 .modal-title-row input[type='checkbox'] {
   margin: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #b0b0b0;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: #fff;
+  position: relative;
+}
+
+.modal-title-row input[type='checkbox']:checked {
+  background: #1d72f3;
+  border-color: #1d72f3;
+}
+
+.modal-title-row input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .modal-right {
-  border: 1px solid #e8e8e8;
-  border-radius: 10px;
-  padding: 10px;
-  background: #fafafa;
+  padding: 0;
+  background: transparent;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .modal-right h3 {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 11.2px;
   color: #333;
+  text-align: left;
+}
+
+.modal-right .select-input {
+  font-size: 11.2px;
+}
+
+.modal-right-content {
+  padding: 16px;
+  flex: 1;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .modal-right .lists-list {
@@ -395,6 +467,7 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  padding: 0 16px 16px 16px;
 }
 
 .btn {

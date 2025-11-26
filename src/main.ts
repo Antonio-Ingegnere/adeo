@@ -114,6 +114,21 @@ function setupMenu(window: BrowserWindow): void {
         },
       ],
     },
+    {
+      label: 'Debug',
+      submenu: [
+        {
+          label: 'Show DevTools',
+          click: () => {
+            if (!window.webContents.isDevToolsOpened()) {
+              window.webContents.openDevTools({ mode: 'detach' });
+            } else {
+              window.webContents.closeDevTools();
+            }
+          },
+        },
+      ],
+    },
   ];
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);

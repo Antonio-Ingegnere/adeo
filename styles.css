@@ -41,6 +41,14 @@ body {
   gap: 8px;
 }
 
+.select-input {
+  padding: 8px 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .text-input {
   flex: 1;
   padding: 8px 12px;
@@ -312,6 +320,36 @@ body {
   padding: 20px;
   width: min(420px, 100%);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-body {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 12px;
+}
+
+.modal-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-right {
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.modal-right h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.modal-right .lists-list {
+  max-height: 220px;
+  overflow: auto;
 }
 
 .modal h2 {

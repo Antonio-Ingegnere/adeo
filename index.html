@@ -33,6 +33,9 @@
         <div>
           <div class="input-row">
             <input id="message-input" type="text" placeholder="Type a message" class="text-input" />
+            <select id="add-task-list" class="select-input">
+              <option value="">No list</option>
+            </select>
             <button id="add-button" class="primary-button">Add</button>
           </div>
           <div id="tasks" class="tasks-section">
@@ -46,10 +49,20 @@
       <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
         <div class="modal">
           <h2>Edit task</h2>
-          <input id="edit-input" type="text" class="text-input modal-input" />
-          <div class="modal-details">
-            <label for="edit-details" class="modal-label">Details (Markdown supported)</label>
-            <textarea id="edit-details" rows="4" class="details-textarea"></textarea>
+          <div class="modal-body">
+            <div class="modal-left">
+              <input id="edit-input" type="text" class="text-input modal-input" />
+              <div class="modal-details">
+                <label for="edit-details" class="modal-label">Details (Markdown supported)</label>
+                <textarea id="edit-details" rows="4" class="details-textarea"></textarea>
+              </div>
+            </div>
+            <div class="modal-right">
+              <h3>Lists</h3>
+              <select id="modal-list-select" class="select-input" style="width: 100%;">
+                <option value="">No list</option>
+              </select>
+            </div>
           </div>
           <div class="modal-actions">
             <button id="cancel-edit" class="btn">Cancel</button>
@@ -90,6 +103,8 @@
       const listInput = document.getElementById('list-input');
       const cancelListBtn = document.getElementById('cancel-list');
       const saveListBtn = document.getElementById('save-list');
+      const addTaskListSelect = document.getElementById('add-task-list');
+      const modalListSelect = document.getElementById('modal-list-select');
       let editingTaskId = null;
       let dragIndex = null;
       let dropIndex = null;
@@ -100,6 +115,8 @@
       let selectedListId = null;
       const tasksTitleEl = document.querySelector('.tasks-title');
       let editingListId = null;
+      let modalSelectedListId = null;
+      let addTaskSelectedListId = null;
 
       const escapeHtml = (text) =>
         text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -227,6 +244,26 @@
         tasksTitleEl.textContent = list ? list.name : 'Tasks';
       };
 
+      const renderListOptions = (selectEl, selectedId) => {
+        if (!selectEl) return;
+        selectEl.innerHTML = '';
+        const noneOption = document.createElement('option');
+        noneOption.value = '';
+        noneOption.textContent = 'No list';
+        selectEl.appendChild(noneOption);
+        lists.forEach((list) => {
+          const option = document.createElement('option');
+          option.value = String(list.id);
+          option.textContent = list.name;
+          selectEl.appendChild(option);
+        });
+        if (selectedId !== null) {
+          selectEl.value = String(selectedId);
+        } else {
+          selectEl.value = '';
+        }
+      };
+
       const removeDropIndicator = () => {
         if (dropIndicator.parentNode) {
           dropIndicator.parentNode.removeChild(dropIndicator);
@@ -265,13 +302,20 @@
           item.textContent = typeof list === 'string' ? list : list.name;
           item.addEventListener('click', () => {
             selectedListId = list.id;
+            addTaskSelectedListId = list.id;
             updateTasksTitle();
             renderLists();
+            renderListOptions(addTaskListSelect, addTaskSelectedListId);
             renderTasks();
           });
           item.addEventListener('dblclick', () => openEditListModal(list.id));
           listsList.appendChild(item);
         });
+      };
+
+      const renderModalLists = () => {
+        if (!modalListSelect) return;
+        renderListOptions(modalListSelect, modalSelectedListId);
       };
 
       const saveTaskOrder = async () => {
@@ -453,7 +497,7 @@
         if (!text) return;
 
         try {
-          const createdTask = await window.electronAPI.addTask(text, selectedListId);
+          const createdTask = await window.electronAPI.addTask(text, addTaskSelectedListId ?? selectedListId);
           if (!createdTask || createdTask.error) {
             return;
           }
@@ -473,9 +517,11 @@
         const task = tasks.find((t) => t.id === taskId);
         if (!overlay || !editInput || !editDetailsInput || !task) return;
         editingTaskId = taskId;
+        modalSelectedListId = task.listId ?? null;
         editInput.value = task.text;
         editDetailsInput.value = task.details || '';
         overlay.classList.add('open');
+        renderModalLists();
         setTimeout(() => editInput.focus(), 0);
       };
 
@@ -485,25 +531,29 @@
         editInput.value = '';
         editDetailsInput.value = '';
         editingTaskId = null;
+        modalSelectedListId = null;
       };
 
       const saveEdit = async () => {
         if (!editingTaskId || !editInput || !editDetailsInput) return;
         const newText = editInput.value.trim();
         const newDetails = editDetailsInput.value;
+        const newListId = modalSelectedListId;
         if (!newText) return;
         try {
-          const [textResult] = await Promise.all([
+          const [textResult, detailsResult, listResult] = await Promise.all([
             window.electronAPI.updateTaskText(editingTaskId, newText),
             window.electronAPI.updateTaskDetails(editingTaskId, newDetails),
+            window.electronAPI.updateTaskList(editingTaskId, newListId),
           ]);
-          if (!textResult || textResult.error) {
+          if (!textResult || textResult.error || !detailsResult || listResult?.error) {
             return;
           }
           const idx = tasks.findIndex((t) => t.id === editingTaskId);
           if (idx !== -1) {
             tasks[idx].text = newText;
             tasks[idx].details = newDetails;
+            tasks[idx].listId = listResult?.listId ?? null;
             renderTasks();
           }
           closeEditModal();
@@ -599,6 +649,7 @@
           lists = existingLists ?? [];
           renderLists();
           updateTasksTitle();
+          renderListOptions(addTaskListSelect, addTaskSelectedListId ?? selectedListId);
         } catch (error) {
           console.error('Failed to load lists', error);
         }
@@ -691,12 +742,24 @@
         }
       });
 
+      addTaskListSelect?.addEventListener('change', (event) => {
+        const val = event.target.value;
+        addTaskSelectedListId = val ? Number(val) : null;
+      });
+
+      modalListSelect?.addEventListener('change', (event) => {
+        const val = event.target.value;
+        modalSelectedListId = val ? Number(val) : null;
+      });
+
       loadSettings().then(() => loadTasks());
       loadLists();
       // Initialize lists chevrons orientation
       listsToggle?.dispatchEvent(new Event('click'));
       listsToggle?.dispatchEvent(new Event('click'));
       renderLists();
+      renderModalLists();
+      renderListOptions(addTaskListSelect, addTaskSelectedListId ?? selectedListId);
     </script>
   </body>
 </html>

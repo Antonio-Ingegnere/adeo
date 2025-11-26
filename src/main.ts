@@ -184,6 +184,12 @@ ipcMain.handle('update-task-text', async (_event, id: number, text: string) => {
   return { id, text: trimmed };
 });
 
+ipcMain.handle('update-task-list', async (_event, id: number, listId: number | null) => {
+  const database = ensureDb();
+  database.prepare('UPDATE tasks SET list_id = ? WHERE id = ?').run(listId ?? null, id);
+  return { id, listId: listId ?? null };
+});
+
 ipcMain.handle('update-task-details', async (_event, id: number, details: string) => {
   const database = ensureDb();
   database.prepare('UPDATE tasks SET details = ? WHERE id = ?').run(details ?? '', id);

@@ -4,253 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hello World</title>
-    <style>
-      body {
-        margin: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        font-family: Arial, sans-serif;
-        background: #f5f5f5;
-      }
-      .card {
-        padding: 24px 32px;
-        border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-        background: #fff;
-        text-align: center;
-      }
-      .headline {
-        font-size: 28px;
-        margin: 0 0 8px;
-        color: #222;
-      }
-      .meta {
-        margin: 0;
-        color: #666;
-        font-size: 14px;
-      }
-      .task-text {
-        color: #222;
-        font-size: 14px;
-        cursor: pointer;
-      }
-      .task-text:hover {
-        color: #1d72f3;
-      }
-      .tasks-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        background: #fafafa;
-        border: 1px solid #e8e8e8;
-        border-radius: 10px;
-        overflow: hidden;
-      }
-      .task-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 10px 12px;
-        border-bottom: 1px solid #e0e0e0;
-      }
-      .task-row:last-child {
-        border-bottom: none;
-      }
-      .task-row input[type='checkbox'] {
-        margin: 2px 0 0;
-      }
-      .task-row.drag-over {
-        background: #eef3ff;
-      }
-      .task-row.dragging {
-        opacity: 0.6;
-      }
-      .drop-indicator {
-        height: 3px;
-        background: #4a8ef7;
-        border-radius: 999px;
-        margin: 0 12px;
-      }
-      .drag-handle {
-        width: 14px;
-        height: 14px;
-        display: inline-block;
-        background: repeating-linear-gradient(
-          to bottom,
-          #b0b0b0 0,
-          #b0b0b0 1px,
-          transparent 1px,
-          transparent 5px
-        );
-        cursor: grab;
-        flex-shrink: 0;
-        margin-top: 2px;
-      }
-      .expand-btn {
-        margin-left: auto;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        color: #b0b0b0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 4px;
-      }
-      .expand-btn:hover {
-        color: #1d72f3;
-      }
-      .task-main {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .task-details {
-        color: #555;
-        font-size: 13px;
-        line-height: 1.4;
-        text-align: left;
-      }
-      .task-details ul {
-        margin: 4px 0 0;
-        padding-left: 18px;
-      }
-      .task-details p {
-        margin: 2px 0;
-      }
-      .task-details code {
-        background: #f0f0f0;
-        padding: 0 4px;
-        border-radius: 4px;
-        font-size: 12px;
-      }
-      .task-details strong {
-        font-weight: 600;
-      }
-      .expand-chevrons {
-        width: 14px;
-        height: 14px;
-        display: inline-block;
-        margin-top: -5px;
-      }
-      .expand-chevrons svg {
-        width: 100%;
-        height: 100%;
-      }
-      .expand-chevrons path {
-        stroke: currentColor;
-        stroke-width: 1;
-        fill: none;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-      .task-details .task-list {
-        list-style: none;
-        padding-left: 0;
-        margin: 4px 0 0;
-      }
-      .task-details .task-list li {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .task-details .task-list input[type='checkbox'] {
-        pointer-events: none;
-        margin: 0;
-      }
-      .overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.35);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-      }
-      .overlay.open {
-        display: flex;
-      }
-      .modal {
-        background: #fff;
-        border-radius: 12px;
-        padding: 20px;
-        width: min(420px, 100%);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-      }
-      .modal h2 {
-        margin: 0 0 12px;
-        font-size: 18px;
-        color: #111;
-      }
-      .modal-actions {
-        margin-top: 14px;
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-      }
-      .btn {
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid #d6d6d6;
-        background: #f7f7f7;
-        cursor: pointer;
-        font-size: 14px;
-      }
-      .btn.primary {
-        border: none;
-        background: #1d72f3;
-        color: #fff;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="card">
       <h1 class="headline">Hello World</h1>
       <p class="meta">Electron v<span id="app-version">...</span></p>
-      <div style="margin-top: 16px; display: flex; gap: 8px;">
-        <input
-          id="message-input"
-          type="text"
-          placeholder="Type a message"
-          style="flex: 1; padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px;"
-        />
-        <button
-          id="add-button"
-          style="padding: 8px 14px; font-size: 14px; border: none; border-radius: 8px; background: #1d72f3; color: #fff; cursor: pointer;"
-        >
-          Add
-        </button>
+      <div class="input-row">
+        <input id="message-input" type="text" placeholder="Type a message" class="text-input" />
+        <button id="add-button" class="primary-button">Add</button>
       </div>
-      <div id="tasks" style="margin-top: 20px; text-align: left;">
-        <p style="margin: 0 0 8px; color: #444; font-weight: 600;">All tasks</p>
+      <div id="tasks" class="tasks-section">
+        <p class="tasks-title">All tasks</p>
         <div id="tasks-list" class="tasks-list">
-          <div
-            id="empty-state"
-            style="padding: 10px 12px; border: 1px dashed #d6d6d6; border-radius: 8px; color: #777;"
-          >
-            Nothing added yet. Enter a task and hit Add.
-          </div>
+          <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
         </div>
       </div>
       <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
         <div class="modal">
           <h2>Edit task</h2>
-          <input
-            id="edit-input"
-            type="text"
-            style="width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px;"
-          />
-          <div style="margin-top: 12px; text-align: left;">
-            <label for="edit-details" style="display: block; margin-bottom: 6px; color: #333; font-weight: 600;">
-              Details (Markdown supported)
-            </label>
-            <textarea
-              id="edit-details"
-              rows="4"
-              style="width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 8px; resize: vertical;"
-            ></textarea>
+          <input id="edit-input" type="text" class="text-input modal-input" />
+          <div class="modal-details">
+            <label for="edit-details" class="modal-label">Details (Markdown supported)</label>
+            <textarea id="edit-details" rows="4" class="details-textarea"></textarea>
           </div>
           <div class="modal-actions">
             <button id="cancel-edit" class="btn">Cancel</button>

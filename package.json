@@ -4,7 +4,7 @@
   "description": "Simple Electron boilerplate showing a Hello World window",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc && cp index.html dist/index.html",
+    "build": "tsc && cp index.html dist/index.html && cp styles.css dist/styles.css",
     "start": "npm run build && electron ."
   },
   "devDependencies": {

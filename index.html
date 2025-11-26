@@ -499,14 +499,27 @@
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'expand-btn';
             toggleBtn.title = isExpanded ? 'Collapse details' : 'Expand details';
-            toggleBtn.innerHTML = `
-              <span class="expand-chevrons" aria-hidden="true">
-                <svg viewBox="0 0 14 14" focusable="false">
-                  <path d="M2 3 L7 8 L12 3" />
-                  <path d="M2 8 L7 13 L12 8" />
-                </svg>
-              </span>
-            `;
+            const iconWrapper = document.createElement('span');
+            iconWrapper.className = 'expand-chevrons';
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 14 14');
+            svg.setAttribute('focusable', 'false');
+            const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const setPaths = (expanded) => {
+              if (expanded) {
+                path1.setAttribute('d', 'M2 8 L7 3 L12 8');
+                path2.setAttribute('d', 'M2 13 L7 8 L12 13');
+              } else {
+                path1.setAttribute('d', 'M2 3 L7 8 L12 3');
+                path2.setAttribute('d', 'M2 8 L7 13 L12 8');
+              }
+            };
+            setPaths(isExpanded);
+            svg.appendChild(path1);
+            svg.appendChild(path2);
+            iconWrapper.appendChild(svg);
+            toggleBtn.appendChild(iconWrapper);
             toggleBtn.addEventListener('click', (event) => {
               event.preventDefault();
               event.stopPropagation();

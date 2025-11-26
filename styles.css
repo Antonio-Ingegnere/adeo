@@ -178,7 +178,7 @@ body {
 }
 
 .task-details .task-list input[type='checkbox'] {
-  pointer-events: none;
+  pointer-events: auto;
   margin: 0;
 }
 

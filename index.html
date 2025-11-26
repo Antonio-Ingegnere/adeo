@@ -65,81 +65,102 @@
           .replace(/\*([^*]+)\*/g, '<em>$1</em>');
       };
 
-      const renderMarkdown = (text) => {
-        const escaped = escapeHtml(text || '');
-        const lines = escaped.split(/\r?\n/);
-        let html = '';
-        let inList = false;
-        let inTaskList = false;
-
+      const renderDetailsElement = (task) => {
+        const container = document.createElement('div');
+        container.className = 'task-details';
+        const lines = (task.details || '').split(/\r?\n/);
+        let currentList = null;
         const closeList = () => {
-          if (inList) {
-            html += '</ul>';
-            inList = false;
-          }
-          if (inTaskList) {
-            html += '</ul>';
-            inTaskList = false;
+          if (currentList) {
+            container.appendChild(currentList);
+            currentList = null;
           }
         };
 
-        lines.forEach((line) => {
-          const listMatch = line.match(/^\s*[-*]\s+(.*)/);
-          const taskMatch = line.match(/^\s*(?:-|\*)?\s*\[\s?([xX ])\s?\]\s+(.*)/);
-          const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
-          const hrMatch = line.match(/^\s*-{3,}\s*$/);
+        const updateCheckboxLine = async (lineIndex, checked) => {
+          const original = lines[lineIndex] || '';
+          const updated = original.replace(/^\s*(?:-|\*)?\s*\[\s?[xX ]\s?\]/, checked ? '- [x]' : '- [ ]');
+          lines[lineIndex] = updated;
+          const newDetails = lines.join('\n');
+          task.details = newDetails;
+          try {
+            await window.electronAPI.updateTaskDetails(task.id, newDetails);
+            renderTasks();
+          } catch (error) {
+            console.error('Failed to update task detail checkbox', error);
+          }
+        };
 
+        lines.forEach((line, index) => {
+          const hrMatch = line.match(/^\s*-{3,}\s*$/);
           if (hrMatch) {
             closeList();
-            html += '<hr class="md-hr">';
+            const hr = document.createElement('hr');
+            hr.className = 'md-hr';
+            container.appendChild(hr);
             return;
           }
 
+          const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
           if (headerMatch) {
             closeList();
-            const level = headerMatch[1].length;
-            const content = renderInline(headerMatch[2]);
-            html += `<h${level}>${content}</h${level}>`;
+            const level = Math.min(headerMatch[1].length, 6);
+            const h = document.createElement(`h${level}`);
+            h.innerHTML = renderInline(escapeHtml(headerMatch[2]));
+            container.appendChild(h);
             return;
           }
 
+          const taskMatch = line.match(/^\s*(?:-|\*)?\s*\[\s?([xX ])\s?\]\s+(.*)/);
           if (taskMatch) {
-            if (inList) {
-              html += '</ul>';
-              inList = false;
+            if (currentList?.dataset.type !== 'task') {
+              closeList();
+              currentList = document.createElement('ul');
+              currentList.className = 'task-list';
+              currentList.dataset.type = 'task';
             }
-            if (!inTaskList) {
-              html += '<ul class="task-list">';
-              inTaskList = true;
-            }
-            const checked = taskMatch[1].toLowerCase() === 'x';
-            html += `<li><input type="checkbox" disabled ${checked ? 'checked' : ''} /> ${renderInline(
-              taskMatch[2]
-            )}</li>`;
+            const li = document.createElement('li');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = taskMatch[1].toLowerCase() === 'x';
+            checkbox.addEventListener('change', (event) => {
+              updateCheckboxLine(index, event.target.checked);
+            });
+            const span = document.createElement('span');
+            span.innerHTML = renderInline(escapeHtml(taskMatch[2]));
+            li.appendChild(checkbox);
+            li.appendChild(span);
+            currentList.appendChild(li);
             return;
           }
 
+          const listMatch = line.match(/^\s*[-*]\s+(.*)/);
           if (listMatch) {
-            if (inTaskList) {
-              html += '</ul>';
-              inTaskList = false;
+            if (currentList?.dataset.type !== 'bullet') {
+              closeList();
+              currentList = document.createElement('ul');
+              currentList.dataset.type = 'bullet';
             }
-            if (!inList) {
-              html += '<ul>';
-              inList = true;
-            }
-            html += `<li>${renderInline(listMatch[1])}</li>`;
-          } else if (line.trim() === '') {
-            closeList();
-            html += '<br>';
-          } else {
-            closeList();
-            html += `<p>${renderInline(line)}</p>`;
+            const li = document.createElement('li');
+            li.innerHTML = renderInline(escapeHtml(listMatch[1]));
+            currentList.appendChild(li);
+            return;
           }
+
+          if (line.trim() === '') {
+            closeList();
+            container.appendChild(document.createElement('br'));
+            return;
+          }
+
+          closeList();
+          const p = document.createElement('p');
+          p.innerHTML = renderInline(escapeHtml(line));
+          container.appendChild(p);
         });
 
         closeList();
-        return html;
+        return container;
       };
 
       const getVisibleTasks = () => (showCompleted ? tasks : tasks.filter((t) => !t.done));
@@ -180,9 +201,9 @@
         visibleTasks.forEach((task) => {
           const index = tasks.findIndex((t) => t.id === task.id);
           if (index === -1) return;
-          const label = document.createElement('label');
-          label.className = 'task-row';
-          label.dataset.index = String(index);
+          const row = document.createElement('div');
+          row.className = 'task-row';
+          row.dataset.index = String(index);
 
           const handle = document.createElement('span');
           handle.className = 'drag-handle';
@@ -190,9 +211,9 @@
           handle.setAttribute('draggable', 'true');
           handle.addEventListener('dragstart', (event) => {
             dragIndex = index;
-            label.classList.add('dragging');
+            row.classList.add('dragging');
             event.dataTransfer?.setData('text/plain', String(index));
-            event.dataTransfer?.setDragImage(label, 10, 10);
+            event.dataTransfer?.setDragImage(row, 10, 10);
             if (event.dataTransfer) {
               event.dataTransfer.effectAllowed = 'move';
             }
@@ -200,30 +221,30 @@
           handle.addEventListener('dragend', () => {
             dragIndex = null;
             dropIndex = null;
-            label.classList.remove('dragging');
+            row.classList.remove('dragging');
             removeDropIndicator();
           });
 
-          label.addEventListener('dragover', (event) => {
+          row.addEventListener('dragover', (event) => {
             event.preventDefault();
-            const rect = label.getBoundingClientRect();
+            const rect = row.getBoundingClientRect();
             const isBefore = event.clientY < rect.top + rect.height / 2;
-            const targetIndex = Number(label.dataset.index);
+            const targetIndex = Number(row.dataset.index);
             dropIndex = isBefore ? targetIndex : targetIndex + 1;
             removeDropIndicator();
-            if (label.parentNode) {
+            if (row.parentNode) {
               if (isBefore) {
-                label.parentNode.insertBefore(dropIndicator, label);
+                row.parentNode.insertBefore(dropIndicator, row);
               } else {
-                label.parentNode.insertBefore(dropIndicator, label.nextSibling);
+                row.parentNode.insertBefore(dropIndicator, row.nextSibling);
               }
             }
             if (event.dataTransfer) {
               event.dataTransfer.dropEffect = 'move';
             }
           });
-          label.addEventListener('dragleave', () => {});
-          label.addEventListener('drop', (event) => {
+          row.addEventListener('dragleave', () => {});
+          row.addEventListener('drop', (event) => {
             event.preventDefault();
             removeDropIndicator();
             if (dragIndex === null || dropIndex === null) {
@@ -267,9 +288,7 @@
             openEditModal(task.id);
           });
 
-          const detailsDiv = document.createElement('div');
-          detailsDiv.className = 'task-details';
-          detailsDiv.innerHTML = renderMarkdown(task.details || '');
+          const detailsDiv = renderDetailsElement(task);
           const hasDetails = Boolean(task.details?.trim());
           const isExpanded = expandedDetails.has(task.id);
           detailsDiv.style.display = hasDetails && isExpanded ? 'block' : 'none';
@@ -281,9 +300,9 @@
             mainBlock.appendChild(detailsDiv);
           }
 
-          label.appendChild(handle);
-          label.appendChild(checkbox);
-          label.appendChild(mainBlock);
+          row.appendChild(handle);
+          row.appendChild(checkbox);
+          row.appendChild(mainBlock);
 
           if (hasDetails) {
             const toggleBtn = document.createElement('button');
@@ -320,9 +339,9 @@
               }
               renderTasks();
             });
-            label.appendChild(toggleBtn);
+            row.appendChild(toggleBtn);
           }
-          tasksList.appendChild(label);
+          tasksList.appendChild(row);
         });
       };
 

@@ -51,20 +51,83 @@
           Add
         </button>
       </div>
+      <div id="tasks" style="margin-top: 20px; text-align: left;">
+        <p style="margin: 0 0 8px; color: #444; font-weight: 600;">All tasks</p>
+        <div id="tasks-list" style="display: flex; flex-direction: column; gap: 8px;">
+          <div
+            id="empty-state"
+            style="padding: 10px 12px; border: 1px dashed #d6d6d6; border-radius: 8px; color: #777;"
+          >
+            Nothing added yet. Enter a task and hit Add.
+          </div>
+        </div>
+      </div>
     </div>
     <script>
       const input = document.getElementById('message-input');
       const button = document.getElementById('add-button');
 
-      const sendMessage = async () => {
-        const text = input?.value ?? '';
-        await window.electronAPI.showMessage(text);
+      const tasks = [];
+      const tasksList = document.getElementById('tasks-list');
+      const emptyState = document.getElementById('empty-state');
+
+      const renderTasks = () => {
+        if (!tasksList) return;
+
+        tasksList.innerHTML = '';
+
+        if (tasks.length === 0) {
+          if (emptyState) {
+            tasksList.appendChild(emptyState);
+          }
+          return;
+        }
+
+        tasks.forEach((task, index) => {
+          const label = document.createElement('label');
+          label.style.display = 'flex';
+          label.style.alignItems = 'center';
+          label.style.gap = '8px';
+          label.style.padding = '10px 12px';
+          label.style.border = '1px solid #e8e8e8';
+          label.style.borderRadius = '8px';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = task.done;
+          checkbox.addEventListener('change', (event) => {
+            tasks[index].done = event.target.checked;
+            textSpan.style.textDecoration = event.target.checked ? 'line-through' : 'none';
+          });
+
+          const textSpan = document.createElement('span');
+          textSpan.textContent = task.text;
+          textSpan.style.color = '#222';
+          textSpan.style.fontSize = '14px';
+          textSpan.style.textDecoration = task.done ? 'line-through' : 'none';
+
+          label.appendChild(checkbox);
+          label.appendChild(textSpan);
+          tasksList.appendChild(label);
+        });
       };
 
-      button?.addEventListener('click', sendMessage);
+      const addTask = () => {
+        const text = input?.value.trim();
+        if (!text) return;
+
+        tasks.push({ text, done: false });
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        renderTasks();
+      };
+
+      button?.addEventListener('click', addTask);
       input?.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
-          sendMessage();
+          addTask();
         }
       });
     </script>

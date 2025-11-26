@@ -3,3 +3,4 @@ dist
 out
 *.log
 release
+.DS_Store

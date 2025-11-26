@@ -51,7 +51,10 @@
           <h2>Edit task</h2>
           <div class="modal-body">
             <div class="modal-left">
-              <input id="edit-input" type="text" class="text-input modal-input" />
+              <div class="modal-title-row">
+                <input id="edit-done" type="checkbox" />
+                <input id="edit-input" type="text" class="text-input modal-input" />
+              </div>
               <div class="modal-details">
                 <label for="edit-details" class="modal-label">Details (Markdown supported)</label>
                 <textarea id="edit-details" rows="4" class="details-textarea"></textarea>
@@ -90,6 +93,7 @@
       const emptyState = document.getElementById('empty-state');
       const overlay = document.getElementById('edit-overlay');
       const editInput = document.getElementById('edit-input');
+      const editDoneInput = document.getElementById('edit-done');
       const editDetailsInput = document.getElementById('edit-details');
       const cancelEditBtn = document.getElementById('cancel-edit');
       const saveEditBtn = document.getElementById('save-edit');
@@ -520,6 +524,9 @@
         modalSelectedListId = task.listId ?? null;
         editInput.value = task.text;
         editDetailsInput.value = task.details || '';
+        if (editDoneInput) {
+          editDoneInput.checked = task.done;
+        }
         overlay.classList.add('open');
         renderModalLists();
         setTimeout(() => editInput.focus(), 0);
@@ -530,6 +537,9 @@
         overlay.classList.remove('open');
         editInput.value = '';
         editDetailsInput.value = '';
+        if (editDoneInput) {
+          editDoneInput.checked = false;
+        }
         editingTaskId = null;
         modalSelectedListId = null;
       };
@@ -539,12 +549,14 @@
         const newText = editInput.value.trim();
         const newDetails = editDetailsInput.value;
         const newListId = modalSelectedListId;
+        const newDone = editDoneInput?.checked ?? false;
         if (!newText) return;
         try {
           const [textResult, detailsResult, listResult] = await Promise.all([
             window.electronAPI.updateTaskText(editingTaskId, newText),
             window.electronAPI.updateTaskDetails(editingTaskId, newDetails),
             window.electronAPI.updateTaskList(editingTaskId, newListId),
+            window.electronAPI.updateTaskDone(editingTaskId, newDone),
           ]);
           if (!textResult || textResult.error || !detailsResult || listResult?.error) {
             return;
@@ -554,6 +566,7 @@
             tasks[idx].text = newText;
             tasks[idx].details = newDetails;
             tasks[idx].listId = listResult?.listId ?? null;
+            tasks[idx].done = newDone;
             renderTasks();
           }
           closeEditModal();

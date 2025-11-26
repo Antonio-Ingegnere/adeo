@@ -334,6 +334,16 @@ body {
   gap: 12px;
 }
 
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-title-row input[type='checkbox'] {
+  margin: 0;
+}
+
 .modal-right {
   border: 1px solid #e8e8e8;
   border-radius: 10px;

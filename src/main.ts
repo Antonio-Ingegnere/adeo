@@ -15,7 +15,7 @@ function ensureDb(): BetterSqliteDatabase {
 function initializeDatabase(): void {
   const dbPath = path.join(app.getPath('userData'), 'tasks.db');
   db = new Database(dbPath);
-  db.prepare('DROP TABLE IF EXISTS tasks').run();
+  //db.prepare('DROP TABLE IF EXISTS tasks').run();
   db.prepare(`
     CREATE TABLE IF NOT EXISTS tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

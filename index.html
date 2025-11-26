@@ -88,6 +88,19 @@
         flex-shrink: 0;
         margin-top: 2px;
       }
+      .expand-btn {
+        margin-left: auto;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: #666;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px;
+      }
+      .expand-btn:hover {
+        color: #1d72f3;
+      }
       .task-main {
         display: flex;
         flex-direction: column;
@@ -245,6 +258,7 @@
       let editingTaskId = null;
       let dragIndex = null;
       let dropIndex = null;
+      const expandedDetails = new Set();
 
       const escapeHtml = (text) =>
         text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -448,17 +462,38 @@
           const detailsDiv = document.createElement('div');
           detailsDiv.className = 'task-details';
           detailsDiv.innerHTML = renderMarkdown(task.details || '');
+          const hasDetails = Boolean(task.details?.trim());
+          const isExpanded = expandedDetails.has(task.id);
+          detailsDiv.style.display = hasDetails && isExpanded ? 'block' : 'none';
 
           const mainBlock = document.createElement('div');
           mainBlock.className = 'task-main';
           mainBlock.appendChild(textSpan);
-          if (task.details?.trim()) {
+          if (hasDetails) {
             mainBlock.appendChild(detailsDiv);
           }
 
           label.appendChild(handle);
           label.appendChild(checkbox);
           label.appendChild(mainBlock);
+
+          if (hasDetails) {
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'expand-btn';
+            toggleBtn.title = isExpanded ? 'Collapse details' : 'Expand details';
+            toggleBtn.innerHTML = isExpanded ? '&#9650;' : '&#9660;';
+            toggleBtn.addEventListener('click', (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (expandedDetails.has(task.id)) {
+                expandedDetails.delete(task.id);
+              } else {
+                expandedDetails.add(task.id);
+              }
+              renderTasks();
+            });
+            label.appendChild(toggleBtn);
+          }
           tasksList.appendChild(label);
         });
       };

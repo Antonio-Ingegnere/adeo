@@ -277,6 +277,7 @@
       let dragIndex = null;
       let dropIndex = null;
       const expandedDetails = new Set();
+      let showCompleted = true;
 
       const escapeHtml = (text) =>
         text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -358,6 +359,8 @@
         return html;
       };
 
+      const getVisibleTasks = () => (showCompleted ? tasks : tasks.filter((t) => !t.done));
+
       const removeDropIndicator = () => {
         if (dropIndicator.parentNode) {
           dropIndicator.parentNode.removeChild(dropIndicator);
@@ -382,14 +385,18 @@
         removeDropIndicator();
         tasksList.innerHTML = '';
 
-        if (tasks.length === 0) {
+        const visibleTasks = getVisibleTasks();
+
+        if (visibleTasks.length === 0) {
           if (emptyState) {
             tasksList.appendChild(emptyState);
           }
           return;
         }
 
-        tasks.forEach((task, index) => {
+        visibleTasks.forEach((task) => {
+          const index = tasks.findIndex((t) => t.id === task.id);
+          if (index === -1) return;
           const label = document.createElement('label');
           label.className = 'task-row';
           label.dataset.index = String(index);
@@ -610,14 +617,27 @@
         }
       };
 
+      const loadSettings = async () => {
+        try {
+          const settings = await window.electronAPI.getSettings();
+          showCompleted = settings.showCompleted;
+          renderTasks();
+        } catch (error) {
+          console.error('Failed to load settings', error);
+        }
+      };
+
       tasksList?.addEventListener('dragover', (event) => {
         event.preventDefault();
-        if (tasks.length === 0) {
+        const visibleTasks = getVisibleTasks();
+        if (visibleTasks.length === 0) {
           dropIndex = 0;
           removeDropIndicator();
           tasksList.appendChild(dropIndicator);
         } else if (event.target === tasksList) {
-          dropIndex = tasks.length;
+          const lastVisible = visibleTasks[visibleTasks.length - 1];
+          const lastVisibleIndex = tasks.findIndex((t) => t.id === lastVisible.id);
+          dropIndex = lastVisibleIndex + 1;
           removeDropIndicator();
           tasksList.appendChild(dropIndicator);
         }
@@ -661,7 +681,12 @@
         }
       });
 
-      loadTasks();
+      window.electronAPI.onShowCompletedChanged((value) => {
+        showCompleted = value;
+        renderTasks();
+      });
+
+      loadSettings().then(() => loadTasks());
     </script>
   </body>
 </html>

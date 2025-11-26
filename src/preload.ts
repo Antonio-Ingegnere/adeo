@@ -8,6 +8,10 @@ type Task = {
   position: number;
 };
 
+type Settings = {
+  showCompleted: boolean;
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
   addTask: (text: string) => ipcRenderer.invoke('add-task', text) as Promise<Task | { error: string }>,
   getTasks: () => ipcRenderer.invoke('get-tasks') as Promise<Task[]>,
@@ -19,6 +23,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-task-order', orderedIds) as Promise<{ success: boolean }>,
   updateTaskDetails: (id: number, details: string) =>
     ipcRenderer.invoke('update-task-details', id, details) as Promise<{ id: number; details: string }>,
+  getSettings: () => ipcRenderer.invoke('get-settings') as Promise<Settings>,
+  onShowCompletedChanged: (callback: (show: boolean) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);
+    ipcRenderer.on('show-completed-changed', listener);
+    return () => ipcRenderer.removeListener('show-completed-changed', listener);
+  },
 });
 
 declare global {
@@ -30,6 +40,8 @@ declare global {
       updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
       updateTaskOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
       updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
+      getSettings: () => Promise<Settings>;
+      onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
     };
   }
 }

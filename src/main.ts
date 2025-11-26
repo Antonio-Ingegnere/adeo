@@ -1,9 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import Database from 'better-sqlite3';
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import path from 'path';
 
 let db: BetterSqliteDatabase | null = null;
+let mainWindow: BrowserWindow | null = null;
+let showCompleted = true;
 
 function ensureDb(): BetterSqliteDatabase {
   if (!db) {
@@ -29,7 +31,7 @@ function initializeDatabase(): void {
 }
 
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
@@ -40,6 +42,27 @@ function createWindow(): void {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+}
+
+function setupMenu(window: BrowserWindow): void {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Show Completed Tasks',
+          type: 'checkbox',
+          checked: showCompleted,
+          click: (menuItem) => {
+            showCompleted = menuItem.checked;
+            window.webContents.send('show-completed-changed', showCompleted);
+          },
+        },
+      ],
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 }
 
 ipcMain.handle('show-message', async (_event, text: string) => {
@@ -117,13 +140,23 @@ ipcMain.handle('update-task-order', async (_event, orderedIds: number[]) => {
   return { success: true };
 });
 
+ipcMain.handle('get-settings', async () => {
+  return { showCompleted };
+});
+
 app.on('ready', () => {
   initializeDatabase();
   createWindow();
+  if (mainWindow) {
+    setupMenu(mainWindow);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+      if (mainWindow) {
+        setupMenu(mainWindow);
+      }
     }
   });
 });

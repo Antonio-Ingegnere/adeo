@@ -5,9 +5,17 @@ import path from 'path';
 
 const APP_NAME = 'Adeo';
 
+
 let db: BetterSqliteDatabase | null = null;
 let mainWindow: BrowserWindow | null = null;
 let showCompleted = true;
+
+// Set the app name as early as possible so macOS uses it for the menu bar.
+app.name = APP_NAME;
+app.setName(APP_NAME);
+if (process.platform === 'darwin') {
+  app.setAboutPanelOptions({ applicationName: APP_NAME });
+}
 
 function ensureDb(): BetterSqliteDatabase {
   if (!db) {
@@ -57,7 +65,15 @@ function setupMenu(window: BrowserWindow): void {
       ? [
           {
             label: APP_NAME,
-            submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }],
+            submenu: [
+              { role: 'about', label: `About ${APP_NAME}` },
+              { type: 'separator' },
+              { role: 'hide', label: `Hide ${APP_NAME}` },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit', label: `Quit ${APP_NAME}` },
+            ],
           } as Electron.MenuItemConstructorOptions,
         ]
       : [
@@ -165,7 +181,6 @@ ipcMain.handle('get-settings', async () => {
 });
 
 app.on('ready', () => {
-  app.setName(APP_NAME);
   initializeDatabase();
   createWindow();
   if (mainWindow) {

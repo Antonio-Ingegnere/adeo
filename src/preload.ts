@@ -1,13 +1,24 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+type Task = {
+  id: number;
+  text: string;
+  done: boolean;
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  showMessage: (text: string) => ipcRenderer.invoke('show-message', text),
+  addTask: (text: string) => ipcRenderer.invoke('add-task', text) as Promise<Task | { error: string }>,
+  getTasks: () => ipcRenderer.invoke('get-tasks') as Promise<Task[]>,
+  updateTaskDone: (id: number, done: boolean) =>
+    ipcRenderer.invoke('update-task-done', id, done) as Promise<{ id: number; done: boolean }>,
 });
 
 declare global {
   interface Window {
     electronAPI: {
-      showMessage: (text: string) => Promise<void>;
+      addTask: (text: string) => Promise<Task | { error: string }>;
+      getTasks: () => Promise<Task[]>;
+      updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
     };
   }
 }

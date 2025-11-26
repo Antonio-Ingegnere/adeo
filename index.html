@@ -95,9 +95,15 @@
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
           checkbox.checked = task.done;
-          checkbox.addEventListener('change', (event) => {
-            tasks[index].done = event.target.checked;
-            textSpan.style.textDecoration = event.target.checked ? 'line-through' : 'none';
+          checkbox.addEventListener('change', async (event) => {
+            const checked = event.target.checked;
+            tasks[index].done = checked;
+            textSpan.style.textDecoration = checked ? 'line-through' : 'none';
+            try {
+              await window.electronAPI.updateTaskDone(task.id, checked);
+            } catch (error) {
+              console.error('Failed to update task status', error);
+            }
           });
 
           const textSpan = document.createElement('span');
@@ -112,16 +118,35 @@
         });
       };
 
-      const addTask = () => {
+      const addTask = async () => {
         const text = input?.value.trim();
         if (!text) return;
 
-        tasks.push({ text, done: false });
-        if (input) {
-          input.value = '';
-          input.focus();
+        try {
+          const createdTask = await window.electronAPI.addTask(text);
+          if (!createdTask || createdTask.error) {
+            return;
+          }
+
+          tasks.push(createdTask);
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+          renderTasks();
+        } catch (error) {
+          console.error('Failed to add task', error);
         }
-        renderTasks();
+      };
+
+      const loadTasks = async () => {
+        try {
+          const existingTasks = await window.electronAPI.getTasks();
+          tasks.splice(0, tasks.length, ...existingTasks);
+          renderTasks();
+        } catch (error) {
+          console.error('Failed to load tasks', error);
+        }
       };
 
       button?.addEventListener('click', addTask);
@@ -130,6 +155,8 @@
           addTask();
         }
       });
+
+      loadTasks();
     </script>
   </body>
 </html>

@@ -332,6 +332,7 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .modal-content {
@@ -342,6 +343,7 @@ body {
   display: flex;
   flex-direction: column;
   background: linear-gradient(to right, #fff 0%, #fff 65%, #f7f7f7 65%, #f7f7f7 100%);
+  border-radius: 12px;
 }
 
 .modal-body {

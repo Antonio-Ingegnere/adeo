@@ -423,7 +423,7 @@ body {
   color: #111;
   padding: 6px 8px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;

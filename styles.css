@@ -459,6 +459,13 @@ body {
   background-repeat: no-repeat;
 }
 
+.modal-list-divider {
+  width: 95%;
+  border: none;
+  border-top: 1px solid #d6d6d6;
+  margin: -2px 4px 0;
+}
+
 
 /* .modal-right .select-input:hover {
   background: #e6e6e6;

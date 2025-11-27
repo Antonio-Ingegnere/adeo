@@ -125,13 +125,11 @@ body {
   width: 14px;
   height: 14px;
   display: inline-block;
-  background: repeating-linear-gradient(
-    to bottom,
-    #b0b0b0 0,
-    #b0b0b0 1px,
-    transparent 1px,
-    transparent 5px
-  );
+  background: repeating-linear-gradient(to bottom,
+      #b0b0b0 0,
+      #b0b0b0 1px,
+      transparent 1px,
+      transparent 5px);
   cursor: grab;
   flex-shrink: 0;
   margin-top: 2px;
@@ -421,7 +419,55 @@ body {
 .modal-right .select-input {
   font-size: 11.2px;
   margin-top: -8px;
+  background: #f7f7f7;
+  color: #111;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  position: relative;
+  background-image: none;
 }
+
+.modal-right .select-input:hover {
+  background: #e6e6e6;
+
+  background-image:
+    /* left arm */
+    linear-gradient(225deg,
+      transparent 40%,
+      #555 48%,
+      #555 52%,
+      transparent 52%),
+    /* right arm */
+    linear-gradient(135deg,
+      transparent 40%,
+      #555 48%,
+      #555 52%,
+      transparent 52%);
+
+  background-position:
+    calc(100% - 12px) 52%,
+    /* left arm */
+    calc(100% - 6px) 52%;
+  /* right arm */
+
+  background-size: 6px 6px;
+  /* chevron size */
+  background-repeat: no-repeat;
+}
+
+
+/* .modal-right .select-input:hover {
+  background: #e6e6e6;
+  background-image: linear-gradient(45deg, transparent 45%, #555 45%, #555 55%, transparent 55%),
+                    linear-gradient(315deg, transparent 45%, #555 45%, #555 55%, transparent 55%);
+  background-position: calc(100% - 12px) 55%, calc(100% - 6px) 55%;
+  background-size: 8px 8px, 8px 8px;
+  background-repeat: no-repeat;
+} */
 
 .modal-right-content {
   padding: 16px;

@@ -537,6 +537,10 @@ body {
   border-bottom-color: #a6a6a6;
 }
 
+.details-textarea::placeholder {
+  color: #b8b8b8;
+}
+
 .modal-actions {
   margin-top: 14px;
   display: flex;

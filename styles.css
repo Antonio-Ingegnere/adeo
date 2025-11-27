@@ -333,6 +333,14 @@ body {
   overflow: hidden;
 }
 
+.modal.modal-small {
+  width: 380px;
+  height: auto;
+  max-width: 90vw;
+  max-height: 360px;
+  padding: 20px;
+}
+
 .modal-content {
   padding: 0;
   width: 100%;

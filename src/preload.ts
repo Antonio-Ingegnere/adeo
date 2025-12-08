@@ -64,8 +64,5 @@ declare global {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const versionElement = document.getElementById('app-version');
-  if (versionElement) {
-    versionElement.textContent = process.versions.electron;
-  }
+  
 });

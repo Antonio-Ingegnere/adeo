@@ -9,37 +9,41 @@
   <body>
     <div class="card">
       <div class="content-grid">
-        <div class="lists-panel">
-          <div class="lists-header">
-            <div class="lists-title-wrap">
-              <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
-                <span class="expand-chevrons" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" focusable="false">
-                    <path d="M2 3 L7 8 L12 3" />
-                    <path d="M2 8 L7 13 L12 8" />
-                  </svg>
-                </span>
-              </button>
-              <p class="lists-title">Lists</p>
+        <div class="lists-rail">
+          <div class="lists-panel">
+            <div class="lists-header">
+              <div class="lists-title-wrap">
+                <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
+                  <span class="expand-chevrons" aria-hidden="true">
+                    <svg viewBox="0 0 14 14" focusable="false">
+                      <path d="M2 3 L7 8 L12 3" />
+                      <path d="M2 8 L7 13 L12 8" />
+                    </svg>
+                  </span>
+                </button>
+                <p class="lists-title">Lists</p>
+              </div>
+              <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
             </div>
-            <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
-          </div>
-          <div id="lists-list" class="lists-list">
-            <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
+            <div id="lists-list" class="lists-list">
+              <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
+            </div>
           </div>
         </div>
-        <div class="tasks-view-panel">
-          <div class="input-row">
-            <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
-            <select id="add-task-list" class="select-input">
-              <option value="">No list</option>
-            </select>
-            <button id="add-button" class="primary-button">Add</button>
-          </div>
-          <div id="tasks" class="tasks-section">
-            <p class="tasks-title">All tasks</p>
-            <div id="tasks-list" class="tasks-list">
-              <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
+        <div class="main-column">
+          <div class="main-body">
+            <div class="input-row">
+              <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
+              <select id="add-task-list" class="select-input">
+                <option value="">No list</option>
+              </select>
+              <button id="add-button" class="primary-button">Add</button>
+            </div>
+            <div id="tasks" class="tasks-section">
+              <p class="tasks-title">All tasks</p>
+              <div id="tasks-list" class="tasks-list">
+                <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
+              </div>
             </div>
           </div>
         </div>

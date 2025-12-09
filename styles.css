@@ -24,10 +24,20 @@ body {
 
 .content-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
   width: 100%;
+}
+
+.lists-rail {
+  background: #e0e0e0;
+  padding: 16px 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-right: 1px solid #d3d3d3;
 }
 
 .headline {
@@ -210,24 +220,34 @@ body {
   margin: 0;
 }
 
-.tasks-view-panel{
-  margin-left: 32px;
-}
-
 .lists-panel {
   border: 1px solid #e8e8e8;
   border-radius: 10px;
   background: #fafafa;
-  padding: 12px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 280px;
-  min-width: 280px;
+  width: 100%;
+  min-width: 0;
   align-self: flex-start;
   position: sticky;
   left: 0;
-  top: 24px;
+  top: 16px;
+}
+
+.main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.main-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
 }
 
 .lists-header {

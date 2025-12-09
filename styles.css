@@ -399,13 +399,13 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to right, #fff 0%, #fff 65%, #f7f7f7 65%, #f7f7f7 100%);
+  background: linear-gradient(to right, #fff calc(100% - 224px), #f7f7f7 calc(100% - 224px), #f7f7f7 100%);
   border-radius: 12px;
 }
 
 .modal-body {
   display: grid;
-  grid-template-columns: 1.3fr 0.7fr;
+  grid-template-columns: minmax(0, 1fr) 224px;
   gap: 0;
   flex: 1;
   align-items: stretch;
@@ -461,13 +461,14 @@ body {
 
 .modal-right {
   padding: 0;
-  background: transparent;
+  background: #f7f7f7;
   height: 100%;
-  width: 100%;
+  width: 224px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  /* border-left: 1px solid #e5e5e5; */
 }
 
 .modal-right h3 {
@@ -606,6 +607,7 @@ body {
   justify-content: flex-end;
   gap: 8px;
   padding: 0 16px 16px 16px;
+  background: linear-gradient(to right, #fff calc(100% - 224px), #f7f7f7 calc(100% - 224px), #f7f7f7 100%);
 }
 
 .btn {

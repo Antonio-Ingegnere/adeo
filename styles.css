@@ -612,7 +612,7 @@ body {
 
 .btn {
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid #d6d6d6;
   background: #f7f7f7;
   cursor: pointer;
@@ -623,12 +623,13 @@ body {
   font-size: 18px;
   font-weight: 800;
   line-height: 1;
-  min-width: 44px;
-  min-height: 38px;
-  padding: 10px 12px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
 }
 
 .btn.icon-btn .icon-check {

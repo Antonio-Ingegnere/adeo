@@ -86,13 +86,30 @@ body {
 }
 
 .primary-button {
-  padding: 8px 14px;
-  font-size: 14px;
   border: none;
-  border-radius: 8px;
   background: #1d72f3;
   color: #fff;
   cursor: pointer;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.primary-button.icon-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.primary-button.icon-btn .icon-check {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+  display: block;
 }
 
 .tasks-section {

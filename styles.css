@@ -225,8 +225,8 @@ body {
 }
 
 .lists-panel {
-  border: 1px solid #e8e8e8;
-  border-radius: 10px;
+  border: none;
+  border-radius: 0;
   background: #fafafa;
   padding: 0;
   display: flex;
@@ -298,15 +298,15 @@ body {
 .list-pill {
   padding: 8px 10px;
   background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid #ededed;
+  border-radius: 6px;
   font-size: 14px;
   text-align: left;
   cursor: pointer;
 }
 
 .list-pill.selected {
-  border-color: #1d72f3;
+  border: 1px solid #cfdaf5;
   background: #eef3ff;
   color: #1d72f3;
 }

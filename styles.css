@@ -28,7 +28,7 @@ body {
 
 .content-grid {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 288px minmax(0, 1fr);
   gap: 24px;
   align-items: stretch;
   width: 100%;
@@ -36,13 +36,12 @@ body {
 }
 
 .lists-rail {
-  background: #e0e0e0;
+  background: #f7f7f7;
   padding: 16px 12px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  border-right: 1px solid #d3d3d3;
 }
 
 .headline {

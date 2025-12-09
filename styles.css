@@ -293,22 +293,24 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: transparent;
 }
 
 .list-pill {
   padding: 8px 10px;
-  background: #fff;
-  border: 1px solid #ededed;
-  border-radius: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   font-size: 14px;
   text-align: left;
   cursor: pointer;
 }
 
 .list-pill.selected {
-  border: 1px solid #cfdaf5;
-  background: #eef3ff;
+  border: none;
+  background: transparent;
   color: #1d72f3;
+  font-weight: 700;
 }
 
 .expand-btn {

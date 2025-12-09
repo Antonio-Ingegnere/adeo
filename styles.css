@@ -619,6 +619,25 @@ body {
   font-size: 14px;
 }
 
+.btn.icon-btn {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 38px;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn.icon-btn .icon-check {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  display: block;
+}
+
 .btn.primary {
   border: none;
   background: #1d72f3;

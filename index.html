@@ -78,8 +78,14 @@
               </div>
             </div>
             <div class="modal-actions">
-              <button id="cancel-edit" class="btn">Cancel</button>
-              <button id="save-edit" class="btn primary">Save</button>
+              <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel">✕</button>
+              <button id="save-edit" class="btn primary icon-btn" aria-label="Save">
+                <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -89,8 +95,14 @@
           <h2>Add list</h2>
           <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" />
           <div class="modal-actions">
-            <button id="cancel-list" class="btn">Cancel</button>
-            <button id="save-list" class="btn primary">Save</button>
+            <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list">✕</button>
+            <button id="save-list" class="btn primary icon-btn" aria-label="Save list">
+              <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
+                />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

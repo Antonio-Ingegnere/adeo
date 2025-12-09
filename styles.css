@@ -227,7 +227,6 @@ body {
 .lists-panel {
   border: none;
   border-radius: 0;
-  background: #fafafa;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -304,6 +303,7 @@ body {
   font-size: 14px;
   text-align: left;
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .list-pill.selected {
@@ -311,6 +311,10 @@ body {
   background: transparent;
   color: #1d72f3;
   font-weight: 700;
+}
+
+.list-pill:hover {
+  background: #f0f0f0;
 }
 
 .expand-btn {

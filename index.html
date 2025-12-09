@@ -269,7 +269,12 @@
         lists.forEach((list) => {
           const option = document.createElement('option');
           option.value = String(list.id);
-          option.textContent = list.name;
+          const fullName = list.name;
+          const truncated = fullName.length > 30 ? `${fullName.slice(0, 30)}...` : fullName;
+          option.textContent = truncated;
+          if (truncated !== fullName) {
+            option.title = fullName;
+          }
           selectEl.appendChild(option);
         });
         if (selectedId !== null) {

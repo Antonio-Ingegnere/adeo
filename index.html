@@ -293,9 +293,19 @@
           return;
         }
         listsList.style.display = 'flex';
+        const makeLabel = (text) => {
+          const span = document.createElement('span');
+          span.className = 'list-pill-label';
+          const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
+          span.textContent = truncated;
+          if (truncated !== text) {
+            span.title = text;
+          }
+          return span;
+        };
         const allItem = document.createElement('div');
         allItem.className = `list-pill${selectedListId === null ? ' selected' : ''}`;
-        allItem.textContent = 'All lists';
+        allItem.appendChild(makeLabel('All lists'));
         allItem.addEventListener('click', () => {
           selectedListId = null;
           updateTasksTitle();
@@ -314,7 +324,7 @@
           const item = document.createElement('div');
           const isSelected = selectedListId === list.id;
           item.className = `list-pill${isSelected ? ' selected' : ''}`;
-          item.textContent = typeof list === 'string' ? list : list.name;
+          item.appendChild(makeLabel(typeof list === 'string' ? list : list.name));
           item.addEventListener('click', () => {
             selectedListId = list.id;
             addTaskSelectedListId = list.id;

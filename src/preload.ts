@@ -1,22 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-
-type Task = {
-  id: number;
-  text: string;
-  details: string;
-  done: boolean;
-  position: number;
-  listId: number | null;
-};
-
-type Settings = {
-  showCompleted: boolean;
-};
-
-type List = {
-  id: number;
-  name: string;
-};
+import type { ElectronAPI, List, Settings, Task } from './types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   addTask: (text: string, listId?: number | null) =>
@@ -42,27 +25,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLists: () => ipcRenderer.invoke('get-lists') as Promise<List[]>,
   updateListName: (id: number, name: string) =>
     ipcRenderer.invoke('update-list-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
-});
-
-declare global {
-  interface Window {
-    electronAPI: {
-      addTask: (text: string, listId?: number | null) => Promise<Task | { error: string }>;
-      getTasks: () => Promise<Task[]>;
-      updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
-      updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
-      updateTaskOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
-      updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
-      updateTaskList: (id: number, listId: number | null) => Promise<{ id: number; listId: number | null }>;
-      getSettings: () => Promise<Settings>;
-      onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
-      addList: (name: string) => Promise<List | { error: string }>;
-      getLists: () => Promise<List[]>;
-      updateListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
-    };
-  }
-}
+} satisfies ElectronAPI);
 
 window.addEventListener('DOMContentLoaded', () => {
-  
+  const versionElement = document.getElementById('app-version');
+  if (versionElement) {
+    versionElement.textContent = process.versions.electron;
+  }
 });

@@ -5,7 +5,7 @@
   "description": "Simple Electron boilerplate showing a Hello World window",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc && cp index.html dist/index.html && cp styles.css dist/styles.css && cp renderer.js dist/renderer.js",
+    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && cp index.html dist/index.html && cp styles.css dist/styles.css",
     "start": "npm run build && electron .",
     "package:mac": "npm run build && electron-builder --mac"
   },

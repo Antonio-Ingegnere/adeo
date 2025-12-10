@@ -1,0 +1,248 @@
+import type { Task } from '../types.js';
+import { createDetailsElement } from './helpers.js';
+import { dropIndicator, refs } from './dom.js';
+import { state } from './state.js';
+
+const removeDropIndicator = () => {
+  if (dropIndicator.parentNode) {
+    dropIndicator.parentNode.removeChild(dropIndicator);
+  }
+};
+
+export const getVisibleTasks = (): Task[] => {
+  let base = state.showCompleted ? state.tasks : state.tasks.filter((t) => !t.done);
+  if (state.selectedListId !== null) {
+    base = base.filter((t) => t.listId === state.selectedListId);
+  }
+  return base;
+};
+
+export const updateTasksTitle = () => {
+  if (!refs.tasksTitleEl) return;
+  if (state.selectedListId === null) {
+    refs.tasksTitleEl.textContent = 'All tasks';
+    return;
+  }
+  const list = state.lists.find((l) => l.id === state.selectedListId);
+  refs.tasksTitleEl.textContent = list ? list.name : 'Tasks';
+};
+
+export const saveTaskOrder = async () => {
+  try {
+    const orderedIds = state.tasks.map((task) => task.id);
+    state.tasks.forEach((task, index) => {
+      task.position = index;
+    });
+    await window.electronAPI.updateTaskOrder(orderedIds);
+  } catch (error) {
+    console.error('Failed to save task order', error);
+  }
+};
+
+const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
+  const row = document.createElement('div');
+  row.className = 'task-row';
+  row.dataset.index = String(index);
+
+  const handle = document.createElement('span');
+  handle.className = 'drag-handle';
+  handle.title = 'Drag to reorder';
+  handle.setAttribute('draggable', 'true');
+  handle.addEventListener('dragstart', (event) => {
+    state.dragIndex = index;
+    row.classList.add('dragging');
+    event.dataTransfer?.setData('text/plain', String(index));
+    event.dataTransfer?.setDragImage(row, 10, 10);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  });
+  handle.addEventListener('dragend', () => {
+    state.dragIndex = null;
+    state.dropIndex = null;
+    row.classList.remove('dragging');
+    removeDropIndicator();
+  });
+
+  row.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    const rect = row.getBoundingClientRect();
+    const isBefore = event.clientY < rect.top + rect.height / 2;
+    const targetIndex = Number(row.dataset.index);
+    state.dropIndex = isBefore ? targetIndex : targetIndex + 1;
+    removeDropIndicator();
+    if (row.parentNode) {
+      if (isBefore) {
+        row.parentNode.insertBefore(dropIndicator, row);
+      } else {
+        row.parentNode.insertBefore(dropIndicator, row.nextSibling);
+      }
+    }
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  });
+  row.addEventListener('drop', (event) => {
+    event.preventDefault();
+    removeDropIndicator();
+    if (state.dragIndex === null || state.dropIndex === null) {
+      return;
+    }
+    if (state.dragIndex === state.dropIndex || state.dragIndex + 1 === state.dropIndex) {
+      state.dragIndex = null;
+      state.dropIndex = null;
+      return;
+    }
+    const [moved] = state.tasks.splice(state.dragIndex, 1);
+    const adjustedIndex = state.dragIndex < state.dropIndex ? state.dropIndex - 1 : state.dropIndex;
+    state.tasks.splice(adjustedIndex, 0, moved);
+    state.dragIndex = null;
+    state.dropIndex = null;
+    rerender();
+    saveTaskOrder();
+  });
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = task.done;
+  checkbox.addEventListener('change', async (event) => {
+    const checked = (event.target as HTMLInputElement).checked;
+    state.tasks[index].done = checked;
+    textSpan.style.textDecoration = checked ? 'line-through' : 'none';
+    try {
+      await window.electronAPI.updateTaskDone(task.id, checked);
+    } catch (error) {
+      console.error('Failed to update task status', error);
+    }
+  });
+
+  const textSpan = document.createElement('span');
+  textSpan.textContent = task.text;
+  textSpan.className = 'task-text';
+  textSpan.style.textDecoration = task.done ? 'line-through' : 'none';
+  textSpan.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const custom = new CustomEvent('open-edit-modal', { detail: { taskId: task.id } });
+    document.dispatchEvent(custom);
+  });
+
+  const detailsDiv = createDetailsElement(task, async (taskId, details) => {
+    await window.electronAPI.updateTaskDetails(taskId, details);
+  }, rerender);
+  const hasDetails = Boolean(task.details?.trim());
+  const isExpanded = state.expandedDetails.has(task.id);
+  detailsDiv.style.display = hasDetails && isExpanded ? 'block' : 'none';
+
+  const mainBlock = document.createElement('div');
+  mainBlock.className = 'task-main';
+  mainBlock.appendChild(textSpan);
+  if (hasDetails) {
+    mainBlock.appendChild(detailsDiv);
+  }
+
+  row.appendChild(handle);
+  row.appendChild(checkbox);
+  row.appendChild(mainBlock);
+
+  if (hasDetails) {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'expand-btn';
+    toggleBtn.title = isExpanded ? 'Collapse details' : 'Expand details';
+    const iconWrapper = document.createElement('span');
+    iconWrapper.className = 'expand-chevrons';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 14 14');
+    svg.setAttribute('focusable', 'false');
+    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const setPaths = (expanded: boolean) => {
+      if (expanded) {
+        path1.setAttribute('d', 'M2 8 L7 3 L12 8');
+        path2.setAttribute('d', 'M2 13 L7 8 L12 13');
+      } else {
+        path1.setAttribute('d', 'M2 3 L7 8 L12 3');
+        path2.setAttribute('d', 'M2 8 L7 13 L12 8');
+      }
+    };
+    setPaths(isExpanded);
+    svg.appendChild(path1);
+    svg.appendChild(path2);
+    iconWrapper.appendChild(svg);
+    toggleBtn.appendChild(iconWrapper);
+    toggleBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.expandedDetails.has(task.id)) {
+        state.expandedDetails.delete(task.id);
+      } else {
+        state.expandedDetails.add(task.id);
+      }
+      rerender();
+    });
+    row.appendChild(toggleBtn);
+  }
+
+  return row;
+};
+
+export const renderTasks = () => {
+  if (!refs.tasksList) return;
+  removeDropIndicator();
+  refs.tasksList.innerHTML = '';
+
+  const visibleTasks = getVisibleTasks();
+
+  if (visibleTasks.length === 0) {
+    if (refs.emptyState) {
+      refs.tasksList.appendChild(refs.emptyState);
+    }
+    return;
+  }
+
+  visibleTasks.forEach((task) => {
+    const index = state.tasks.findIndex((t) => t.id === task.id);
+    if (index === -1) return;
+    const row = buildTaskRow(task, index, renderTasks);
+    refs.tasksList?.appendChild(row);
+  });
+};
+
+export const attachTaskListDnD = () => {
+  if (!refs.tasksList) return;
+  refs.tasksList.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    const visibleTasks = getVisibleTasks();
+    if (visibleTasks.length === 0) {
+      state.dropIndex = 0;
+      removeDropIndicator();
+      refs.tasksList?.appendChild(dropIndicator);
+    } else if (event.target === refs.tasksList) {
+      const lastVisible = visibleTasks[visibleTasks.length - 1];
+      const lastVisibleIndex = state.tasks.findIndex((t) => t.id === lastVisible.id);
+      state.dropIndex = lastVisibleIndex + 1;
+      removeDropIndicator();
+      refs.tasksList?.appendChild(dropIndicator);
+    }
+    const dt = (event as DragEvent).dataTransfer;
+    if (dt) {
+      dt.dropEffect = 'move';
+    }
+  });
+
+  refs.tasksList.addEventListener('drop', (event) => {
+    event.preventDefault();
+    if (state.dragIndex === null || state.dropIndex === null) {
+      removeDropIndicator();
+      return;
+    }
+    const [moved] = state.tasks.splice(state.dragIndex, 1);
+    const adjustedIndex = state.dragIndex < state.dropIndex ? state.dropIndex - 1 : state.dropIndex;
+    state.tasks.splice(adjustedIndex, 0, moved);
+    state.dragIndex = null;
+    state.dropIndex = null;
+    renderTasks();
+    saveTaskOrder();
+    removeDropIndicator();
+  });
+};

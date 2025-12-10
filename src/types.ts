@@ -1,0 +1,38 @@
+export type Task = {
+  id: number;
+  text: string;
+  details: string;
+  done: boolean;
+  position: number;
+  listId: number | null;
+};
+
+export type Settings = {
+  showCompleted: boolean;
+};
+
+export type List = {
+  id: number;
+  name: string;
+};
+
+export type ElectronAPI = {
+  addTask: (text: string, listId?: number | null) => Promise<Task | { error: string }>;
+  getTasks: () => Promise<Task[]>;
+  updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
+  updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
+  updateTaskOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+  updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
+  updateTaskList: (id: number, listId: number | null) => Promise<{ id: number; listId: number | null }>;
+  getSettings: () => Promise<Settings>;
+  onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
+  addList: (name: string) => Promise<List | { error: string }>;
+  getLists: () => Promise<List[]>;
+  updateListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
+};
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI;
+  }
+}

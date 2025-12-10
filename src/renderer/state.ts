@@ -1,0 +1,31 @@
+import type { List, Task } from '../types';
+
+export type UIState = {
+  tasks: Task[];
+  lists: List[];
+  selectedListId: number | null;
+  listsExpanded: boolean;
+  showCompleted: boolean;
+  expandedDetails: Set<number>;
+  dragIndex: number | null;
+  dropIndex: number | null;
+  editingTaskId: number | null;
+  editingListId: number | null;
+  modalSelectedListId: number | null;
+  addTaskSelectedListId: number | null;
+};
+
+export const state: UIState = {
+  tasks: [],
+  lists: [],
+  selectedListId: null,
+  listsExpanded: true,
+  showCompleted: true,
+  expandedDetails: new Set<number>(),
+  dragIndex: null,
+  dropIndex: null,
+  editingTaskId: null,
+  editingListId: null,
+  modalSelectedListId: null,
+  addTaskSelectedListId: null,
+};

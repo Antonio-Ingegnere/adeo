@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
+    "module": "ESNext",
     "moduleResolution": "Node",
     "lib": ["ES2020", "DOM"],
     "outDir": "dist",
@@ -11,5 +11,5 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src/main.ts", "src/preload.ts", "src/types.ts"]
+  "include": ["src/renderer/**/*.ts", "src/types.ts"]
 }

@@ -20,6 +20,10 @@ const updatePriorityUI = (value: string | null) => {
     const label = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None';
     refs.priorityLabel.textContent = label;
   }
+  if (refs.editDoneInput) {
+    refs.editDoneInput.style.borderColor = color ?? priorityColors.none;
+    refs.editDoneInput.style.background = color ?? priorityColors.none;
+  }
 };
 
 export const openEditModal = (taskId: number) => {

@@ -567,23 +567,23 @@ body {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background: #fff;
+  background: transparent;
   position: relative;
 }
 
 .modal-title-row input[type='checkbox']:checked {
-  background: #1d72f3;
-  border-color: #1d72f3;
+  background: inherit;
+  border-color: inherit;
 }
 
 .modal-title-row input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 5px;
+  top: 2px;
+  left: 5.5px;
   width: 4px;
   height: 8px;
-  border: solid #fff;
+  border: solid #444;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }

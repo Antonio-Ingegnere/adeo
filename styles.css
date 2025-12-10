@@ -651,7 +651,6 @@ body {
   border-radius: 4px;
   background: #c9c9c9;
   flex-shrink: 0;
-  border: 1px solid #d6d6d6;
   display: inline-block;
 }
 
@@ -663,8 +662,8 @@ body {
 .priority-menu {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  left: -7.5%;
+  width: 115%;
   background: #fff;
   border: 1px solid #d6d6d6;
   border-radius: 10px;

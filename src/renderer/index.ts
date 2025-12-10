@@ -14,6 +14,24 @@ import {
 } from './modals.js';
 import { state } from './state.js';
 
+const priorityColors: Record<string, string> = {
+  none: '#C9C9C9',
+  low: '#7ED957',
+  medium: '#FFB866',
+  high: '#FF6B6B',
+};
+
+const updatePriorityUI = (value: string | null) => {
+  const color = value ? priorityColors[value] : priorityColors.none;
+  if (refs.priorityChip) {
+    refs.priorityChip.style.background = color ?? priorityColors.none;
+  }
+  if (refs.priorityLabel) {
+    const label = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None';
+    refs.priorityLabel.textContent = label;
+  }
+};
+
 const setupEvents = () => {
   attachTaskListDnD();
 
@@ -70,9 +88,22 @@ const setupEvents = () => {
     state.modalSelectedListId = val ? Number(val) : null;
   });
 
-  refs.modalPrioritySelect?.addEventListener('change', (event) => {
-    const val = (event.target as HTMLSelectElement).value as typeof state.modalPriority;
-    state.modalPriority = val ?? 'none';
+
+  refs.priorityPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (refs.priorityMenu) {
+      refs.priorityMenu.style.display = refs.priorityMenu.style.display === 'flex' ? 'none' : 'flex';
+    }
+  });
+
+  refs.priorityMenu?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const item = target.closest('.priority-menu-item') as HTMLElement | null;
+    if (!item) return;
+    const val = (item.getAttribute('data-value') as typeof state.modalPriority) ?? 'none';
+    state.modalPriority = val;
+    updatePriorityUI(state.modalPriority);
+    if (refs.priorityMenu) refs.priorityMenu.style.display = 'none';
   });
 
   document.addEventListener('open-edit-modal', (event) => {
@@ -94,6 +125,9 @@ const setupEvents = () => {
       state.openListMenuId = null;
       renderLists();
     }
+    if (refs.priorityMenu) {
+      refs.priorityMenu.style.display = 'none';
+    }
   });
 };
 
@@ -106,6 +140,7 @@ const init = async () => {
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));
   updateTasksTitle();
+  updatePriorityUI(state.modalPriority);
   await loadSettings();
   await loadTasks();
   await loadLists();

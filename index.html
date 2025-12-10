@@ -81,12 +81,31 @@
                   </select>
                   <hr class="modal-list-divider" />
                   <h3>Priority</h3>
-                  <select id="modal-priority-select" class="select-input" style="width: 100%;">
-                    <option value="none">None</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                  <div class="priority-select-wrap">
+                    <button id="priority-picker" class="priority-picker" type="button">
+                      <span id="priority-chip" class="priority-chip" aria-hidden="true"></span>
+                      <span id="priority-label">None</span>
+                      <span class="priority-caret">▾</span>
+                    </button>
+                    <div id="priority-menu" class="priority-menu">
+                      <div class="priority-menu-item" data-value="none" data-color="#C9C9C9">
+                        <span class="priority-chip" aria-hidden="true" style="background:#C9C9C9;"></span>
+                        <span>None</span>
+                      </div>
+                      <div class="priority-menu-item" data-value="low" data-color="#7ED957">
+                        <span class="priority-chip" aria-hidden="true" style="background:#7ED957;"></span>
+                        <span>Low</span>
+                      </div>
+                      <div class="priority-menu-item" data-value="medium" data-color="#FFB866">
+                        <span class="priority-chip" aria-hidden="true" style="background:#FFB866;"></span>
+                        <span>Medium</span>
+                      </div>
+                      <div class="priority-menu-item" data-value="high" data-color="#FF6B6B">
+                        <span class="priority-chip" aria-hidden="true" style="background:#FF6B6B;"></span>
+                        <span>High</span>
+                      </div>
+                    </div>
+                  </div>
                   <hr class="modal-list-divider" />
                 </div>
               </div>

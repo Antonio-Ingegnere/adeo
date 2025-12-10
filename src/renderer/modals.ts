@@ -4,6 +4,24 @@ import { renderTasks, updateTasksTitle } from './tasks.js';
 import { refs } from './dom.js';
 import { state } from './state.js';
 
+const priorityColors: Record<string, string> = {
+  none: '#C9C9C9',
+  low: '#7ED957',
+  medium: '#FFB866',
+  high: '#FF6B6B',
+};
+
+const updatePriorityUI = (value: string | null) => {
+  const color = value ? priorityColors[value] : priorityColors.none;
+  if (refs.priorityChip) {
+    refs.priorityChip.style.background = color ?? priorityColors.none;
+  }
+  if (refs.priorityLabel) {
+    const label = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None';
+    refs.priorityLabel.textContent = label;
+  }
+};
+
 export const openEditModal = (taskId: number) => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput || !task) return;
@@ -17,8 +35,11 @@ export const openEditModal = (taskId: number) => {
   }
   refs.overlay.classList.add('open');
   renderModalLists();
-  if (refs.modalPrioritySelect) {
-    refs.modalPrioritySelect.value = state.modalPriority;
+  const updateChip = document.querySelector<HTMLElement>('#priority-chip');
+  if (updateChip) {
+    updateChip.style.background = document
+      .querySelector(`#modal-priority-select option[value=\"${state.modalPriority}\"]`)
+      ?.getAttribute('data-color') || '#C9C9C9';
   }
   setTimeout(() => refs.editInput?.focus(), 0);
 };
@@ -105,9 +126,6 @@ export const closeListModal = () => {
 
 export const renderModalLists = () => {
   renderListOptions(refs.modalListSelect, state.modalSelectedListId);
-  if (refs.modalPrioritySelect) {
-    refs.modalPrioritySelect.value = state.modalPriority;
-  }
 };
 
 export const saveList = () => {

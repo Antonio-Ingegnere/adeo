@@ -21,7 +21,10 @@ export const refs = {
   saveListBtn: byId<HTMLButtonElement>('save-list'),
   addTaskListSelect: byId<HTMLSelectElement>('add-task-list'),
   modalListSelect: byId<HTMLSelectElement>('modal-list-select'),
-  modalPrioritySelect: byId<HTMLSelectElement>('modal-priority-select'),
+  priorityPicker: byId<HTMLButtonElement>('priority-picker'),
+  priorityMenu: byId<HTMLDivElement>('priority-menu'),
+  priorityChip: byId<HTMLSpanElement>('priority-chip'),
+  priorityLabel: byId<HTMLSpanElement>('priority-label'),
   tasksTitleEl: document.querySelector<HTMLParagraphElement>('.tasks-title'),
 };
 

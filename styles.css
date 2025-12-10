@@ -622,6 +622,73 @@ body {
   background-image: none;
 }
 
+.priority-select-wrap {
+  position: relative;
+}
+
+.priority-picker {
+  width: 100%;
+  border: none;
+  background: #f7f7f7;
+  color: #111;
+  padding: 6px 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11.2px;
+  text-align: left;
+}
+
+.priority-picker:hover {
+  background: #e6e6e6;
+}
+
+.priority-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #c9c9c9;
+  flex-shrink: 0;
+  border: 1px solid #d6d6d6;
+  display: inline-block;
+}
+
+.priority-caret {
+  margin-left: auto;
+  color: #666;
+}
+
+.priority-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  gap: 4px;
+  z-index: 10;
+}
+
+.priority-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.priority-menu-item:hover {
+  background: #f4f4f4;
+}
 .modal-right .select-input:hover {
   background: #e6e6e6;
 

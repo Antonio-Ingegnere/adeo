@@ -5,7 +5,7 @@
   "description": "Simple Electron boilerplate showing a Hello World window",
   "main": "dist/main.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && cp index.html dist/index.html && cp styles.css dist/styles.css",
+    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets && cp index.html dist/index.html && cp styles.css dist/styles.css && cp assets/icon.png dist/assets/icon.png",
     "start": "npm run build && electron .",
     "package:mac": "npm run build && electron-builder --mac"
   },
@@ -15,6 +15,7 @@
     "directories": {
       "output": "release"
     },
+    "icon": "assets/icon.png",
     "files": [
       "dist/**/*",
       "node_modules/**/*",

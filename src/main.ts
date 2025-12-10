@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage } from 'electron';
 import Database from 'better-sqlite3';
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import path from 'path';
@@ -62,6 +62,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -268,6 +269,14 @@ ipcMain.handle('delete-list', async (_event, id: number) => {
 });
 
 app.on('ready', () => {
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  if (process.platform === 'darwin' && app.dock) {
+    const dockIcon = nativeImage.createFromPath(iconPath);
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon);
+    }
+  }
+
   initializeDatabase();
   createWindow();
   if (mainWindow) {

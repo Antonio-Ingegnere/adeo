@@ -172,13 +172,14 @@ body {
       transparent 5px);
   cursor: grab;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 5px;
 }
 
 .task-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
+  margin-top: 3px;
 }
 
 .task-text {

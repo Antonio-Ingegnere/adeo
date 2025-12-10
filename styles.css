@@ -388,10 +388,15 @@ body {
   justify-content: center;
   cursor: pointer;
   color: #666;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease, visibility 120ms ease, background-color 120ms ease;
 }
 
 .list-menu-btn:hover {
   color: #222;
+  background: #e0e0e0;
+  border-radius: 6px;
 }
 
 .icon-more {
@@ -429,6 +434,11 @@ body {
 
 .list-menu-item:hover {
   background: #f0f0f0;
+}
+
+.list-pill:hover .list-menu-btn {
+  opacity: 1;
+  visibility: visible;
 }
 
 .expand-btn {

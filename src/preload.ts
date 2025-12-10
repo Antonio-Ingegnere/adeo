@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-task-details', id, details) as Promise<{ id: number; details: string }>,
   updateTaskList: (id: number, listId: number | null) =>
     ipcRenderer.invoke('update-task-list', id, listId) as Promise<{ id: number; listId: number | null }>,
+  updateTaskPriority: (id: number, priority: Task['priority']) =>
+    ipcRenderer.invoke('update-task-priority', id, priority) as Promise<{ id: number; priority: Task['priority'] }>,
   getSettings: () => ipcRenderer.invoke('get-settings') as Promise<Settings>,
   onShowCompletedChanged: (callback: (show: boolean) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);

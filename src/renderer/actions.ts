@@ -14,7 +14,7 @@ export const addTask = async () => {
       return;
     }
 
-    state.tasks.push(createdTask as Task);
+    state.tasks.push({ ...(createdTask as Task), priority: (createdTask as any).priority ?? 'none' });
     if (refs.input) {
       refs.input.value = '';
       refs.input.focus();
@@ -32,6 +32,9 @@ export const loadTasks = async () => {
     state.tasks.forEach((t) => {
       if ((t as any).listId === undefined) {
         t.listId = null;
+      }
+      if (!(t as any).priority) {
+        (t as any).priority = 'none';
       }
     });
     renderTasks();

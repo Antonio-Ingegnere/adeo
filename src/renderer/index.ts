@@ -70,6 +70,11 @@ const setupEvents = () => {
     state.modalSelectedListId = val ? Number(val) : null;
   });
 
+  refs.modalPrioritySelect?.addEventListener('change', (event) => {
+    const val = (event.target as HTMLSelectElement).value as typeof state.modalPriority;
+    state.modalPriority = val ?? 'none';
+  });
+
   document.addEventListener('open-edit-modal', (event) => {
     const detail = (event as CustomEvent<{ taskId: number }>).detail;
     if (detail?.taskId !== undefined) {

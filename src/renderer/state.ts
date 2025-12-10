@@ -14,6 +14,7 @@ export type UIState = {
   modalSelectedListId: number | null;
   addTaskSelectedListId: number | null;
   openListMenuId: number | null;
+  modalPriority: Task['priority'];
 };
 
 export const state: UIState = {
@@ -30,4 +31,5 @@ export const state: UIState = {
   modalSelectedListId: null,
   addTaskSelectedListId: null,
   openListMenuId: null,
+  modalPriority: 'none',
 };

@@ -9,6 +9,7 @@ export const openEditModal = (taskId: number) => {
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput || !task) return;
   state.editingTaskId = taskId;
   state.modalSelectedListId = task.listId ?? null;
+  state.modalPriority = task.priority ?? 'none';
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
   if (refs.editDoneInput) {
@@ -16,6 +17,9 @@ export const openEditModal = (taskId: number) => {
   }
   refs.overlay.classList.add('open');
   renderModalLists();
+  if (refs.modalPrioritySelect) {
+    refs.modalPrioritySelect.value = state.modalPriority;
+  }
   setTimeout(() => refs.editInput?.focus(), 0);
 };
 
@@ -29,6 +33,7 @@ export const closeEditModal = () => {
   }
   state.editingTaskId = null;
   state.modalSelectedListId = null;
+  state.modalPriority = 'none';
 };
 
 export const saveEdit = async () => {
@@ -37,15 +42,23 @@ export const saveEdit = async () => {
   const newDetails = refs.editDetailsInput.value;
   const newListId = state.modalSelectedListId;
   const newDone = refs.editDoneInput?.checked ?? false;
+  const newPriority = state.modalPriority;
   if (!newText) return;
   try {
-    const [textResult, detailsResult, listResult] = await Promise.all([
+    const [textResult, detailsResult, listResult, priorityResult] = await Promise.all([
       window.electronAPI.updateTaskText(state.editingTaskId, newText),
       window.electronAPI.updateTaskDetails(state.editingTaskId, newDetails),
       window.electronAPI.updateTaskList(state.editingTaskId, newListId),
       window.electronAPI.updateTaskDone(state.editingTaskId, newDone),
+      window.electronAPI.updateTaskPriority(state.editingTaskId, newPriority),
     ]);
-    if (!textResult || (textResult as any).error || !detailsResult || (listResult as any)?.error) {
+    if (
+      !textResult ||
+      (textResult as any).error ||
+      !detailsResult ||
+      (listResult as any)?.error ||
+      (priorityResult as any)?.error
+    ) {
       return;
     }
     const idx = state.tasks.findIndex((t) => t.id === state.editingTaskId);
@@ -54,6 +67,7 @@ export const saveEdit = async () => {
       state.tasks[idx].details = newDetails;
       state.tasks[idx].listId = (listResult as { listId: number | null }).listId ?? null;
       state.tasks[idx].done = newDone;
+      state.tasks[idx].priority = newPriority;
       renderTasks();
     }
     closeEditModal();
@@ -91,6 +105,9 @@ export const closeListModal = () => {
 
 export const renderModalLists = () => {
   renderListOptions(refs.modalListSelect, state.modalSelectedListId);
+  if (refs.modalPrioritySelect) {
+    refs.modalPrioritySelect.value = state.modalPriority;
+  }
 };
 
 export const saveList = () => {

@@ -5,6 +5,7 @@ export type Task = {
   done: boolean;
   position: number;
   listId: number | null;
+  priority: 'none' | 'low' | 'medium' | 'high';
 };
 
 export type Settings = {
@@ -24,6 +25,7 @@ export type ElectronAPI = {
   updateTaskOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
   updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
   updateTaskList: (id: number, listId: number | null) => Promise<{ id: number; listId: number | null }>;
+  updateTaskPriority: (id: number, priority: Task['priority']) => Promise<{ id: number; priority: Task['priority'] }>;
   getSettings: () => Promise<Settings>;
   onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
   addList: (name: string) => Promise<List | { error: string }>;

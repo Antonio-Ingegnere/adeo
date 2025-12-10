@@ -267,8 +267,8 @@ body {
 .tasks-list input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 5px;
+  top: 2px;
+  left: 5.5px;
   width: 4px;
   height: 8px;
   border: solid #444;

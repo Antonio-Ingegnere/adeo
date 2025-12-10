@@ -83,6 +83,13 @@ const setupEvents = () => {
       openEditListModal(detail.listId);
     }
   });
+
+  document.addEventListener('click', () => {
+    if (state.openListMenuId !== null) {
+      state.openListMenuId = null;
+      renderLists();
+    }
+  });
 };
 
 const init = async () => {

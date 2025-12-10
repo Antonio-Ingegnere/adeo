@@ -343,7 +343,7 @@ body {
 .lists-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1px;
   background: transparent;
 }
 
@@ -356,6 +356,12 @@ body {
   text-align: left;
   cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease, border-radius 120ms ease;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
 }
 
 .list-pill.selected {
@@ -369,6 +375,59 @@ body {
 .list-pill:hover {
   background: #e0e0e0;
   border-radius: 6px;
+}
+
+.list-menu-btn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #666;
+}
+
+.list-menu-btn:hover {
+  color: #222;
+}
+
+.icon-more {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.list-menu {
+  position: absolute;
+  top: 110%;
+  right: 4px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  min-width: 140px;
+  padding: 6px;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 5;
+  display: none;
+}
+
+.list-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.list-menu-item:hover {
+  background: #f0f0f0;
 }
 
 .expand-btn {

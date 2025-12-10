@@ -13,6 +13,7 @@ export type UIState = {
   editingListId: number | null;
   modalSelectedListId: number | null;
   addTaskSelectedListId: number | null;
+  openListMenuId: number | null;
 };
 
 export const state: UIState = {
@@ -28,4 +29,5 @@ export const state: UIState = {
   editingListId: null,
   modalSelectedListId: null,
   addTaskSelectedListId: null,
+  openListMenuId: null,
 };

@@ -70,6 +70,40 @@ export const renderLists = () => {
     const isSelected = state.selectedListId === list.id;
     item.className = `list-pill${isSelected ? ' selected' : ''}`;
     item.appendChild(makeLabel(list.name));
+
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'list-menu-btn';
+    menuBtn.title = 'More';
+    menuBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-more">
+        <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+      </svg>
+    `;
+    menuBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.openListMenuId = state.openListMenuId === list.id ? null : list.id;
+      renderLists();
+    });
+
+    const menu = document.createElement('div');
+    menu.className = 'list-menu';
+    menu.style.display = state.openListMenuId === list.id ? 'flex' : 'none';
+    menu.addEventListener('click', (event) => event.stopPropagation());
+
+    const renameItem = document.createElement('button');
+    renameItem.className = 'list-menu-item';
+    renameItem.textContent = 'Rename list';
+    renameItem.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const evt = new CustomEvent('open-edit-list-modal', { detail: { listId: list.id } });
+      document.dispatchEvent(evt);
+      state.openListMenuId = null;
+      renderLists();
+    });
+    menu.appendChild(renameItem);
+
+    item.appendChild(menuBtn);
+    item.appendChild(menu);
     item.addEventListener('click', () => {
       state.selectedListId = list.id;
       state.addTaskSelectedListId = list.id;

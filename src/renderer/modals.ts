@@ -66,6 +66,8 @@ export const openListModal = () => {
   if (!refs.listOverlay || !refs.listInput) return;
   refs.listOverlay.classList.add('open');
   refs.listInput.value = '';
+  const heading = refs.listOverlay.querySelector('h2');
+  if (heading) heading.textContent = 'Add list';
   setTimeout(() => refs.listInput?.focus(), 0);
 };
 
@@ -75,6 +77,8 @@ export const openEditListModal = (listId: number) => {
   state.editingListId = listId;
   refs.listOverlay.classList.add('open');
   refs.listInput.value = list.name;
+  const heading = refs.listOverlay.querySelector('h2');
+  if (heading) heading.textContent = 'Rename list';
   setTimeout(() => refs.listInput?.focus(), 0);
 };
 

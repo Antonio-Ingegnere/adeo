@@ -39,6 +39,30 @@ export const saveTaskOrder = async () => {
   }
 };
 
+
+const priorityBorderColors: Record<string, string> = {
+  none: '#b0b0b0',
+  low: '#6ecb4d',
+  medium: '#f3a84f',
+  high: '#ff5f5f',
+};
+
+const priorityFillColors: Record<string, string> = {
+  none: '#ffffff',
+  low: '#A4F07F',
+  medium: '#FFD08F',
+  high: '#FF8A8A',
+};
+
+const applyPriorityStyles = (checkbox: HTMLInputElement, task: Task) => {
+  const priority = task.priority ?? 'none';
+  const borderColor = priorityBorderColors[priority] ?? '#b0b0b0';
+  const fillColor = priorityFillColors[priority] ?? '#ffffff';
+  checkbox.style.borderColor = borderColor;
+  checkbox.style.background = fillColor;
+  checkbox.style.boxShadow = 'none';
+};
+
 const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   const row = document.createElement('div');
   row.className = 'task-row';
@@ -105,9 +129,11 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.checked = task.done;
+  applyPriorityStyles(checkbox, task);
   checkbox.addEventListener('change', async (event) => {
     const checked = (event.target as HTMLInputElement).checked;
     state.tasks[index].done = checked;
+    applyPriorityStyles(checkbox, state.tasks[index]);
     textSpan.style.textDecoration = checked ? 'line-through' : 'none';
     try {
       await window.electronAPI.updateTaskDone(task.id, checked);

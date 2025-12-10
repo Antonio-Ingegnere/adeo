@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLists: () => ipcRenderer.invoke('get-lists') as Promise<List[]>,
   updateListName: (id: number, name: string) =>
     ipcRenderer.invoke('update-list-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
+  deleteList: (id: number) => ipcRenderer.invoke('delete-list', id) as Promise<{ id: number }>,
 } satisfies ElectronAPI);
 
 window.addEventListener('DOMContentLoaded', () => {

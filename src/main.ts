@@ -255,6 +255,18 @@ ipcMain.handle('update-list-name', async (_event, id: number, name: string) => {
   return { id, name: trimmed };
 });
 
+ipcMain.handle('delete-list', async (_event, id: number) => {
+  const database = ensureDb();
+  const deleteTasks = database.prepare('DELETE FROM tasks WHERE list_id = ?');
+  const deleteListStmt = database.prepare('DELETE FROM lists WHERE id = ?');
+  const tx = database.transaction((listId: number) => {
+    deleteTasks.run(listId);
+    deleteListStmt.run(listId);
+  });
+  tx(id);
+  return { id };
+});
+
 app.on('ready', () => {
   initializeDatabase();
   createWindow();

@@ -29,6 +29,7 @@ export type ElectronAPI = {
   addList: (name: string) => Promise<List | { error: string }>;
   getLists: () => Promise<List[]>;
   updateListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
+  deleteList: (id: number) => Promise<{ id: number }>;
 };
 
 declare global {

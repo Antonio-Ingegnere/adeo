@@ -436,6 +436,13 @@ body {
   background: #f0f0f0;
 }
 
+.list-menu-danger {
+  color: #b00020;
+}
+
+.list-menu-danger:hover {
+  background: #fde7ec;
+}
 .list-pill:hover .list-menu-btn {
   opacity: 1;
   visibility: visible;

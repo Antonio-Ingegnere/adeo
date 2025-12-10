@@ -102,6 +102,38 @@ export const renderLists = () => {
     });
     menu.appendChild(renameItem);
 
+    const deleteItem = document.createElement('button');
+    deleteItem.className = 'list-menu-item list-menu-danger';
+    deleteItem.textContent = 'Delete list';
+    deleteItem.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const confirmDelete = window.confirm('Delete this list and all its tasks?');
+      if (!confirmDelete) {
+        state.openListMenuId = null;
+        renderLists();
+        return;
+      }
+      try {
+        await window.electronAPI.deleteList(list.id);
+        state.lists = state.lists.filter((l) => l.id !== list.id);
+        state.tasks = state.tasks.filter((t) => t.listId !== list.id);
+        if (state.selectedListId === list.id) {
+          state.selectedListId = null;
+        }
+        if (state.addTaskSelectedListId === list.id) {
+          state.addTaskSelectedListId = null;
+        }
+        state.openListMenuId = null;
+        renderLists();
+        renderTasks();
+        renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);
+        updateTasksTitle();
+      } catch (error) {
+        console.error('Failed to delete list', error);
+      }
+    });
+    menu.appendChild(deleteItem);
+
     item.appendChild(menuBtn);
     item.appendChild(menu);
     item.addEventListener('click', () => {

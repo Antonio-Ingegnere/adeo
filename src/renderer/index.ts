@@ -21,14 +21,26 @@ const priorityColors: Record<string, string> = {
   high: '#FF6B6B',
 };
 
+const priorityFillColors: Record<string, string> = {
+  none: '#ffffff',
+  low: '#A4F07F',
+  medium: '#FFD08F',
+  high: '#FF8A8A',
+};
+
 const updatePriorityUI = (value: string | null) => {
-  const color = value ? priorityColors[value] : priorityColors.none;
+  const border = value ? priorityColors[value] : priorityColors.none;
+  const fill = value ? priorityFillColors[value] : priorityFillColors.none;
   if (refs.priorityChip) {
-    refs.priorityChip.style.background = color ?? priorityColors.none;
+    refs.priorityChip.style.background = border ?? priorityColors.none;
   }
   if (refs.priorityLabel) {
     const label = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None';
     refs.priorityLabel.textContent = label;
+  }
+  if (refs.editDoneInput) {
+    refs.editDoneInput.style.borderColor = border ?? priorityColors.none;
+    refs.editDoneInput.style.background = fill ?? priorityFillColors.none;
   }
 };
 

@@ -362,6 +362,7 @@ body {
   max-width: 100%;
   min-width: 0;
   position: relative;
+  box-sizing: border-box;
 }
 
 .list-pill.selected {

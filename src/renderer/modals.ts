@@ -35,11 +35,9 @@ export const openEditModal = (taskId: number) => {
   }
   refs.overlay.classList.add('open');
   renderModalLists();
-  const updateChip = document.querySelector<HTMLElement>('#priority-chip');
-  if (updateChip) {
-    updateChip.style.background = document
-      .querySelector(`#modal-priority-select option[value=\"${state.modalPriority}\"]`)
-      ?.getAttribute('data-color') || '#C9C9C9';
+  updatePriorityUI(state.modalPriority);
+  if (refs.priorityMenu) {
+    refs.priorityMenu.style.display = 'none';
   }
   setTimeout(() => refs.editInput?.focus(), 0);
 };
@@ -55,6 +53,10 @@ export const closeEditModal = () => {
   state.editingTaskId = null;
   state.modalSelectedListId = null;
   state.modalPriority = 'none';
+  updatePriorityUI('none');
+  if (refs.priorityMenu) {
+    refs.priorityMenu.style.display = 'none';
+  }
 };
 
 export const saveEdit = async () => {

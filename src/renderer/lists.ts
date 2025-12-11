@@ -190,8 +190,8 @@ export const renderLists = () => {
         dragImage.style.boxSizing = 'border-box';
         document.body.appendChild(dragImage);
         const rect = item.getBoundingClientRect();
-        const offsetX = event.clientX - rect.left;
-        const offsetY = event.clientY - rect.top;
+        const offsetX = Math.min(Math.max(event.clientX - rect.left, 12), rect.width - 12);
+        const offsetY = Math.min(Math.max(event.clientY - rect.top, 12), rect.height - 12);
         dt.setDragImage(dragImage, offsetX, offsetY);
         requestAnimationFrame(() => dragImage.remove());
       }
@@ -207,8 +207,15 @@ export const renderLists = () => {
     item.addEventListener('dragover', (event) => {
       event.preventDefault();
       const targetIndex = Number(item.dataset.index);
-      const isBefore = event.offsetY < item.offsetHeight / 2;
-      state.listDropIndex = isBefore ? targetIndex : targetIndex + 1;
+      const isBefore = event.clientY < item.getBoundingClientRect().top + item.offsetHeight / 2;
+      const nextIndex = isBefore ? targetIndex : targetIndex + 1;
+      if (state.listDropIndex === nextIndex) {
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+        return;
+      }
+      state.listDropIndex = nextIndex;
       removeListDropIndicator();
       if (item.parentNode) {
         if (isBefore) {

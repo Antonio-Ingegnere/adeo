@@ -397,7 +397,8 @@ body {
 }
 
 .list-pill:hover .list-drag-handle,
-.list-pill.selected .list-drag-handle {
+.list-pill.selected .list-drag-handle,
+.list-pill.dragging .list-drag-handle {
   opacity: 1;
   visibility: visible;
 }

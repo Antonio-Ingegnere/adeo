@@ -188,6 +188,7 @@ export const renderLists = () => {
         dragImage.style.left = '-9999px';
         dragImage.style.width = `${item.getBoundingClientRect().width}px`;
         dragImage.style.boxSizing = 'border-box';
+        dragImage.classList.add('dragging');
         document.body.appendChild(dragImage);
         const rect = item.getBoundingClientRect();
         const offsetX = Math.min(Math.max(event.clientX - rect.left, 12), rect.width - 12);

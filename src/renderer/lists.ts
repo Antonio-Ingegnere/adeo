@@ -87,29 +87,16 @@ export const renderLists = () => {
     item.className = `list-pill${isSelected ? ' selected' : ''}`;
     item.dataset.index = String(state.lists.findIndex((l) => l.id === list.id));
 
+    item.setAttribute('draggable', 'true');
+
     const dragHandle = document.createElement('span');
     dragHandle.className = 'list-drag-handle';
-    dragHandle.setAttribute('draggable', 'true');
     dragHandle.innerHTML = `
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
       </svg>
     `;
     dragHandle.addEventListener('click', (event) => event.stopPropagation());
-    dragHandle.addEventListener('dragstart', (event) => {
-      state.listDragIndex = Number(item.dataset.index);
-      item.classList.add('dragging');
-      event.dataTransfer?.setData('text/plain', String(state.listDragIndex));
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-      }
-    });
-    dragHandle.addEventListener('dragend', () => {
-      state.listDragIndex = null;
-      state.listDropIndex = null;
-      item.classList.remove('dragging');
-      removeListDropIndicator();
-    });
 
     const label = makeLabel(list.name);
     item.appendChild(dragHandle);
@@ -188,6 +175,35 @@ export const renderLists = () => {
       renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId);
       renderTasks();
     });
+    item.addEventListener('dragstart', (event) => {
+      state.listDragIndex = Number(item.dataset.index);
+      item.classList.add('dragging');
+      const dt = event.dataTransfer;
+      dt?.setData('text/plain', String(state.listDragIndex));
+      if (dt) {
+        dt.effectAllowed = 'move';
+        const dragImage = item.cloneNode(true) as HTMLElement;
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-9999px';
+        dragImage.style.left = '-9999px';
+        dragImage.style.width = `${item.getBoundingClientRect().width}px`;
+        dragImage.style.boxSizing = 'border-box';
+        document.body.appendChild(dragImage);
+        const rect = item.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        dt.setDragImage(dragImage, offsetX, offsetY);
+        requestAnimationFrame(() => dragImage.remove());
+      }
+    });
+
+    item.addEventListener('dragend', () => {
+      state.listDragIndex = null;
+      state.listDropIndex = null;
+      item.classList.remove('dragging');
+      removeListDropIndicator();
+    });
+
     item.addEventListener('dragover', (event) => {
       event.preventDefault();
       const targetIndex = Number(item.dataset.index);

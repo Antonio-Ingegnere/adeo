@@ -253,35 +253,33 @@ export const renderLists = () => {
   });
 
   container.ondragover = (event) => {
-    event.preventDefault();
-    const dragEvent = event as DragEvent;
     if (state.lists.length === 0) {
+      event.preventDefault();
+      const dragEvent = event as DragEvent;
       state.listDropIndex = 0;
       removeListDropIndicator();
       container.appendChild(listDropIndicator);
-    } else if (event.target === container) {
-      state.listDropIndex = state.lists.length;
-      removeListDropIndicator();
-      container.appendChild(listDropIndicator);
-    }
-    if (dragEvent.dataTransfer) {
-      dragEvent.dataTransfer.dropEffect = 'move';
+      if (dragEvent.dataTransfer) {
+        dragEvent.dataTransfer.dropEffect = 'move';
+      }
     }
   };
   container.ondrop = (event) => {
-    event.preventDefault();
-    if (state.listDragIndex === null || state.listDropIndex === null) {
+    if (state.lists.length === 0) {
+      event.preventDefault();
+      if (state.listDragIndex === null || state.listDropIndex === null) {
+        removeListDropIndicator();
+        return;
+      }
+      const [moved] = state.lists.splice(state.listDragIndex, 1);
+      const adjustedIndex = state.listDragIndex < state.listDropIndex ? state.listDropIndex - 1 : state.listDropIndex;
+      state.lists.splice(adjustedIndex, 0, moved);
+      state.listDragIndex = null;
+      state.listDropIndex = null;
+      renderLists();
+      saveListOrder();
       removeListDropIndicator();
-      return;
     }
-    const [moved] = state.lists.splice(state.listDragIndex, 1);
-    const adjustedIndex = state.listDragIndex < state.listDropIndex ? state.listDropIndex - 1 : state.listDropIndex;
-    state.lists.splice(adjustedIndex, 0, moved);
-    state.listDragIndex = null;
-    state.listDropIndex = null;
-    renderLists();
-    saveListOrder();
-    removeListDropIndicator();
   };
 };
 

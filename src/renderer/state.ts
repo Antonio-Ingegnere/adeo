@@ -9,6 +9,8 @@ export type UIState = {
   expandedDetails: Set<number>;
   dragIndex: number | null;
   dropIndex: number | null;
+  listDragIndex: number | null;
+  listDropIndex: number | null;
   editingTaskId: number | null;
   editingListId: number | null;
   modalSelectedListId: number | null;
@@ -26,6 +28,8 @@ export const state: UIState = {
   expandedDetails: new Set<number>(),
   dragIndex: null,
   dropIndex: null,
+  listDragIndex: null,
+  listDropIndex: null,
   editingTaskId: null,
   editingListId: null,
   modalSelectedListId: null,

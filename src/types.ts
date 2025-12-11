@@ -15,6 +15,7 @@ export type Settings = {
 export type List = {
   id: number;
   name: string;
+  position: number;
 };
 
 export type ElectronAPI = {
@@ -32,6 +33,8 @@ export type ElectronAPI = {
   getLists: () => Promise<List[]>;
   updateListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
   deleteList: (id: number) => Promise<{ id: number }>;
+  updateListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+  confirmDeleteList: (name: string) => Promise<boolean>;
 };
 
 declare global {

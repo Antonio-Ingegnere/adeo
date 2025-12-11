@@ -169,7 +169,11 @@ export const saveList = () => {
       .addList(name)
       .then((created) => {
         if (!created || (created as any).error) return;
-        const newList: List = { id: (created as List).id, name: (created as List).name };
+        const newList: List = {
+          id: (created as List).id,
+          name: (created as List).name,
+          position: (created as List).position ?? state.lists.length,
+        };
         state.lists.push(newList);
         closeListModal();
         renderLists();

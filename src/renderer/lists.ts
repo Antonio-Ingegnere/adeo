@@ -1,5 +1,5 @@
 import type { List } from '../types.js';
-import { refs } from './dom.js';
+import { listDropIndicator, refs } from './dom.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
 
@@ -12,6 +12,21 @@ const makeLabel = (text: string) => {
     span.title = text;
   }
   return span;
+};
+
+const removeListDropIndicator = () => {
+  if (listDropIndicator.parentNode) {
+    listDropIndicator.parentNode.removeChild(listDropIndicator);
+  }
+};
+
+const saveListOrder = async () => {
+  try {
+    const orderedIds = state.lists.map((l) => l.id);
+    await window.electronAPI.updateListOrder(orderedIds);
+  } catch (error) {
+    console.error('Failed to save list order', error);
+  }
 };
 
 export const renderListOptions = (selectEl: HTMLSelectElement | null, selectedId: number | null) => {
@@ -41,12 +56,13 @@ export const renderListOptions = (selectEl: HTMLSelectElement | null, selectedId
 
 export const renderLists = () => {
   if (!refs.listsList) return;
-  refs.listsList.innerHTML = '';
+  const container = refs.listsList;
+  container.innerHTML = '';
   if (!state.listsExpanded) {
-    refs.listsList.style.display = 'none';
+    container.style.display = 'none';
     return;
   }
-  refs.listsList.style.display = 'flex';
+  container.style.display = 'flex';
   const allItem = document.createElement('div');
   allItem.className = `list-pill${state.selectedListId === null ? ' selected' : ''}`;
   allItem.appendChild(makeLabel('All lists'));
@@ -56,11 +72,11 @@ export const renderLists = () => {
     renderLists();
     renderTasks();
   });
-  refs.listsList.appendChild(allItem);
+  container.appendChild(allItem);
 
   if (state.lists.length === 0) {
     if (refs.listsEmpty) {
-      refs.listsList.appendChild(refs.listsEmpty);
+      container.appendChild(refs.listsEmpty);
     }
     return;
   }
@@ -69,7 +85,35 @@ export const renderLists = () => {
     const item = document.createElement('div');
     const isSelected = state.selectedListId === list.id;
     item.className = `list-pill${isSelected ? ' selected' : ''}`;
-    item.appendChild(makeLabel(list.name));
+    item.dataset.index = String(state.lists.findIndex((l) => l.id === list.id));
+
+    const dragHandle = document.createElement('span');
+    dragHandle.className = 'list-drag-handle';
+    dragHandle.setAttribute('draggable', 'true');
+    dragHandle.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+      </svg>
+    `;
+    dragHandle.addEventListener('click', (event) => event.stopPropagation());
+    dragHandle.addEventListener('dragstart', (event) => {
+      state.listDragIndex = Number(item.dataset.index);
+      item.classList.add('dragging');
+      event.dataTransfer?.setData('text/plain', String(state.listDragIndex));
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+      }
+    });
+    dragHandle.addEventListener('dragend', () => {
+      state.listDragIndex = null;
+      state.listDropIndex = null;
+      item.classList.remove('dragging');
+      removeListDropIndicator();
+    });
+
+    const label = makeLabel(list.name);
+    item.appendChild(dragHandle);
+    item.appendChild(label);
 
     const menuBtn = document.createElement('button');
     menuBtn.className = 'list-menu-btn';
@@ -107,7 +151,7 @@ export const renderLists = () => {
     deleteItem.textContent = 'Delete list';
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
-      const confirmDelete = window.confirm('Delete this list and all its tasks?');
+      const confirmDelete = await window.electronAPI.confirmDeleteList(list.name);
       if (!confirmDelete) {
         state.openListMenuId = null;
         renderLists();
@@ -144,12 +188,78 @@ export const renderLists = () => {
       renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId);
       renderTasks();
     });
+    item.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      const targetIndex = Number(item.dataset.index);
+      const isBefore = event.offsetY < item.offsetHeight / 2;
+      state.listDropIndex = isBefore ? targetIndex : targetIndex + 1;
+      removeListDropIndicator();
+      if (item.parentNode) {
+        if (isBefore) {
+          item.parentNode.insertBefore(listDropIndicator, item);
+        } else {
+          item.parentNode.insertBefore(listDropIndicator, item.nextSibling);
+        }
+      }
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    });
+    item.addEventListener('drop', (event) => {
+      event.preventDefault();
+      removeListDropIndicator();
+      if (state.listDragIndex === null || state.listDropIndex === null) return;
+      if (state.listDragIndex === state.listDropIndex || state.listDragIndex + 1 === state.listDropIndex) {
+        state.listDragIndex = null;
+        state.listDropIndex = null;
+        return;
+      }
+      const [moved] = state.lists.splice(state.listDragIndex, 1);
+      const adjustedIndex = state.listDragIndex < state.listDropIndex ? state.listDropIndex - 1 : state.listDropIndex;
+      state.lists.splice(adjustedIndex, 0, moved);
+      state.listDragIndex = null;
+      state.listDropIndex = null;
+      renderLists();
+      saveListOrder();
+    });
     item.addEventListener('dblclick', () => {
       const event = new CustomEvent('open-edit-list-modal', { detail: { listId: list.id } });
       document.dispatchEvent(event);
     });
-    refs.listsList?.appendChild(item);
+    container.appendChild(item);
   });
+
+  container.ondragover = (event) => {
+    event.preventDefault();
+    const dragEvent = event as DragEvent;
+    if (state.lists.length === 0) {
+      state.listDropIndex = 0;
+      removeListDropIndicator();
+      container.appendChild(listDropIndicator);
+    } else if (event.target === container) {
+      state.listDropIndex = state.lists.length;
+      removeListDropIndicator();
+      container.appendChild(listDropIndicator);
+    }
+    if (dragEvent.dataTransfer) {
+      dragEvent.dataTransfer.dropEffect = 'move';
+    }
+  };
+  container.ondrop = (event) => {
+    event.preventDefault();
+    if (state.listDragIndex === null || state.listDropIndex === null) {
+      removeListDropIndicator();
+      return;
+    }
+    const [moved] = state.lists.splice(state.listDragIndex, 1);
+    const adjustedIndex = state.listDragIndex < state.listDropIndex ? state.listDropIndex - 1 : state.listDropIndex;
+    state.lists.splice(adjustedIndex, 0, moved);
+    state.listDragIndex = null;
+    state.listDropIndex = null;
+    renderLists();
+    saveListOrder();
+    removeListDropIndicator();
+  };
 };
 
 export const toggleListsExpanded = () => {

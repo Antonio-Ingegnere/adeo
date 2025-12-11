@@ -45,6 +45,7 @@ function initializeDatabase(): void {
     CREATE TABLE IF NOT EXISTS lists (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -64,6 +65,17 @@ function initializeDatabase(): void {
       db.prepare('ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT \"none\"').run();
     } catch (error) {
       console.error('Failed to add priority column to tasks', error);
+    }
+  }
+
+  const listColumns = db.prepare('PRAGMA table_info(lists)').all() as Array<{ name: string }>;
+  const hasListPosition = listColumns.some((col) => col.name === 'position');
+  if (!hasListPosition) {
+    try {
+      db.prepare('ALTER TABLE lists ADD COLUMN position INTEGER NOT NULL DEFAULT 0').run();
+      db.prepare('UPDATE lists SET position = id WHERE position = 0').run();
+    } catch (error) {
+      console.error('Failed to add position column to lists', error);
     }
   }
 }
@@ -266,15 +278,17 @@ ipcMain.handle('add-list', async (_event, name: string) => {
     return { error: 'List name is empty' };
   }
   const database = ensureDb();
-  const result = database.prepare('INSERT INTO lists (name) VALUES (?)').run(trimmed);
-  return { id: Number(result.lastInsertRowid), name: trimmed };
+  const nextPosRow = database.prepare('SELECT MAX(position) as maxPos FROM lists').get() as { maxPos: number | null };
+  const nextPos = typeof nextPosRow?.maxPos === 'number' ? nextPosRow.maxPos + 1 : 0;
+  const result = database.prepare('INSERT INTO lists (name, position) VALUES (?, ?)').run(trimmed, nextPos);
+  return { id: Number(result.lastInsertRowid), name: trimmed, position: nextPos };
 });
 
 ipcMain.handle('get-lists', async () => {
   const database = ensureDb();
   const rows = database
-    .prepare('SELECT id, name FROM lists ORDER BY id ASC')
-    .all() as Array<{ id: number; name: string }>;
+    .prepare('SELECT id, name, position FROM lists ORDER BY position ASC, id ASC')
+    .all() as Array<{ id: number; name: string; position: number }>;
   return rows;
 });
 
@@ -298,6 +312,18 @@ ipcMain.handle('delete-list', async (_event, id: number) => {
   });
   tx(id);
   return { id };
+});
+
+ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
+  const database = ensureDb();
+  const update = database.prepare('UPDATE lists SET position = ? WHERE id = ?');
+  const reorder = database.transaction((ids: number[]) => {
+    ids.forEach((listId, index) => {
+      update.run(index, listId);
+    });
+  });
+  reorder(orderedIds);
+  return { success: true };
 });
 
 app.on('ready', () => {

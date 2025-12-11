@@ -56,7 +56,11 @@ export const loadSettings = async () => {
 export const loadLists = async () => {
   try {
     const existingLists = await window.electronAPI.getLists();
-    state.lists = existingLists ?? [];
+    state.lists = (existingLists ?? []).map((l, idx) => ({
+      ...l,
+      position: typeof l.position === 'number' ? l.position : idx,
+    }));
+    state.lists.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id);
     renderLists();
     updateTasksTitle();
     renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);

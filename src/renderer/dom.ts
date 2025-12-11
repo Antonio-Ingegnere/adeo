@@ -33,3 +33,9 @@ export const dropIndicator = (() => {
   el.className = 'drop-indicator';
   return el;
 })();
+
+export const listDropIndicator = (() => {
+  const el = document.createElement('div');
+  el.className = 'list-drop-indicator';
+  return el;
+})();

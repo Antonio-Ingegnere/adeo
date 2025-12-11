@@ -161,6 +161,13 @@ body {
   margin: 0 12px;
 }
 
+.list-drop-indicator {
+  height: 3px;
+  background: #4a8ef7;
+  border-radius: 999px;
+  margin: 0 8px;
+}
+
 .drag-handle {
   width: 14px;
   height: 14px;
@@ -363,6 +370,27 @@ body {
   min-width: 0;
   position: relative;
   box-sizing: border-box;
+}
+
+.list-drag-handle {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  color: #999;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.list-drag-handle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.list-drag-handle:hover {
+  color: #666;
 }
 
 .list-pill.selected {

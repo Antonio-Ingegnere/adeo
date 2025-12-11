@@ -25,6 +25,11 @@ export const refs = {
   priorityMenu: byId<HTMLDivElement>('priority-menu'),
   priorityChip: byId<HTMLSpanElement>('priority-chip'),
   priorityLabel: byId<HTMLSpanElement>('priority-label'),
+  reminderPicker: byId<HTMLButtonElement>('reminder-picker'),
+  reminderMenu: byId<HTMLDivElement>('reminder-menu'),
+  reminderLabel: byId<HTMLSpanElement>('reminder-label'),
+  reminderDateInput: byId<HTMLInputElement>('reminder-date'),
+  reminderTimeSelect: byId<HTMLSelectElement>('reminder-time'),
   tasksTitleEl: document.querySelector<HTMLParagraphElement>('.tasks-title'),
 };
 

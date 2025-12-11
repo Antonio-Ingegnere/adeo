@@ -11,36 +11,32 @@ import {
   renderModalLists,
   saveEdit,
   saveList,
+  updatePriorityUI,
+  updateReminderUI,
 } from './modals.js';
 import { state } from './state.js';
 
-const priorityColors: Record<string, string> = {
-  none: '#C9C9C9',
-  low: '#7ED957',
-  medium: '#FFB866',
-  high: '#FF6B6B',
-};
+const buildTimeOptions = () => {
+  if (!refs.reminderTimeSelect) return;
+  const select = refs.reminderTimeSelect;
+  select.innerHTML = '';
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = 'No time';
+  select.appendChild(empty);
 
-const priorityFillColors: Record<string, string> = {
-  none: '#ffffff',
-  low: '#A4F07F',
-  medium: '#FFD08F',
-  high: '#FF8A8A',
-};
-
-const updatePriorityUI = (value: string | null) => {
-  const border = value ? priorityColors[value] : priorityColors.none;
-  const fill = value ? priorityFillColors[value] : priorityFillColors.none;
-  if (refs.priorityChip) {
-    refs.priorityChip.style.background = border ?? priorityColors.none;
-  }
-  if (refs.priorityLabel) {
-    const label = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None';
-    refs.priorityLabel.textContent = label;
-  }
-  if (refs.editDoneInput) {
-    refs.editDoneInput.style.borderColor = border ?? priorityColors.none;
-    refs.editDoneInput.style.background = fill ?? priorityFillColors.none;
+  const formatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  const start = new Date();
+  start.setHours(11, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(22, 30, 0, 0);
+  for (let dt = new Date(start); dt <= end; dt.setMinutes(dt.getMinutes() + 30)) {
+    const option = document.createElement('option');
+    const hours = dt.getHours().toString().padStart(2, '0');
+    const minutes = dt.getMinutes().toString().padStart(2, '0');
+    option.value = `${hours}:${minutes}`;
+    option.textContent = formatter.format(dt);
+    select.appendChild(option);
   }
 };
 
@@ -118,6 +114,29 @@ const setupEvents = () => {
     if (refs.priorityMenu) refs.priorityMenu.style.display = 'none';
   });
 
+  refs.reminderPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (refs.reminderMenu) {
+      refs.reminderMenu.style.display = refs.reminderMenu.style.display === 'flex' ? 'none' : 'flex';
+    }
+  });
+
+  refs.reminderMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  refs.reminderDateInput?.addEventListener('change', (event) => {
+    const val = (event.target as HTMLInputElement).value;
+    state.modalReminderDate = val || null;
+    updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+  });
+
+  refs.reminderTimeSelect?.addEventListener('change', (event) => {
+    const val = (event.target as HTMLSelectElement).value;
+    state.modalReminderTime = val || null;
+    updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+  });
+
   document.addEventListener('open-edit-modal', (event) => {
     const detail = (event as CustomEvent<{ taskId: number }>).detail;
     if (detail?.taskId !== undefined) {
@@ -140,6 +159,9 @@ const setupEvents = () => {
     if (refs.priorityMenu) {
       refs.priorityMenu.style.display = 'none';
     }
+    if (refs.reminderMenu) {
+      refs.reminderMenu.style.display = 'none';
+    }
   });
 };
 
@@ -153,6 +175,8 @@ const init = async () => {
   refs.listsToggle?.dispatchEvent(new Event('click'));
   updateTasksTitle();
   updatePriorityUI(state.modalPriority);
+  buildTimeOptions();
+  updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   await loadSettings();
   await loadTasks();
   await loadLists();

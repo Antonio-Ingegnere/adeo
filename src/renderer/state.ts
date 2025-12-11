@@ -17,6 +17,8 @@ export type UIState = {
   addTaskSelectedListId: number | null;
   openListMenuId: number | null;
   modalPriority: Task['priority'];
+  modalReminderDate: string | null;
+  modalReminderTime: string | null;
 };
 
 export const state: UIState = {
@@ -36,4 +38,6 @@ export const state: UIState = {
   addTaskSelectedListId: null,
   openListMenuId: null,
   modalPriority: 'none',
+  modalReminderDate: null,
+  modalReminderTime: null,
 };

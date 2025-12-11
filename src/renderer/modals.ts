@@ -18,7 +18,7 @@ const priorityFillColors: Record<string, string> = {
   high: '#FF8A8A',
 };
 
-const updatePriorityUI = (value: string | null) => {
+export const updatePriorityUI = (value: string | null) => {
   const color = value ? priorityColors[value] : priorityColors.none;
   const fill = value ? priorityFillColors[value] : priorityFillColors.none;
   if (refs.priorityChip) {
@@ -34,22 +34,58 @@ const updatePriorityUI = (value: string | null) => {
   }
 };
 
+const formatReminderLabel = (date: string | null, time: string | null) => {
+  if (!date && !time) return 'None';
+  let label = '';
+  if (date) {
+    const parsed = new Date(date);
+    label += parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  if (time) {
+    label += label ? ' • ' : '';
+    const [hours, minutes] = time.split(':').map((v) => Number(v));
+    const dt = new Date();
+    dt.setHours(hours);
+    dt.setMinutes(minutes);
+    label += dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+  return label || 'None';
+};
+
+export const updateReminderUI = (date: string | null, time: string | null) => {
+  if (refs.reminderLabel) {
+    refs.reminderLabel.textContent = formatReminderLabel(date, time);
+  }
+};
+
 export const openEditModal = (taskId: number) => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput || !task) return;
   state.editingTaskId = taskId;
   state.modalSelectedListId = task.listId ?? null;
   state.modalPriority = task.priority ?? 'none';
+  state.modalReminderDate = null;
+  state.modalReminderTime = null;
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
+  if (refs.reminderDateInput) {
+    refs.reminderDateInput.value = state.modalReminderDate ?? '';
+  }
+  if (refs.reminderTimeSelect) {
+    refs.reminderTimeSelect.value = state.modalReminderTime ?? '';
+  }
   if (refs.editDoneInput) {
     refs.editDoneInput.checked = task.done;
   }
   refs.overlay.classList.add('open');
   renderModalLists();
   updatePriorityUI(state.modalPriority);
+  updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
+  }
+  if (refs.reminderMenu) {
+    refs.reminderMenu.style.display = 'none';
   }
   setTimeout(() => refs.editInput?.focus(), 0);
 };
@@ -65,9 +101,17 @@ export const closeEditModal = () => {
   state.editingTaskId = null;
   state.modalSelectedListId = null;
   state.modalPriority = 'none';
+  state.modalReminderDate = null;
+  state.modalReminderTime = null;
+  if (refs.reminderDateInput) refs.reminderDateInput.value = '';
+  if (refs.reminderTimeSelect) refs.reminderTimeSelect.value = '';
   updatePriorityUI('none');
+  updateReminderUI(null, null);
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
+  }
+  if (refs.reminderMenu) {
+    refs.reminderMenu.style.display = 'none';
   }
 };
 

@@ -153,6 +153,34 @@
           </div>
         </div>
       </div>
+      <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true">
+        <div class="modal modal-small">
+          <h2>Settings</h2>
+          <div class="settings-section">
+            <p class="modal-label">Time format</p>
+            <div class="settings-options">
+              <label class="radio-option">
+                <input id="time-12" type="radio" name="time-format" value="12h" checked />
+                <span>12 hour</span>
+              </label>
+              <label class="radio-option">
+                <input id="time-24" type="radio" name="time-format" value="24h" />
+                <span>24 hour</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings">✕</button>
+            <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings">
+              <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
     <script type="module" src="renderer/index.js"></script>
   </body>

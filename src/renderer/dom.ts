@@ -30,6 +30,11 @@ export const refs = {
   reminderLabel: byId<HTMLSpanElement>('reminder-label'),
   reminderDateInput: byId<HTMLInputElement>('reminder-date'),
   reminderTimeSelect: byId<HTMLSelectElement>('reminder-time'),
+  settingsOverlay: byId<HTMLDivElement>('settings-overlay'),
+  settingsRadio12: byId<HTMLInputElement>('time-12'),
+  settingsRadio24: byId<HTMLInputElement>('time-24'),
+  settingsSave: byId<HTMLButtonElement>('save-settings'),
+  settingsCancel: byId<HTMLButtonElement>('cancel-settings'),
   tasksTitleEl: document.querySelector<HTMLParagraphElement>('.tasks-title'),
 };
 

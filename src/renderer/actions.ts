@@ -47,6 +47,7 @@ export const loadSettings = async () => {
   try {
     const settings = await window.electronAPI.getSettings();
     state.showCompleted = settings.showCompleted;
+    state.timeFormat = settings.timeFormat ?? '12h';
     renderTasks();
   } catch (error) {
     console.error('Failed to load settings', error);

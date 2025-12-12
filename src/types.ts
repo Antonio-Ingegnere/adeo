@@ -10,6 +10,7 @@ export type Task = {
 
 export type Settings = {
   showCompleted: boolean;
+  timeFormat: '12h' | '24h';
 };
 
 export type List = {
@@ -35,6 +36,8 @@ export type ElectronAPI = {
   deleteList: (id: number) => Promise<{ id: number }>;
   updateListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
   confirmDeleteList: (name: string) => Promise<boolean>;
+  updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
+  onOpenSettings: (callback: () => void) => () => void;
 };
 
 declare global {

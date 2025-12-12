@@ -31,6 +31,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateListOrder: (orderedIds: number[]) =>
     ipcRenderer.invoke('update-list-order', orderedIds) as Promise<{ success: boolean }>,
   confirmDeleteList: (name: string) => ipcRenderer.invoke('confirm-delete-list', name) as Promise<boolean>,
+  updateTimeFormat: (format: '12h' | '24h') =>
+    ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
+  onOpenSettings: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('open-settings', listener);
+    return () => ipcRenderer.removeListener('open-settings', listener);
+  },
 } satisfies ElectronAPI);
 
 window.addEventListener('DOMContentLoaded', () => {

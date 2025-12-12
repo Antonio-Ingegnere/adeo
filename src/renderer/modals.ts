@@ -47,7 +47,13 @@ const formatReminderLabel = (date: string | null, time: string | null) => {
     const dt = new Date();
     dt.setHours(hours);
     dt.setMinutes(minutes);
-    label += dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    if (state.timeFormat === '24h') {
+      const hh = hours.toString().padStart(2, '0');
+      const mm = minutes.toString().padStart(2, '0');
+      label += `${hh}:${mm}`;
+    } else {
+      label += dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
   }
   return label || 'None';
 };

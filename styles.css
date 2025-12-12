@@ -933,6 +933,25 @@ body {
   display: block;
 }
 
+.settings-section {
+  margin-top: 8px;
+}
+
+.settings-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #222;
+}
+
 .btn.primary {
   border: none;
   background: #1d72f3;

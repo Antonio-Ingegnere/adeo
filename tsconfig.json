@@ -9,7 +9,9 @@
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "sourceMap": true
   },
-  "include": ["src/main.ts", "src/preload.ts", "src/types.ts"]
+  "include": ["src/main.ts", "src/preload.ts", "src/types.ts", "src"],
+  "exclude": ["src/renderer/**/*"]
 }

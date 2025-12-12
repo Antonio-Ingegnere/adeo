@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage } from 'electron
 import Database from 'better-sqlite3';
 import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
 const APP_NAME = 'Adeo';
 
@@ -10,6 +11,50 @@ let db: BetterSqliteDatabase | null = null;
 let mainWindow: BrowserWindow | null = null;
 let showCompleted = true;
 type Priority = 'none' | 'low' | 'medium' | 'high';
+
+type TimeFormat = '12h' | '24h';
+
+type AppSettings = {
+  showCompleted: boolean;
+  timeFormat: TimeFormat;
+};
+
+const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+
+const defaultSettings: AppSettings = {
+  showCompleted: true,
+  timeFormat: '12h',
+};
+
+const readSettings = (): AppSettings => {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const raw = fs.readFileSync(settingsPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      return {
+        ...defaultSettings,
+        ...parsed,
+        timeFormat: parsed.timeFormat === '24h' ? '24h' : '12h',
+        showCompleted: typeof parsed.showCompleted === 'boolean' ? parsed.showCompleted : true,
+      };
+    }
+  } catch {
+    // ignore and fall back
+  }
+  return { ...defaultSettings };
+};
+
+const writeSettings = (settings: AppSettings) => {
+  try {
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch (error) {
+    console.error('Failed to write settings', error);
+  }
+};
+
+let appSettings: AppSettings = readSettings();
+showCompleted = appSettings.showCompleted;
 
 // Set the app name as early as possible so macOS uses it for the menu bar.
 app.name = APP_NAME;
@@ -97,6 +142,8 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  setupMenu(mainWindow);
 }
 
 function setupMenu(window: BrowserWindow): void {
@@ -132,7 +179,15 @@ function setupMenu(window: BrowserWindow): void {
           checked: showCompleted,
           click: (menuItem) => {
             showCompleted = menuItem.checked;
+            appSettings = { ...appSettings, showCompleted };
+            writeSettings(appSettings);
             window.webContents.send('show-completed-changed', showCompleted);
+          },
+        },
+        {
+          label: 'Settings',
+          click: () => {
+            window.webContents.send('open-settings');
           },
         },
       ],
@@ -269,7 +324,7 @@ ipcMain.handle('update-task-order', async (_event, orderedIds: number[]) => {
 });
 
 ipcMain.handle('get-settings', async () => {
-  return { showCompleted };
+  return { ...appSettings };
 });
 
 ipcMain.handle('add-list', async (_event, name: string) => {
@@ -326,6 +381,21 @@ ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
   return { success: true };
 });
 
+ipcMain.handle('update-time-format', async (_event, format: TimeFormat) => {
+  const nextFormat: TimeFormat = format === '24h' ? '24h' : '12h';
+  appSettings = { ...appSettings, timeFormat: nextFormat };
+  writeSettings(appSettings);
+  return { timeFormat: nextFormat };
+});
+
+
+// //TODO: Only for debugging, remove later!!!
+// app.whenReady().then(() => {
+//   setTimeout(() => {
+//     createWindow();
+//   }, 2000); // give VS Code 2000ms to attach
+// });
+
 app.on('ready', () => {
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
   if (process.platform === 'darwin' && app.dock) {
@@ -336,6 +406,7 @@ app.on('ready', () => {
   }
 
   initializeDatabase();
+  //Get back after debugging
   createWindow();
   if (mainWindow) {
     setupMenu(mainWindow);

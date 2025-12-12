@@ -25,7 +25,8 @@ const buildTimeOptions = () => {
   empty.textContent = 'No time';
   select.appendChild(empty);
 
-  const formatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  const prefers24Hour = state.timeFormat === '24h';
+  const formatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: !prefers24Hour });
   const start = new Date();
   start.setHours(11, 0, 0, 0);
   const end = new Date(start);
@@ -35,7 +36,7 @@ const buildTimeOptions = () => {
     const hours = dt.getHours().toString().padStart(2, '0');
     const minutes = dt.getMinutes().toString().padStart(2, '0');
     option.value = `${hours}:${minutes}`;
-    option.textContent = formatter.format(dt);
+    option.textContent = prefers24Hour ? `${hours}:${minutes}` : formatter.format(dt);
     select.appendChild(option);
   }
 };
@@ -137,6 +138,43 @@ const setupEvents = () => {
     updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   });
 
+  refs.settingsSave?.addEventListener('click', async () => {
+    const selected: '12h' | '24h' = refs.settingsRadio24?.checked ? '24h' : '12h';
+    try {
+      const result = await window.electronAPI.updateTimeFormat(selected);
+      state.timeFormat = result.timeFormat;
+      buildTimeOptions();
+      updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+    } catch (error) {
+      console.error('Failed to update time format', error);
+    }
+    refs.settingsOverlay?.classList.remove('open');
+  });
+
+  refs.settingsCancel?.addEventListener('click', () => {
+    refs.settingsOverlay?.classList.remove('open');
+  });
+
+  if (refs.settingsOverlay) {
+    const overlay = refs.settingsOverlay;
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        overlay.classList.remove('open');
+      }
+    });
+  }
+
+  window.electronAPI.onOpenSettings(() => {
+    if (refs.settingsOverlay) {
+      if (state.timeFormat === '24h') {
+        if (refs.settingsRadio24) refs.settingsRadio24.checked = true;
+      } else if (refs.settingsRadio12) {
+        refs.settingsRadio12.checked = true;
+      }
+      refs.settingsOverlay.classList.add('open');
+    }
+  });
+
   document.addEventListener('open-edit-modal', (event) => {
     const detail = (event as CustomEvent<{ taskId: number }>).detail;
     if (detail?.taskId !== undefined) {
@@ -175,9 +213,9 @@ const init = async () => {
   refs.listsToggle?.dispatchEvent(new Event('click'));
   updateTasksTitle();
   updatePriorityUI(state.modalPriority);
+  await loadSettings();
   buildTimeOptions();
   updateReminderUI(state.modalReminderDate, state.modalReminderTime);
-  await loadSettings();
   await loadTasks();
   await loadLists();
 };

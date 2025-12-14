@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   confirmDeleteList: (name: string) => ipcRenderer.invoke('confirm-delete-list', name) as Promise<boolean>,
   updateTimeFormat: (format: '12h' | '24h') =>
     ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
+  updateDateFormat: (format: string) =>
+    ipcRenderer.invoke('update-date-format', format) as Promise<{ dateFormat: string }>,
   onOpenSettings: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('open-settings', listener);

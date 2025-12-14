@@ -35,6 +35,7 @@ export const refs = {
   settingsRadio24: byId<HTMLInputElement>('time-24'),
   settingsSave: byId<HTMLButtonElement>('save-settings'),
   settingsCancel: byId<HTMLButtonElement>('cancel-settings'),
+  dateFormatSelect: byId<HTMLSelectElement>('date-format'),
   tasksTitleEl: document.querySelector<HTMLParagraphElement>('.tasks-title'),
 };
 

@@ -17,6 +17,32 @@ export const getVisibleTasks = (): Task[] => {
   return base;
 };
 
+const formatDate = (date: string | null) => {
+  if (!date) return '';
+  const [y, m, d] = date.split('-');
+  const map: Record<string, string> = {
+    'YYYY-MM-DD': `${y}-${m}-${d}`,
+    'DD/MM/YYYY': `${d}/${m}/${y}`,
+    'MM/DD/YYYY': `${m}/${d}/${y}`,
+    'DD.MM.YYYY': `${d}.${m}.${y}`,
+    'YYYY/MM/DD': `${y}/${m}/${d}`,
+    'MM-DD-YYYY': `${m}-${d}-${y}`,
+    'DD-MM-YYYY': `${d}-${m}-${y}`,
+    'MMM DD, YYYY': new Date(`${y}-${m}-${d}`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    }),
+    'DD MMM YYYY': new Date(`${y}-${m}-${d}`).toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }),
+    'YYYY.MM.DD': `${y}.${m}.${d}`,
+  };
+  return map[state.dateFormat] ?? `${y}-${m}-${d}`;
+};
+
 export const updateTasksTitle = () => {
   if (!refs.tasksTitleEl) return;
   if (state.selectedListId === null) {
@@ -168,7 +194,7 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
     const reminder = document.createElement('div');
     reminder.className = 'task-reminder';
     const parts: string[] = [];
-    if (task.reminderDate) parts.push(task.reminderDate);
+    if (task.reminderDate) parts.push(formatDate(task.reminderDate));
     if (task.reminderTime) parts.push(task.reminderTime);
     reminder.textContent = parts.join(' ');
     mainBlock.appendChild(reminder);

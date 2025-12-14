@@ -20,6 +20,7 @@ export type UIState = {
   modalReminderDate: string | null;
   modalReminderTime: string | null;
   timeFormat: '12h' | '24h';
+  dateFormat: string;
 };
 
 export const state: UIState = {
@@ -42,4 +43,5 @@ export const state: UIState = {
   modalReminderDate: null,
   modalReminderTime: null,
   timeFormat: '12h',
+  dateFormat: 'YYYY-MM-DD',
 };

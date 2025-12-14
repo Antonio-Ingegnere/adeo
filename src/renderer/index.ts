@@ -140,11 +140,17 @@ const setupEvents = () => {
 
   refs.settingsSave?.addEventListener('click', async () => {
     const selected: '12h' | '24h' = refs.settingsRadio24?.checked ? '24h' : '12h';
+    const selectedDateFormat = refs.dateFormatSelect?.value || state.dateFormat;
     try {
-      const result = await window.electronAPI.updateTimeFormat(selected);
-      state.timeFormat = result.timeFormat;
+      const [timeResult, dateResult] = await Promise.all([
+        window.electronAPI.updateTimeFormat(selected),
+        window.electronAPI.updateDateFormat(selectedDateFormat),
+      ]);
+      state.timeFormat = timeResult.timeFormat;
+      state.dateFormat = dateResult.dateFormat;
       buildTimeOptions();
       updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+      renderTasks();
     } catch (error) {
       console.error('Failed to update time format', error);
     }
@@ -170,6 +176,9 @@ const setupEvents = () => {
         if (refs.settingsRadio24) refs.settingsRadio24.checked = true;
       } else if (refs.settingsRadio12) {
         refs.settingsRadio12.checked = true;
+      }
+      if (refs.dateFormatSelect) {
+        refs.dateFormatSelect.value = state.dateFormat;
       }
       refs.settingsOverlay.classList.add('open');
     }

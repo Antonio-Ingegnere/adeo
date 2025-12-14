@@ -38,8 +38,7 @@ const formatReminderLabel = (date: string | null, time: string | null) => {
   if (!date && !time) return 'None';
   let label = '';
   if (date) {
-    const parsed = new Date(date);
-    label += parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    label += date;
   }
   if (time) {
     label += label ? ' • ' : '';

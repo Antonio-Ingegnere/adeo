@@ -965,6 +965,11 @@ body {
   color: #222;
 }
 
+.settings-section .select-input {
+  width: 100%;
+  margin-top: 6px;
+}
+
 .btn.primary {
   border: none;
   background: #1d72f3;

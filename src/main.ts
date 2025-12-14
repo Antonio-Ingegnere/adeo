@@ -13,10 +13,22 @@ let showCompleted = true;
 type Priority = 'none' | 'low' | 'medium' | 'high';
 
 type TimeFormat = '12h' | '24h';
+type DateFormat =
+  | 'YYYY-MM-DD'
+  | 'DD/MM/YYYY'
+  | 'MM/DD/YYYY'
+  | 'DD.MM.YYYY'
+  | 'YYYY/MM/DD'
+  | 'MM-DD-YYYY'
+  | 'DD-MM-YYYY'
+  | 'MMM DD, YYYY'
+  | 'DD MMM YYYY'
+  | 'YYYY.MM.DD';
 
 type AppSettings = {
   showCompleted: boolean;
   timeFormat: TimeFormat;
+  dateFormat: DateFormat;
 };
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -24,6 +36,7 @@ const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 const defaultSettings: AppSettings = {
   showCompleted: true,
   timeFormat: '12h',
+  dateFormat: 'YYYY-MM-DD',
 };
 
 const readSettings = (): AppSettings => {
@@ -35,6 +48,7 @@ const readSettings = (): AppSettings => {
         ...defaultSettings,
         ...parsed,
         timeFormat: parsed.timeFormat === '24h' ? '24h' : '12h',
+        dateFormat: parsed.dateFormat || defaultSettings.dateFormat,
         showCompleted: typeof parsed.showCompleted === 'boolean' ? parsed.showCompleted : true,
       };
     }
@@ -420,6 +434,25 @@ ipcMain.handle('update-time-format', async (_event, format: TimeFormat) => {
   appSettings = { ...appSettings, timeFormat: nextFormat };
   writeSettings(appSettings);
   return { timeFormat: nextFormat };
+});
+
+ipcMain.handle('update-date-format', async (_event, format: DateFormat) => {
+  const allowed: DateFormat[] = [
+    'YYYY-MM-DD',
+    'DD/MM/YYYY',
+    'MM/DD/YYYY',
+    'DD.MM.YYYY',
+    'YYYY/MM/DD',
+    'MM-DD-YYYY',
+    'DD-MM-YYYY',
+    'MMM DD, YYYY',
+    'DD MMM YYYY',
+    'YYYY.MM.DD',
+  ];
+  const nextFormat = allowed.includes(format as DateFormat) ? (format as DateFormat) : defaultSettings.dateFormat;
+  appSettings = { ...appSettings, dateFormat: nextFormat };
+  writeSettings(appSettings);
+  return { dateFormat: nextFormat };
 });
 
 

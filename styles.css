@@ -111,6 +111,12 @@ body {
   fill: #fff;
   display: block;
 }
+.primary-button.icon-btn .icon-add {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+  display: block;
+}
 
 .tasks-section {
   margin-top: 20px;

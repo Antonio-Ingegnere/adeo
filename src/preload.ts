@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-task-list', id, listId) as Promise<{ id: number; listId: number | null }>,
   updateTaskPriority: (id: number, priority: Task['priority']) =>
     ipcRenderer.invoke('update-task-priority', id, priority) as Promise<{ id: number; priority: Task['priority'] }>,
+  updateTaskReminder: (id: number, reminderDate: string | null, reminderTime: string | null) =>
+    ipcRenderer.invoke('update-task-reminder', id, reminderDate, reminderTime) as Promise<{
+      id: number;
+      reminderDate: string | null;
+      reminderTime: string | null;
+    }>,
   getSettings: () => ipcRenderer.invoke('get-settings') as Promise<Settings>,
   onShowCompletedChanged: (callback: (show: boolean) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);

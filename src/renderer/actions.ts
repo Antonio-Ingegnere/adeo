@@ -36,6 +36,12 @@ export const loadTasks = async () => {
       if (!(t as any).priority) {
         (t as any).priority = 'none';
       }
+      if ((t as any).reminderDate === undefined) {
+        (t as any).reminderDate = null;
+      }
+      if ((t as any).reminderTime === undefined) {
+        (t as any).reminderTime = null;
+      }
     });
     renderTasks();
   } catch (error) {

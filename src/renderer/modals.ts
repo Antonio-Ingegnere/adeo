@@ -70,8 +70,8 @@ export const openEditModal = (taskId: number) => {
   state.editingTaskId = taskId;
   state.modalSelectedListId = task.listId ?? null;
   state.modalPriority = task.priority ?? 'none';
-  state.modalReminderDate = null;
-  state.modalReminderTime = null;
+  state.modalReminderDate = task.reminderDate ?? null;
+  state.modalReminderTime = task.reminderTime ?? null;
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
   if (refs.reminderDateInput) {
@@ -128,21 +128,25 @@ export const saveEdit = async () => {
   const newListId = state.modalSelectedListId;
   const newDone = refs.editDoneInput?.checked ?? false;
   const newPriority = state.modalPriority;
+  const reminderDate = state.modalReminderDate ?? null;
+  const reminderTime = state.modalReminderTime ?? null;
   if (!newText) return;
   try {
-    const [textResult, detailsResult, listResult, priorityResult] = await Promise.all([
+    const [textResult, detailsResult, listResult, priorityResult, reminderResult] = await Promise.all([
       window.electronAPI.updateTaskText(state.editingTaskId, newText),
       window.electronAPI.updateTaskDetails(state.editingTaskId, newDetails),
       window.electronAPI.updateTaskList(state.editingTaskId, newListId),
       window.electronAPI.updateTaskDone(state.editingTaskId, newDone),
       window.electronAPI.updateTaskPriority(state.editingTaskId, newPriority),
+      window.electronAPI.updateTaskReminder(state.editingTaskId, reminderDate, reminderTime),
     ]);
     if (
       !textResult ||
       (textResult as any).error ||
       !detailsResult ||
       (listResult as any)?.error ||
-      (priorityResult as any)?.error
+      (priorityResult as any)?.error ||
+      (reminderResult as any)?.error
     ) {
       return;
     }
@@ -153,6 +157,8 @@ export const saveEdit = async () => {
       state.tasks[idx].listId = (listResult as { listId: number | null }).listId ?? null;
       state.tasks[idx].done = newDone;
       state.tasks[idx].priority = newPriority;
+      state.tasks[idx].reminderDate = reminderDate;
+      state.tasks[idx].reminderTime = reminderTime;
       renderTasks();
     }
     closeEditModal();

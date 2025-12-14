@@ -6,6 +6,8 @@ export type Task = {
   position: number;
   listId: number | null;
   priority: 'none' | 'low' | 'medium' | 'high';
+  reminderDate?: string | null;
+  reminderTime?: string | null;
 };
 
 export type Settings = {
@@ -28,6 +30,11 @@ export type ElectronAPI = {
   updateTaskDetails: (id: number, details: string) => Promise<{ id: number; details: string }>;
   updateTaskList: (id: number, listId: number | null) => Promise<{ id: number; listId: number | null }>;
   updateTaskPriority: (id: number, priority: Task['priority']) => Promise<{ id: number; priority: Task['priority'] }>;
+  updateTaskReminder: (
+    id: number,
+    reminderDate: string | null,
+    reminderTime: string | null
+  ) => Promise<{ id: number; reminderDate: string | null; reminderTime: string | null }>;
   getSettings: () => Promise<Settings>;
   onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
   addList: (name: string) => Promise<List | { error: string }>;

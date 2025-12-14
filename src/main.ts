@@ -83,6 +83,8 @@ function initializeDatabase(): void {
       position INTEGER NOT NULL DEFAULT 0,
       list_id INTEGER,
       priority TEXT NOT NULL DEFAULT 'none',
+      reminder_date TEXT,
+      reminder_time TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -98,6 +100,8 @@ function initializeDatabase(): void {
   const taskColumns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>;
   const hasListId = taskColumns.some((col) => col.name === 'list_id');
   const hasPriority = taskColumns.some((col) => col.name === 'priority');
+  const hasReminderDate = taskColumns.some((col) => col.name === 'reminder_date');
+  const hasReminderTime = taskColumns.some((col) => col.name === 'reminder_time');
   if (!hasListId) {
     try {
       db.prepare('ALTER TABLE tasks ADD COLUMN list_id INTEGER').run();
@@ -110,6 +114,20 @@ function initializeDatabase(): void {
       db.prepare('ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT \"none\"').run();
     } catch (error) {
       console.error('Failed to add priority column to tasks', error);
+    }
+  }
+  if (!hasReminderDate) {
+    try {
+      db.prepare('ALTER TABLE tasks ADD COLUMN reminder_date TEXT').run();
+    } catch (error) {
+      console.error('Failed to add reminder_date column to tasks', error);
+    }
+  }
+  if (!hasReminderTime) {
+    try {
+      db.prepare('ALTER TABLE tasks ADD COLUMN reminder_time TEXT').run();
+    } catch (error) {
+      console.error('Failed to add reminder_time column to tasks', error);
     }
   }
 
@@ -233,8 +251,10 @@ ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) 
   };
   const nextPosition = typeof nextPositionRow?.maxPos === 'number' ? nextPositionRow.maxPos + 1 : 0;
   const result = database
-    .prepare('INSERT INTO tasks (text, details, done, position, list_id, priority) VALUES (?, ?, 0, ?, ?, ?)')
-    .run(trimmed, '', nextPosition, listId ?? null, 'none');
+    .prepare(
+      'INSERT INTO tasks (text, details, done, position, list_id, priority, reminder_date, reminder_time) VALUES (?, ?, 0, ?, ?, ?, ?, ?)'
+    )
+    .run(trimmed, '', nextPosition, listId ?? null, 'none', null, null);
   const task = {
     id: Number(result.lastInsertRowid),
     text: trimmed,
@@ -243,6 +263,8 @@ ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) 
     position: nextPosition,
     listId: listId ?? null,
     priority: 'none' as Priority,
+    reminderDate: null as string | null,
+    reminderTime: null as string | null,
   };
   return task;
 });
@@ -251,7 +273,9 @@ ipcMain.handle('get-tasks', async () => {
   const database = ensureDb();
   const rows = database
     .prepare(
-      'SELECT id, text, details, done, position, list_id as listId, priority FROM tasks ORDER BY position ASC, id ASC'
+      `SELECT id, text, details, done, position, list_id as listId, priority, reminder_date as reminderDate, reminder_time as reminderTime
+       FROM tasks
+       ORDER BY position ASC, id ASC`
     )
     .all() as Array<{
       id: number;
@@ -261,6 +285,8 @@ ipcMain.handle('get-tasks', async () => {
       position: number;
       listId: number | null;
       priority?: Priority;
+      reminderDate?: string | null;
+      reminderTime?: string | null;
     }>;
   return rows.map((row) => ({
     id: row.id,
@@ -270,6 +296,8 @@ ipcMain.handle('get-tasks', async () => {
     position: row.position,
     listId: row.listId ?? null,
     priority: (row.priority ?? 'none') as Priority,
+    reminderDate: row.reminderDate ?? null,
+    reminderTime: row.reminderTime ?? null,
   }));
 });
 
@@ -379,6 +407,12 @@ ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
   });
   reorder(orderedIds);
   return { success: true };
+});
+
+ipcMain.handle('update-task-reminder', async (_event, id: number, reminderDate: string | null, reminderTime: string | null) => {
+  const database = ensureDb();
+  database.prepare('UPDATE tasks SET reminder_date = ?, reminder_time = ? WHERE id = ?').run(reminderDate, reminderTime, id);
+  return { id, reminderDate, reminderTime };
 });
 
 ipcMain.handle('update-time-format', async (_event, format: TimeFormat) => {

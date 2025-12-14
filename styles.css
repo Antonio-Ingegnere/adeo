@@ -205,6 +205,13 @@ body {
   color: #1d72f3;
 }
 
+.task-reminder {
+  font-size: 10px;
+  font-weight: 400;
+  color: #666;
+  margin-top: 1px;
+}
+
 .task-details {
   color: #555;
   font-size: 13px;

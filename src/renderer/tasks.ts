@@ -163,6 +163,16 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   const mainBlock = document.createElement('div');
   mainBlock.className = 'task-main';
   mainBlock.appendChild(textSpan);
+
+  if (task.reminderDate || task.reminderTime) {
+    const reminder = document.createElement('div');
+    reminder.className = 'task-reminder';
+    const parts: string[] = [];
+    if (task.reminderDate) parts.push(task.reminderDate);
+    if (task.reminderTime) parts.push(task.reminderTime);
+    reminder.textContent = parts.join(' ');
+    mainBlock.appendChild(reminder);
+  }
   if (hasDetails) {
     mainBlock.appendChild(detailsDiv);
   }

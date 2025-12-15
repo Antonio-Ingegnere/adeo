@@ -34,11 +34,38 @@ export const updatePriorityUI = (value: string | null) => {
   }
 };
 
+const formatDate = (date: string | null) => {
+  if (!date) return '';
+  const [y, m, d] = date.split('-');
+  const base = `${y}-${m}-${d}`;
+  const map: Record<string, string> = {
+    'YYYY-MM-DD': `${y}-${m}-${d}`,
+    'DD/MM/YYYY': `${d}/${m}/${y}`,
+    'MM/DD/YYYY': `${m}/${d}/${y}`,
+    'DD.MM.YYYY': `${d}.${m}.${y}`,
+    'YYYY/MM/DD': `${y}/${m}/${d}`,
+    'MM-DD-YYYY': `${m}-${d}-${y}`,
+    'DD-MM-YYYY': `${d}-${m}-${y}`,
+    'MMM DD, YYYY': new Date(base).toLocaleDateString(undefined, {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    }),
+    'DD MMM YYYY': new Date(base).toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }),
+    'YYYY.MM.DD': `${y}.${m}.${d}`,
+  };
+  return map[state.dateFormat] ?? `${y}-${m}-${d}`;
+};
+
 const formatReminderLabel = (date: string | null, time: string | null) => {
   if (!date && !time) return 'None';
   let label = '';
   if (date) {
-    label += date;
+    label += formatDate(date);
   }
   if (time) {
     label += label ? ' • ' : '';

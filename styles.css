@@ -102,8 +102,9 @@ body {
 }
 
 .primary-button.icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 33px;
+  height: 33px;
+  margin-top: 5px;
   padding: 0;
   display: inline-flex;
   align-items: center;

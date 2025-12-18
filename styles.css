@@ -684,7 +684,8 @@ body {
 
 .priority-select-wrap,
 .reminder-select-wrap,
-.add-task-select-wrap {
+.add-task-select-wrap,
+.modal-list-select-wrap {
   position: relative;
 }
 
@@ -780,13 +781,22 @@ body {
   z-index: 10;
 }
 
-.add-task-select-wrap {
+.add-task-select-wrap,
+.modal-list-select-wrap {
   min-width: 140px;
   flex-shrink: 0;
+}
+
+.add-task-select-wrap {
   margin-top: 5px;
 }
 
-.add-task-list-menu {
+.modal-list-select-wrap {
+  width: 100%;
+}
+
+.add-task-list-menu,
+.modal-list-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -803,7 +813,8 @@ body {
   z-index: 10;
 }
 
-.add-task-list-item {
+.add-task-list-item,
+.modal-list-item {
   width: 100%;
   border: none;
   background: transparent;
@@ -815,7 +826,9 @@ body {
 }
 
 .add-task-list-item:hover,
-.add-task-list-item.selected {
+.add-task-list-item.selected,
+.modal-list-item:hover,
+.modal-list-item.selected {
   background: #f4f4f4;
 }
 

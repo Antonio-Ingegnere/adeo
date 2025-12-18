@@ -71,7 +71,7 @@ export const loadLists = async () => {
     state.lists.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id);
     renderLists();
     updateTasksTitle();
-    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
   } catch (error) {
     console.error('Failed to load lists', error);
   }

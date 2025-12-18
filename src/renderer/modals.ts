@@ -119,6 +119,9 @@ export const openEditModal = (taskId: number) => {
   if (refs.reminderMenu) {
     refs.reminderMenu.style.display = 'none';
   }
+  if (refs.modalListMenu) {
+    refs.modalListMenu.style.display = 'none';
+  }
   setTimeout(() => refs.editInput?.focus(), 0);
 };
 
@@ -139,11 +142,15 @@ export const closeEditModal = () => {
   if (refs.reminderTimeSelect) refs.reminderTimeSelect.value = '';
   updatePriorityUI('none');
   updateReminderUI(null, null);
+  renderModalLists();
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
   }
   if (refs.reminderMenu) {
     refs.reminderMenu.style.display = 'none';
+  }
+  if (refs.modalListMenu) {
+    refs.modalListMenu.style.display = 'none';
   }
 };
 
@@ -221,7 +228,7 @@ export const closeListModal = () => {
 };
 
 export const renderModalLists = () => {
-  renderListOptions(refs.modalListSelect, state.modalSelectedListId);
+  renderListOptions(refs.modalListMenu, state.modalSelectedListId, refs.modalListLabel);
 };
 
 export const saveList = () => {
@@ -242,7 +249,7 @@ export const saveList = () => {
         }
         closeListModal();
         renderLists();
-        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
         renderModalLists();
       })
       .catch((error) => console.error('Failed to update list', error));
@@ -259,7 +266,7 @@ export const saveList = () => {
         state.lists.push(newList);
         closeListModal();
         renderLists();
-        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
         renderModalLists();
       })
       .catch((error) => console.error('Failed to add list', error));

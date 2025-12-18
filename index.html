@@ -81,9 +81,13 @@
               <div class="modal-right">
                 <div class="modal-right-content">
                   <h3>List</h3>
-                  <select id="modal-list-select" class="select-input" style="width: 100%;">
-                    <option value="">No list</option>
-                  </select>
+                  <div class="modal-list-select-wrap reminder-select-wrap">
+                    <button id="modal-list-picker" class="reminder-picker" type="button">
+                      <span id="modal-list-label">No list</span>
+                      <span class="priority-caret">▾</span>
+                    </button>
+                    <div id="modal-list-menu" class="modal-list-menu"></div>
+                  </div>
                   <hr class="modal-list-divider" />
                   <h3>Priority</h3>
                   <div class="priority-select-wrap">

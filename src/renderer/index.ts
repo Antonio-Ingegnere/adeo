@@ -101,15 +101,30 @@ const setupEvents = () => {
     if (!item) return;
     const val = item.dataset.value ?? '';
     state.addTaskSelectedListId = val ? Number(val) : null;
-    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
     if (refs.addTaskListMenu) {
       refs.addTaskListMenu.style.display = 'none';
     }
   });
 
-  refs.modalListSelect?.addEventListener('change', (event) => {
-    const val = (event.target as HTMLSelectElement).value;
+  refs.modalListPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (refs.modalListMenu) {
+      refs.modalListMenu.style.display = refs.modalListMenu.style.display === 'flex' ? 'none' : 'flex';
+    }
+  });
+
+  refs.modalListMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
+    const item = target.closest('.modal-list-item') as HTMLElement | null;
+    if (!item) return;
+    const val = item.dataset.value ?? '';
     state.modalSelectedListId = val ? Number(val) : null;
+    renderListOptions(refs.modalListMenu, state.modalSelectedListId, refs.modalListLabel);
+    if (refs.modalListMenu) {
+      refs.modalListMenu.style.display = 'none';
+    }
   });
 
 
@@ -227,6 +242,9 @@ const setupEvents = () => {
     if (refs.addTaskListMenu) {
       refs.addTaskListMenu.style.display = 'none';
     }
+    if (refs.modalListMenu) {
+      refs.modalListMenu.style.display = 'none';
+    }
   });
 };
 
@@ -234,7 +252,7 @@ const init = async () => {
   setupEvents();
   renderLists();
   renderModalLists();
-  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
   // Initialize lists chevrons orientation
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));

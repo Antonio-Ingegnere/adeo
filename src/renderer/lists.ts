@@ -37,7 +37,11 @@ const saveListOrder = async () => {
   }
 };
 
-export const renderListOptions = (target: HTMLSelectElement | HTMLDivElement | null, selectedId: number | null) => {
+export const renderListOptions = (
+  target: HTMLSelectElement | HTMLDivElement | null,
+  selectedId: number | null,
+  labelEl: HTMLSpanElement | null = null
+) => {
   if (!target) return;
   const selectedValue = selectedId !== null ? String(selectedId) : '';
   const entries = [
@@ -65,10 +69,12 @@ export const renderListOptions = (target: HTMLSelectElement | HTMLDivElement | n
   }
 
   target.innerHTML = '';
+  const isModalMenu = target.classList.contains('modal-list-menu');
+  const itemClass = isModalMenu ? 'modal-list-item' : 'add-task-list-item';
   entries.forEach((entry) => {
     const item = document.createElement('button');
     item.type = 'button';
-    item.className = 'add-task-list-item';
+    item.className = itemClass;
     item.dataset.value = entry.value;
     item.textContent = entry.label;
     if (entry.title && entry.title !== entry.label) {
@@ -80,9 +86,10 @@ export const renderListOptions = (target: HTMLSelectElement | HTMLDivElement | n
     target.appendChild(item);
   });
   const selectedEntry = entries.find((entry) => entry.value === activeValue) ?? entries[0];
-  if (refs.addTaskListLabel) {
-    refs.addTaskListLabel.textContent = selectedEntry.label;
-    refs.addTaskListLabel.title = selectedEntry.title || '';
+  const labelTarget = labelEl || (target === refs.addTaskListMenu ? refs.addTaskListLabel : null) || refs.modalListLabel;
+  if (labelTarget) {
+    labelTarget.textContent = selectedEntry.label;
+    labelTarget.title = selectedEntry.title || '';
   }
 };
 
@@ -189,7 +196,7 @@ export const renderLists = () => {
         state.openListMenuId = null;
         renderLists();
         renderTasks();
-        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
         updateTasksTitle();
       } catch (error) {
         console.error('Failed to delete list', error);
@@ -204,7 +211,7 @@ export const renderLists = () => {
       state.addTaskSelectedListId = list.id;
       updateTasksTitle();
       renderLists();
-      renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId);
+      renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId, refs.addTaskListLabel);
       renderTasks();
     });
     item.addEventListener('dragstart', (event) => {
@@ -334,5 +341,5 @@ export const setLists = (lists: List[]) => {
   state.lists = lists ?? [];
   renderLists();
   updateTasksTitle();
-  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
 };

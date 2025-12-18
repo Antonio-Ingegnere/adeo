@@ -3,13 +3,21 @@ import { listDropIndicator, refs } from './dom.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
 
+const truncateListName = (text: string) => {
+  const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
+  return {
+    label: truncated,
+    title: truncated !== text ? text : '',
+  };
+};
+
 const makeLabel = (text: string) => {
   const span = document.createElement('span');
   span.className = 'list-pill-label';
-  const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
-  span.textContent = truncated;
-  if (truncated !== text) {
-    span.title = text;
+  const { label, title } = truncateListName(text);
+  span.textContent = label;
+  if (title) {
+    span.title = title;
   }
   return span;
 };
@@ -29,28 +37,52 @@ const saveListOrder = async () => {
   }
 };
 
-export const renderListOptions = (selectEl: HTMLSelectElement | null, selectedId: number | null) => {
-  if (!selectEl) return;
-  selectEl.innerHTML = '';
-  const noneOption = document.createElement('option');
-  noneOption.value = '';
-  noneOption.textContent = 'No list';
-  selectEl.appendChild(noneOption);
-  state.lists.forEach((list) => {
-    const option = document.createElement('option');
-    option.value = String(list.id);
-    const fullName = list.name;
-    const truncated = fullName.length > 30 ? `${fullName.slice(0, 30)}...` : fullName;
-    option.textContent = truncated;
-    if (truncated !== fullName) {
-      option.title = fullName;
+export const renderListOptions = (target: HTMLSelectElement | HTMLDivElement | null, selectedId: number | null) => {
+  if (!target) return;
+  const selectedValue = selectedId !== null ? String(selectedId) : '';
+  const entries = [
+    { value: '', label: 'No list', title: '' },
+    ...state.lists.map((list) => {
+      const { label, title } = truncateListName(list.name);
+      return { value: String(list.id), label, title: title || list.name };
+    }),
+  ];
+  const activeValue = entries.some((entry) => entry.value === selectedValue) ? selectedValue : '';
+
+  if (target instanceof HTMLSelectElement) {
+    target.innerHTML = '';
+    entries.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.value;
+      option.textContent = entry.label;
+      if (entry.title && entry.title !== entry.label) {
+        option.title = entry.title;
+      }
+      target.appendChild(option);
+    });
+    target.value = activeValue;
+    return;
+  }
+
+  target.innerHTML = '';
+  entries.forEach((entry) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'add-task-list-item';
+    item.dataset.value = entry.value;
+    item.textContent = entry.label;
+    if (entry.title && entry.title !== entry.label) {
+      item.title = entry.title;
     }
-    selectEl.appendChild(option);
+    if (entry.value === activeValue) {
+      item.classList.add('selected');
+    }
+    target.appendChild(item);
   });
-  if (selectedId !== null) {
-    selectEl.value = String(selectedId);
-  } else {
-    selectEl.value = '';
+  const selectedEntry = entries.find((entry) => entry.value === activeValue) ?? entries[0];
+  if (refs.addTaskListLabel) {
+    refs.addTaskListLabel.textContent = selectedEntry.label;
+    refs.addTaskListLabel.title = selectedEntry.title || '';
   }
 };
 
@@ -157,7 +189,7 @@ export const renderLists = () => {
         state.openListMenuId = null;
         renderLists();
         renderTasks();
-        renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);
+        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
         updateTasksTitle();
       } catch (error) {
         console.error('Failed to delete list', error);
@@ -172,7 +204,7 @@ export const renderLists = () => {
       state.addTaskSelectedListId = list.id;
       updateTasksTitle();
       renderLists();
-      renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId);
+      renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId);
       renderTasks();
     });
     item.addEventListener('dragstart', (event) => {
@@ -302,5 +334,5 @@ export const setLists = (lists: List[]) => {
   state.lists = lists ?? [];
   renderLists();
   updateTasksTitle();
-  renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);
+  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
 };

@@ -64,20 +64,26 @@ body {
 }
 
 .select-input {
-  padding: 8px 10px;
+  padding: 0px 10px;
   font-size: 14px;
   border: 1px solid #ccc;
   border-radius: 8px;
   background: #fff;
+    /* height: 28px;
+  margin-top: 8px; */
 }
 
 .text-input {
   flex: 1;
-  padding: 8px 12px;
+  padding-bottom: 0px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 8px;
   font-size: 14px;
   border: none;
   border-bottom: 1px solid #d6d6d6;
   border-radius: 0;
+  height: 28px;
 }
 
 .text-input:focus {
@@ -111,6 +117,7 @@ body {
   fill: #fff;
   display: block;
 }
+
 .primary-button.icon-btn .icon-add {
   width: 20px;
   height: 20px;
@@ -494,6 +501,7 @@ body {
 .list-menu-danger:hover {
   background: #fde7ec;
 }
+
 .list-pill:hover .list-menu-btn {
   opacity: 1;
   visibility: visible;
@@ -673,11 +681,15 @@ body {
   background-image: none;
 }
 
-.priority-select-wrap {
+.priority-select-wrap,
+.reminder-select-wrap,
+.add-task-select-wrap {
   position: relative;
 }
 
-.priority-picker {
+.priority-picker,
+.reminder-picker,
+.add-task-picker {
   width: 100%;
   border: none;
   background: #f7f7f7;
@@ -688,11 +700,22 @@ body {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-size: 11.2px;
   text-align: left;
 }
 
-.priority-picker:hover {
+.priority-picker,
+.reminder-picker {
+  font-size: 11.2px;
+}
+
+.add-task-picker {
+  font-size: 14px;
+  padding: 8px 10px;
+}
+
+.priority-picker:hover,
+.reminder-picker:hover,
+.add-task-picker:hover {
   background: #e6e6e6;
 }
 
@@ -740,29 +763,6 @@ body {
   background: #f4f4f4;
 }
 
-.reminder-select-wrap {
-  position: relative;
-}
-
-.reminder-picker {
-  width: 100%;
-  border: none;
-  background: #f7f7f7;
-  color: #111;
-  padding: 6px 8px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 11.2px;
-  text-align: left;
-}
-
-.reminder-picker:hover {
-  background: #e6e6e6;
-}
-
 .reminder-menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -777,6 +777,45 @@ body {
   padding: 10px;
   gap: 6px;
   z-index: 10;
+}
+
+.add-task-select-wrap {
+  min-width: 140px;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.add-task-list-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  gap: 4px;
+  z-index: 10;
+}
+
+.add-task-list-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.add-task-list-item:hover,
+.add-task-list-item.selected {
+  background: #f4f4f4;
 }
 
 .reminder-label {
@@ -800,6 +839,7 @@ body {
   outline: 2px solid #4c9ffe;
   outline-offset: 1px;
 }
+
 .modal-right .select-input:hover {
   background: #e6e6e6;
 

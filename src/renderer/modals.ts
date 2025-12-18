@@ -242,7 +242,7 @@ export const saveList = () => {
         }
         closeListModal();
         renderLists();
-        renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);
+        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
         renderModalLists();
       })
       .catch((error) => console.error('Failed to update list', error));
@@ -259,7 +259,7 @@ export const saveList = () => {
         state.lists.push(newList);
         closeListModal();
         renderLists();
-        renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);
+        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
         renderModalLists();
       })
       .catch((error) => console.error('Failed to add list', error));

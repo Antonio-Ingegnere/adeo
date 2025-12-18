@@ -34,9 +34,13 @@
           <div class="main-body">
             <div class="input-row">
               <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
-              <select id="add-task-list" class="select-input">
-                <option value="">No list</option>
-              </select>
+              <div class="add-task-select-wrap reminder-select-wrap">
+                <button id="add-task-list-picker" class="add-task-picker reminder-picker" type="button">
+                  <span id="add-task-list-label">No list</span>
+                  <span class="priority-caret">▾</span>
+                </button>
+                <div id="add-task-list-menu" class="add-task-list-menu"></div>
+              </div>
               <button id="add-button" class="primary-button icon-btn" aria-label="Add task">
                 <svg class="icon-add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path

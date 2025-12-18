@@ -87,9 +87,24 @@ const setupEvents = () => {
     }
   });
 
-  refs.addTaskListSelect?.addEventListener('change', (event) => {
-    const val = (event.target as HTMLSelectElement).value;
+  refs.addTaskListPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (refs.addTaskListMenu) {
+      refs.addTaskListMenu.style.display = refs.addTaskListMenu.style.display === 'flex' ? 'none' : 'flex';
+    }
+  });
+
+  refs.addTaskListMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
+    const item = target.closest('.add-task-list-item') as HTMLElement | null;
+    if (!item) return;
+    const val = item.dataset.value ?? '';
     state.addTaskSelectedListId = val ? Number(val) : null;
+    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
+    if (refs.addTaskListMenu) {
+      refs.addTaskListMenu.style.display = 'none';
+    }
   });
 
   refs.modalListSelect?.addEventListener('change', (event) => {
@@ -209,6 +224,9 @@ const setupEvents = () => {
     if (refs.reminderMenu) {
       refs.reminderMenu.style.display = 'none';
     }
+    if (refs.addTaskListMenu) {
+      refs.addTaskListMenu.style.display = 'none';
+    }
   });
 };
 
@@ -216,7 +234,7 @@ const init = async () => {
   setupEvents();
   renderLists();
   renderModalLists();
-  renderListOptions(refs.addTaskListSelect, state.addTaskSelectedListId ?? state.selectedListId);
+  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId);
   // Initialize lists chevrons orientation
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));

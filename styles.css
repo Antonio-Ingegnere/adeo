@@ -148,12 +148,26 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #e0e0e0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  position: relative;
 }
 
 .task-row:last-child {
-  border-bottom: none;
+}
+
+.task-row::after {
+  content: '';
+  position: absolute;
+  left: 22px;
+  right: 6px;
+  bottom: 0;
+  height: 1px;
+  background: #e0e0e0;
+}
+
+.task-row:last-child::after {
+  display: none;
 }
 
 .task-row input[type='checkbox'] {

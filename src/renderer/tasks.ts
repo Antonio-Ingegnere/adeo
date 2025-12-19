@@ -96,6 +96,11 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
 
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
+  handle.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+    </svg>
+  `;
   handle.title = 'Drag to reorder';
   handle.setAttribute('draggable', 'true');
   handle.addEventListener('dragstart', (event) => {

@@ -1001,6 +1001,10 @@ body {
   justify-content: flex-end;
   gap: 8px;
   padding: 0 16px 16px 16px;
+  background: transparent;
+}
+
+.modal-content .modal-actions {
   background: linear-gradient(to right, #fff calc(100% - 224px), #f7f7f7 calc(100% - 224px), #f7f7f7 100%);
 }
 

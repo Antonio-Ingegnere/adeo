@@ -172,6 +172,7 @@ body {
 
 .task-row input[type='checkbox'] {
   margin: 2px 0 0;
+  flex-shrink: 0;
 }
 
 .task-row.dragging {
@@ -227,6 +228,8 @@ body {
   flex-direction: column;
   gap: 7px;
   margin-top: 3px;
+  flex: 1;
+  min-width: 0;
 }
 
 .task-text {
@@ -251,6 +254,8 @@ body {
   font-size: 13px;
   line-height: 1.4;
   text-align: left;
+  max-height: 240px;
+  overflow: auto;
 }
 
 .task-details ul {
@@ -535,7 +540,7 @@ body {
 }
 
 .expand-btn {
-  margin-left: auto;
+  margin-left: 0;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -544,6 +549,8 @@ body {
   align-items: center;
   justify-content: center;
   padding: 4px;
+  width: 24px;
+  flex: 0 0 24px;
 }
 
 .expand-btn:hover {

@@ -13,6 +13,17 @@
           <div class="lists-panel">
             <div class="lists-header">
               <div class="lists-title-wrap">
+                <span class="lists-title-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path
+                      d="M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM10.47 2.5 6.5 6.5 4.5 4.5 3.09 5.91 6.5 9.32 11.89 3.94 10.47 2.5zm0 8L6.5 14.5 4.5 12.5 3.09 13.91 6.5 17.32 11.89 11.94 10.47 10.5z"
+                    />
+                  </svg>
+                </span>
+                <p class="lists-title">Lists</p>
+              </div>
+              <div class="lists-actions">
+                <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
                 <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
                   <span class="expand-chevrons" aria-hidden="true">
                     <svg viewBox="0 0 14 14" focusable="false">
@@ -21,9 +32,7 @@
                     </svg>
                   </span>
                 </button>
-                <p class="lists-title">Lists</p>
               </div>
-              <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
             </div>
             <div id="lists-list" class="lists-list">
               <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>

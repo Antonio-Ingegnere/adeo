@@ -370,10 +370,32 @@ body {
   justify-content: space-between;
 }
 
+.lists-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .lists-title-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.lists-title-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  margin-top: 1px;
+}
+
+.lists-title-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 
 .lists-title {

@@ -228,6 +228,13 @@ const setupEvents = () => {
     }
   });
 
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (refs.overlay?.classList.contains('open')) {
+      closeEditModal();
+    }
+  });
+
   document.addEventListener('click', () => {
     if (state.openListMenuId !== null) {
       state.openListMenuId = null;

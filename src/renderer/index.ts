@@ -13,6 +13,7 @@ import {
   saveList,
   updatePriorityUI,
   updateReminderUI,
+  updateRepeatUI,
 } from './modals.js';
 import { state } from './state.js';
 
@@ -168,6 +169,73 @@ const setupEvents = () => {
     updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   });
 
+  refs.repeatPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (refs.repeatMenu) {
+      refs.repeatMenu.style.display = refs.repeatMenu.style.display === 'flex' ? 'none' : 'flex';
+    }
+  });
+
+  refs.repeatMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
+    const item = target.closest('.repeat-menu-item') as HTMLElement | null;
+    if (!item) return;
+    const val = item.dataset.value ?? '';
+    if (val === 'custom') {
+      state.modalRepeat = 'custom';
+      updateRepeatUI(state.modalRepeat);
+      if (refs.repeatOverlay) {
+        refs.repeatOverlay.classList.add('open');
+      }
+    } else {
+      state.modalRepeat = val || null;
+      updateRepeatUI(state.modalRepeat);
+    }
+    if (refs.repeatMenu) {
+      refs.repeatMenu.style.display = 'none';
+    }
+  });
+
+  if (refs.repeatUnitSelect && refs.repeatWeekdays) {
+    if (refs.repeatUnitSelect.value === 'week') {
+      refs.repeatWeekdays.classList.add('open');
+    } else {
+      refs.repeatWeekdays.classList.remove('open');
+    }
+  }
+
+  refs.repeatUnitSelect?.addEventListener('change', (event) => {
+    const unit = (event.target as HTMLSelectElement).value;
+    if (!refs.repeatWeekdays) return;
+    if (unit === 'week') {
+      refs.repeatWeekdays.classList.add('open');
+    } else {
+      refs.repeatWeekdays.classList.remove('open');
+    }
+  });
+
+  refs.repeatWeekdays?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const button = target.closest('.repeat-day-button') as HTMLButtonElement | null;
+    if (!button) return;
+    button.classList.toggle('selected');
+  });
+
+  const closeRepeatModal = () => {
+    if (refs.repeatOverlay) {
+      refs.repeatOverlay.classList.remove('open');
+    }
+  };
+
+  refs.repeatCancel?.addEventListener('click', () => closeRepeatModal());
+  refs.repeatSave?.addEventListener('click', () => closeRepeatModal());
+  refs.repeatOverlay?.addEventListener('click', (event) => {
+    if (event.target === refs.repeatOverlay) {
+      closeRepeatModal();
+    }
+  });
+
   refs.settingsSave?.addEventListener('click', async () => {
     const selected: '12h' | '24h' = refs.settingsRadio24?.checked ? '24h' : '12h';
     const selectedDateFormat = refs.dateFormatSelect?.value || state.dateFormat;
@@ -233,6 +301,9 @@ const setupEvents = () => {
     if (refs.overlay?.classList.contains('open')) {
       closeEditModal();
     }
+    if (refs.repeatOverlay?.classList.contains('open')) {
+      refs.repeatOverlay.classList.remove('open');
+    }
   });
 
   document.addEventListener('click', () => {
@@ -248,6 +319,9 @@ const setupEvents = () => {
     }
     if (refs.addTaskListMenu) {
       refs.addTaskListMenu.style.display = 'none';
+    }
+    if (refs.repeatMenu) {
+      refs.repeatMenu.style.display = 'none';
     }
     if (refs.modalListMenu) {
       refs.modalListMenu.style.display = 'none';
@@ -268,6 +342,7 @@ const init = async () => {
   await loadSettings();
   buildTimeOptions();
   updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+  updateRepeatUI(state.modalRepeat);
   await loadTasks();
   await loadLists();
 };

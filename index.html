@@ -139,6 +139,22 @@
                     </div>
                   </div>
                   <hr class="modal-list-divider" />
+                  <h3>Repeat</h3>
+                  <div class="repeat-select-wrap reminder-select-wrap">
+                    <button id="repeat-picker" class="reminder-picker" type="button">
+                      <span id="repeat-label">None</span>
+                      <span class="priority-caret">▾</span>
+                    </button>
+                    <div id="repeat-menu" class="repeat-menu">
+                      <button class="repeat-menu-item" type="button" data-value="daily">Daily</button>
+                      <button class="repeat-menu-item" type="button" data-value="weekdays">Weekdays</button>
+                      <button class="repeat-menu-item" type="button" data-value="weekly">Weekly</button>
+                      <button class="repeat-menu-item" type="button" data-value="monthly">Monthly</button>
+                      <button class="repeat-menu-item" type="button" data-value="yearly">Yearly</button>
+                      <button class="repeat-menu-item" type="button" data-value="custom">Custom</button>
+                    </div>
+                  </div>
+                  <hr class="modal-list-divider" />
                 </div>
               </div>
             </div>
@@ -205,6 +221,42 @@
           <div class="modal-actions">
             <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings">✕</button>
             <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings">
+              <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="repeat-overlay" class="overlay" role="dialog" aria-modal="true">
+        <div class="modal modal-small">
+          <h2>Custom repeat</h2>
+          <div class="repeat-custom-section">
+            <label class="modal-label" for="repeat-interval">Every</label>
+            <div class="repeat-custom-row">
+              <input id="repeat-interval" type="number" min="1" value="1" class="repeat-interval-input" />
+              <select id="repeat-unit" class="repeat-unit-select">
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
+              </select>
+            </div>
+            <div id="repeat-weekdays" class="repeat-weekdays">
+              <button class="repeat-day-button" type="button" data-day="mon">Mon</button>
+              <button class="repeat-day-button" type="button" data-day="tue">Tue</button>
+              <button class="repeat-day-button" type="button" data-day="wed">Wed</button>
+              <button class="repeat-day-button" type="button" data-day="thu">Thu</button>
+              <button class="repeat-day-button" type="button" data-day="fri">Fri</button>
+              <button class="repeat-day-button" type="button" data-day="sat">Sat</button>
+              <button class="repeat-day-button" type="button" data-day="sun">Sun</button>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat">✕</button>
+            <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat">
               <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path
                   d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"

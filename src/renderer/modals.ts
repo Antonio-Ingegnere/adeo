@@ -90,6 +90,16 @@ export const updateReminderUI = (date: string | null, time: string | null) => {
   }
 };
 
+export const updateRepeatUI = (value: string | null) => {
+  if (!refs.repeatLabel) return;
+  if (!value) {
+    refs.repeatLabel.textContent = 'None';
+    return;
+  }
+  const label = value.charAt(0).toUpperCase() + value.slice(1);
+  refs.repeatLabel.textContent = label;
+};
+
 export const openEditModal = (taskId: number) => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput || !task) return;
@@ -98,6 +108,7 @@ export const openEditModal = (taskId: number) => {
   state.modalPriority = task.priority ?? 'none';
   state.modalReminderDate = task.reminderDate ?? null;
   state.modalReminderTime = task.reminderTime ?? null;
+  state.modalRepeat = null;
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
   if (refs.reminderDateInput) {
@@ -113,11 +124,18 @@ export const openEditModal = (taskId: number) => {
   renderModalLists();
   updatePriorityUI(state.modalPriority);
   updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+  updateRepeatUI(state.modalRepeat);
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
   }
   if (refs.reminderMenu) {
     refs.reminderMenu.style.display = 'none';
+  }
+  if (refs.repeatMenu) {
+    refs.repeatMenu.style.display = 'none';
+  }
+  if (refs.repeatOverlay) {
+    refs.repeatOverlay.classList.remove('open');
   }
   if (refs.modalListMenu) {
     refs.modalListMenu.style.display = 'none';
@@ -138,16 +156,24 @@ export const closeEditModal = () => {
   state.modalPriority = 'none';
   state.modalReminderDate = null;
   state.modalReminderTime = null;
+  state.modalRepeat = null;
   if (refs.reminderDateInput) refs.reminderDateInput.value = '';
   if (refs.reminderTimeSelect) refs.reminderTimeSelect.value = '';
   updatePriorityUI('none');
   updateReminderUI(null, null);
+  updateRepeatUI(null);
   renderModalLists();
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
   }
   if (refs.reminderMenu) {
     refs.reminderMenu.style.display = 'none';
+  }
+  if (refs.repeatMenu) {
+    refs.repeatMenu.style.display = 'none';
+  }
+  if (refs.repeatOverlay) {
+    refs.repeatOverlay.classList.remove('open');
   }
   if (refs.modalListMenu) {
     refs.modalListMenu.style.display = 'none';

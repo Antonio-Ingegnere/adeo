@@ -19,6 +19,7 @@ export type UIState = {
   modalPriority: Task['priority'];
   modalReminderDate: string | null;
   modalReminderTime: string | null;
+  modalRepeat: string | null;
   timeFormat: '12h' | '24h';
   dateFormat: string;
 };
@@ -42,6 +43,7 @@ export const state: UIState = {
   modalPriority: 'none',
   modalReminderDate: null,
   modalReminderTime: null,
+  modalRepeat: null,
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
 };

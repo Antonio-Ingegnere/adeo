@@ -1141,9 +1141,10 @@ body {
   border: 1px solid #d6d6d6;
   background: #f7f7f7;
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   font-size: 12px;
   cursor: pointer;
+  width: 12.7%;
 }
 
 .repeat-day-button.selected {

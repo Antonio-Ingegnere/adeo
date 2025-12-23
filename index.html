@@ -1,273 +1,267 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Adeo</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="card">
-      <div class="content-grid">
-        <div class="lists-rail">
-          <div class="lists-panel">
-            <div class="lists-header">
-              <div class="lists-title-wrap">
-                <span class="lists-title-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path
-                      d="M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM10.47 2.5 6.5 6.5 4.5 4.5 3.09 5.91 6.5 9.32 11.89 3.94 10.47 2.5zm0 8L6.5 14.5 4.5 12.5 3.09 13.91 6.5 17.32 11.89 11.94 10.47 10.5z"
-                    />
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adeo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="card">
+    <div class="content-grid">
+      <div class="lists-rail">
+        <div class="lists-panel">
+          <div class="lists-header">
+            <div class="lists-title-wrap">
+              <span class="lists-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path
+                    d="M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM10.47 2.5 6.5 6.5 4.5 4.5 3.09 5.91 6.5 9.32 11.89 3.94 10.47 2.5zm0 8L6.5 14.5 4.5 12.5 3.09 13.91 6.5 17.32 11.89 11.94 10.47 10.5z" />
+                </svg>
+              </span>
+              <p class="lists-title">Lists</p>
+            </div>
+            <div class="lists-actions">
+              <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
+              <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
+                <span class="expand-chevrons" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" focusable="false">
+                    <path d="M2 3 L7 8 L12 3" />
+                    <path d="M2 8 L7 13 L12 8" />
                   </svg>
                 </span>
-                <p class="lists-title">Lists</p>
-              </div>
-              <div class="lists-actions">
-                <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
-                <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
-                  <span class="expand-chevrons" aria-hidden="true">
-                    <svg viewBox="0 0 14 14" focusable="false">
-                      <path d="M2 3 L7 8 L12 3" />
-                      <path d="M2 8 L7 13 L12 8" />
-                    </svg>
-                  </span>
-                </button>
-              </div>
-            </div>
-            <div id="lists-list" class="lists-list">
-              <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
-            </div>
-          </div>
-        </div>
-        <div class="main-column">
-          <div class="main-body">
-            <div class="input-row">
-              <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
-              <div class="add-task-select-wrap reminder-select-wrap">
-                <button id="add-task-list-picker" class="add-task-picker reminder-picker" type="button">
-                  <span id="add-task-list-label">No list</span>
-                  <span class="priority-caret">▾</span>
-                </button>
-                <div id="add-task-list-menu" class="add-task-list-menu"></div>
-              </div>
-              <button id="add-button" class="primary-button icon-btn" aria-label="Add task">
-                <svg class="icon-add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"
-                    fill="currentColor"
-                  />
-                </svg>
               </button>
             </div>
-            <div id="tasks" class="tasks-section">
-              <p class="tasks-title">All tasks</p>
-              <div id="tasks-list" class="tasks-list">
-                <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
-              </div>
+          </div>
+          <div id="lists-list" class="lists-list">
+            <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
+          </div>
+        </div>
+      </div>
+      <div class="main-column">
+        <div class="main-body">
+          <div class="input-row">
+            <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
+            <div class="add-task-select-wrap reminder-select-wrap">
+              <button id="add-task-list-picker" class="add-task-picker reminder-picker" type="button">
+                <span id="add-task-list-label">No list</span>
+                <span class="priority-caret">▾</span>
+              </button>
+              <div id="add-task-list-menu" class="add-task-list-menu"></div>
+            </div>
+            <button id="add-button" class="primary-button icon-btn" aria-label="Add task">
+              <svg class="icon-add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+          <div id="tasks" class="tasks-section">
+            <p class="tasks-title">All tasks</p>
+            <div id="tasks-list" class="tasks-list">
+              <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
             </div>
           </div>
         </div>
       </div>
-      <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
-        <div class="modal">
-          <div class="modal-content">
-            <div class="modal-body">
-              <div class="modal-left">
-                <div class="modal-title-row">
-                  <input id="edit-done" type="checkbox" />
-                  <input id="edit-input" type="text" class="text-input modal-input" />
-                </div>
-                <div class="modal-details">
-                <label for="edit-details" class="modal-label">Details</label>
-                <textarea
-                  id="edit-details"
-                  rows="4"
-                  class="details-textarea"
-                  placeholder="Add optional task details in Markdown"
-                ></textarea>
-                </div>
+    </div>
+    <div id="edit-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="modal-left">
+              <div class="modal-title-row">
+                <input id="edit-done" type="checkbox" />
+                <input id="edit-input" type="text" class="text-input modal-input" />
               </div>
-              <div class="modal-right">
-                <div class="modal-right-content">
-                  <h3>List</h3>
-                  <div class="modal-list-select-wrap reminder-select-wrap">
-                    <button id="modal-list-picker" class="reminder-picker" type="button">
-                      <span id="modal-list-label">No list</span>
-                      <span class="priority-caret">▾</span>
-                    </button>
-                    <div id="modal-list-menu" class="modal-list-menu"></div>
-                  </div>
-                  <hr class="modal-list-divider" />
-                  <h3>Priority</h3>
-                  <div class="priority-select-wrap">
-                    <button id="priority-picker" class="priority-picker" type="button">
-                      <span id="priority-chip" class="priority-chip" aria-hidden="true"></span>
-                      <span id="priority-label">None</span>
-                      <span class="priority-caret">▾</span>
-                    </button>
+              <div class="modal-details">
+                <label for="edit-details" class="modal-label">Details</label>
+                <textarea id="edit-details" rows="4" class="details-textarea"
+                  placeholder="Add optional task details in Markdown"></textarea>
+              </div>
+            </div>
+            <div class="modal-right">
+              <div class="modal-right-content">
+                <h3>List</h3>
+                <div class="modal-list-select-wrap reminder-select-wrap">
+                  <button id="modal-list-picker" class="reminder-picker" type="button">
+                    <span id="modal-list-label">No list</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
+                  <div id="modal-list-menu" class="modal-list-menu"></div>
+                </div>
+                <hr class="modal-list-divider" />
+                <h3>Priority</h3>
+                <div class="priority-select-wrap">
+                  <button id="priority-picker" class="priority-picker" type="button">
+                    <span id="priority-chip" class="priority-chip" aria-hidden="true"></span>
+                    <span id="priority-label">None</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
                   <div id="priority-menu" class="priority-menu">
                     <div class="priority-menu-item" data-value="none" data-color="#C9C9C9">
                       <span class="priority-chip" aria-hidden="true" style="background:#C9C9C9;"></span>
                       <span>None</span>
                     </div>
-                      <div class="priority-menu-item" data-value="low" data-color="#7ED957">
-                        <span class="priority-chip" aria-hidden="true" style="background:#7ED957;"></span>
-                        <span>Low</span>
-                      </div>
-                      <div class="priority-menu-item" data-value="medium" data-color="#FFB866">
-                        <span class="priority-chip" aria-hidden="true" style="background:#FFB866;"></span>
-                        <span>Medium</span>
-                      </div>
-                      <div class="priority-menu-item" data-value="high" data-color="#FF6B6B">
-                        <span class="priority-chip" aria-hidden="true" style="background:#FF6B6B;"></span>
-                        <span>High</span>
-                      </div>
+                    <div class="priority-menu-item" data-value="low" data-color="#7ED957">
+                      <span class="priority-chip" aria-hidden="true" style="background:#7ED957;"></span>
+                      <span>Low</span>
+                    </div>
+                    <div class="priority-menu-item" data-value="medium" data-color="#FFB866">
+                      <span class="priority-chip" aria-hidden="true" style="background:#FFB866;"></span>
+                      <span>Medium</span>
+                    </div>
+                    <div class="priority-menu-item" data-value="high" data-color="#FF6B6B">
+                      <span class="priority-chip" aria-hidden="true" style="background:#FF6B6B;"></span>
+                      <span>High</span>
                     </div>
                   </div>
-                  <hr class="modal-list-divider" />
-                  <h3>Reminder</h3>
-                  <div class="reminder-select-wrap">
-                    <button id="reminder-picker" class="reminder-picker" type="button">
-                      <span id="reminder-label">None</span>
-                      <span class="priority-caret">▾</span>
-                    </button>
-                    <div id="reminder-menu" class="reminder-menu">
-                      <label for="reminder-date" class="reminder-label">Date</label>
-                      <input id="reminder-date" type="date" class="reminder-date-input" />
-                      <label for="reminder-time" class="reminder-label">Time</label>
-                      <select id="reminder-time" class="reminder-time-select"></select>
-                    </div>
-                  </div>
-                  <hr class="modal-list-divider" />
-                  <h3>Repeat</h3>
-                  <div class="repeat-select-wrap reminder-select-wrap">
-                    <button id="repeat-picker" class="reminder-picker" type="button">
-                      <span id="repeat-label">None</span>
-                      <span class="priority-caret">▾</span>
-                    </button>
-                    <div id="repeat-menu" class="repeat-menu">
-                      <button class="repeat-menu-item" type="button" data-value="daily">Daily</button>
-                      <button class="repeat-menu-item" type="button" data-value="weekdays">Weekdays</button>
-                      <button class="repeat-menu-item" type="button" data-value="weekly">Weekly</button>
-                      <button class="repeat-menu-item" type="button" data-value="monthly">Monthly</button>
-                      <button class="repeat-menu-item" type="button" data-value="yearly">Yearly</button>
-                      <button class="repeat-menu-item" type="button" data-value="custom">Custom</button>
-                    </div>
-                  </div>
-                  <hr class="modal-list-divider" />
                 </div>
+                <hr class="modal-list-divider" />
+                <h3>Reminder</h3>
+                <div class="reminder-select-wrap">
+                  <button id="reminder-picker" class="reminder-picker" type="button">
+                    <span id="reminder-label">None</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
+                  <div id="reminder-menu" class="reminder-menu">
+                    <label for="reminder-date" class="reminder-label">Date</label>
+                    <input id="reminder-date" type="date" class="reminder-date-input" />
+                    <label for="reminder-time" class="reminder-label">Time</label>
+                    <select id="reminder-time" class="reminder-time-select"></select>
+                  </div>
+                </div>
+                <hr class="modal-list-divider" />
+                <h3>Repeat</h3>
+                <div class="repeat-select-wrap reminder-select-wrap">
+                  <button id="repeat-picker" class="reminder-picker" type="button">
+                    <span id="repeat-label">None</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
+                  <div id="repeat-menu" class="repeat-menu">
+                    <button class="repeat-menu-item" type="button" data-value="daily">Daily</button>
+                    <button class="repeat-menu-item" type="button" data-value="weekdays">Weekdays</button>
+                    <button class="repeat-menu-item" type="button" data-value="weekly">Weekly</button>
+                    <button class="repeat-menu-item" type="button" data-value="monthly">Monthly</button>
+                    <button class="repeat-menu-item" type="button" data-value="yearly">Yearly</button>
+                    <button class="repeat-menu-item" type="button" data-value="custom">Custom</button>
+                  </div>
+                </div>
+                <hr class="modal-list-divider" />
               </div>
             </div>
-            <div class="modal-actions">
-              <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel">✕</button>
-              <button id="save-edit" class="btn primary icon-btn" aria-label="Save">
-                <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
-                  />
-                </svg>
-              </button>
-            </div>
           </div>
-        </div>
-      </div>
-      <div id="list-overlay" class="overlay" role="dialog" aria-modal="true">
-        <div class="modal modal-small">
-          <h2>Add list</h2>
-          <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" />
           <div class="modal-actions">
-            <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list">✕</button>
-            <button id="save-list" class="btn primary icon-btn" aria-label="Save list">
+            <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel">✕</button>
+            <button id="save-edit" class="btn primary icon-btn" aria-label="Save">
               <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path
-                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
-                />
+                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
               </svg>
             </button>
           </div>
         </div>
       </div>
-      <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true">
-        <div class="modal modal-small">
-          <h2>Settings</h2>
-          <div class="settings-section">
-            <p class="modal-label">Time format</p>
-            <div class="settings-options">
-              <label class="radio-option">
-                <input id="time-12" type="radio" name="time-format" value="12h" checked />
-                <span>12 hour</span>
-              </label>
-              <label class="radio-option">
-                <input id="time-24" type="radio" name="time-format" value="24h" />
-                <span>24 hour</span>
-              </label>
-            </div>
+    </div>
+    <div id="list-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal modal-small">
+        <h2>Add list</h2>
+        <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" />
+        <div class="modal-actions">
+          <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list">✕</button>
+          <button id="save-list" class="btn primary icon-btn" aria-label="Save list">
+            <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal modal-small">
+        <h2>Settings</h2>
+        <div class="settings-section">
+          <p class="modal-label">Time format</p>
+          <div class="settings-options">
+            <label class="radio-option">
+              <input id="time-12" type="radio" name="time-format" value="12h" checked />
+              <span>12 hour</span>
+            </label>
+            <label class="radio-option">
+              <input id="time-24" type="radio" name="time-format" value="24h" />
+              <span>24 hour</span>
+            </label>
           </div>
-          <div class="settings-section">
-            <p class="modal-label">Date format</p>
-            <select id="date-format" class="select-input">
-              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-              <option value="DD.MM.YYYY">DD.MM.YYYY</option>
-              <option value="YYYY/MM/DD">YYYY/MM/DD</option>
-              <option value="MM-DD-YYYY">MM-DD-YYYY</option>
-              <option value="DD-MM-YYYY">DD-MM-YYYY</option>
-              <option value="MMM DD, YYYY">MMM DD, YYYY</option>
-              <option value="DD MMM YYYY">DD MMM YYYY</option>
-              <option value="YYYY.MM.DD">YYYY.MM.DD</option>
+        </div>
+        <div class="settings-section">
+          <p class="modal-label">Date format</p>
+          <select id="date-format" class="select-input">
+            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+            <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+            <option value="YYYY/MM/DD">YYYY/MM/DD</option>
+            <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+            <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+            <option value="MMM DD, YYYY">MMM DD, YYYY</option>
+            <option value="DD MMM YYYY">DD MMM YYYY</option>
+            <option value="YYYY.MM.DD">YYYY.MM.DD</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings">✕</button>
+          <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings">
+            <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="repeat-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal modal-small">
+        <h2>Custom repeat</h2>
+        <div class="repeat-custom-section">
+          <div class="repeat-line">
+            <label class="modal-label" for="repeat-start-date">Start</label>
+            <input id="repeat-start-date" type="date" required class="repeat-date-input" />
+            <div class="modal-right-side-fill"></div>
+          </div>
+          <div class="repeat-line">
+            <label class="modal-label" for="repeat-type">Repeat</label>
+            <select id="repeat-type" class="repeat-select">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
             </select>
+            <div class="modal-right-side-fill"></div>
           </div>
-          <div class="modal-actions">
-            <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings">✕</button>
-            <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings">
-              <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
-                />
-              </svg>
-            </button>
+          <div class="repeat-line repeat-interval-row">
+            <label class="modal-label" for="repeat-interval">Every</label>
+            <div class="repeat-inline">
+              <select id="repeat-interval" class="repeat-number-select"></select>
+              <span id="repeat-interval-unit" class="repeat-inline-label">day(s)</span>
+            </div>
           </div>
-        </div>
-      </div>
-      <div id="repeat-overlay" class="overlay" role="dialog" aria-modal="true">
-        <div class="modal modal-small">
-          <h2>Custom repeat</h2>
-          <div class="repeat-custom-section">
-            <div class="repeat-line">
-              <label class="modal-label" for="repeat-start-date">Start</label>
-              <input id="repeat-start-date" type="date" required class="repeat-date-input" />
-              <div class="modal-right-side-fill"></div>
+          <div id="repeat-weekly-options" class="repeat-subsection">
+            <span class="modal-label repeat-split-label">On</span>
+            <div id="repeat-weekdays" class="repeat-weekdays">
+              <button class="repeat-day-button" type="button" data-day="mon">Mon</button>
+              <button class="repeat-day-button" type="button" data-day="tue">Tue</button>
+              <button class="repeat-day-button" type="button" data-day="wed">Wed</button>
+              <button class="repeat-day-button" type="button" data-day="thu">Thu</button>
+              <button class="repeat-day-button" type="button" data-day="fri">Fri</button>
+              <button class="repeat-day-button" type="button" data-day="sat">Sat</button>
+              <button class="repeat-day-button" type="button" data-day="sun">Sun</button>
             </div>
-            <div class="repeat-line">
-              <label class="modal-label" for="repeat-type">Repeat</label>
-              <select id="repeat-type" class="repeat-select">
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-              <div class="modal-right-side-fill"></div>
-            </div>
-            <div class="repeat-line repeat-interval-row">
-              <label class="modal-label" for="repeat-interval">Every</label>
-              <div class="repeat-inline">
-                <select id="repeat-interval" class="repeat-number-select"></select>
-                <span id="repeat-interval-unit" class="repeat-inline-label">day(s)</span>
-              </div>
-            </div>
-            <div id="repeat-weekly-options" class="repeat-subsection">
-              <div id="repeat-weekdays" class="repeat-weekdays">
-                <button class="repeat-day-button" type="button" data-day="mon">Mon</button>
-                <button class="repeat-day-button" type="button" data-day="tue">Tue</button>
-                <button class="repeat-day-button" type="button" data-day="wed">Wed</button>
-                <button class="repeat-day-button" type="button" data-day="thu">Thu</button>
-                <button class="repeat-day-button" type="button" data-day="fri">Fri</button>
-                <button class="repeat-day-button" type="button" data-day="sat">Sat</button>
-                <button class="repeat-day-button" type="button" data-day="sun">Sun</button>
-              </div>
-            </div>
-            <div id="repeat-monthly-options" class="repeat-subsection">
+          </div>
+          <div id="repeat-monthly-options" class="repeat-subsection">
+            <div class="repeat-split-row">
+              <span class="modal-label repeat-split-label">On</span>
               <label class="repeat-radio-line">
                 <input type="radio" name="repeat-monthly-mode" value="day" checked />
                 <div class="repeat-radio-content">
@@ -275,6 +269,9 @@
                   <span class="repeat-inline-label">day</span>
                 </div>
               </label>
+            </div>
+            <div class="repeat-split-row">
+              <span class="repeat-split-spacer" aria-hidden="true"></span>
               <label class="repeat-radio-line">
                 <input type="radio" name="repeat-monthly-mode" value="weekday" />
                 <div class="repeat-radio-content">
@@ -283,54 +280,55 @@
                 </div>
               </label>
             </div>
-            <div id="repeat-yearly-options" class="repeat-subsection">
-              <div class="repeat-line">
-                <label class="modal-label" for="repeat-yearly-month">Every</label>
-                <select id="repeat-yearly-month" class="repeat-select"></select>
-              </div>
-              <label class="repeat-radio-line">
-                <input type="radio" name="repeat-yearly-mode" value="day" checked />
-                <div class="repeat-radio-content">
-                  <select id="repeat-yearly-day" class="repeat-number-select"></select>
-                  <span class="repeat-inline-label">day</span>
-                </div>
-              </label>
-              <label class="repeat-radio-line">
-                <input type="radio" name="repeat-yearly-mode" value="weekday" />
-                <div class="repeat-radio-content">
-                  <select id="repeat-yearly-ordinal" class="repeat-select"></select>
-                  <select id="repeat-yearly-weekday" class="repeat-select"></select>
-                </div>
-              </label>
-            </div>
-            <div class="repeat-line repeat-end-line">
-              <label class="modal-label" for="repeat-end-type">End</label>
-              <div class="repeat-inline">
-                <select id="repeat-end-type" class="repeat-end-select">
-                  <option value="none">No end date</option>
-                  <option value="on">On this day</option>
-                  <option value="after">After</option>
-                </select>
-                <input id="repeat-end-date" type="date" class="repeat-date-input" />
-                <input id="repeat-end-count" type="number" min="1" value="1" class="repeat-count-input" />
-                <span id="repeat-end-occurrences" class="repeat-inline-label">occurrences</span>
-              </div>
-            </div>
-            <div id="repeat-summary" class="repeat-summary"></div>
           </div>
-          <div class="modal-actions">
-            <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat">✕</button>
-            <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat">
-              <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z"
-                />
-              </svg>
-            </button>
+          <div id="repeat-yearly-options" class="repeat-subsection">
+            <div class="repeat-line">
+              <label class="modal-label" for="repeat-yearly-month">Every</label>
+              <select id="repeat-yearly-month" class="repeat-select"></select>
+            </div>
+            <label class="repeat-radio-line">
+              <input type="radio" name="repeat-yearly-mode" value="day" checked />
+              <div class="repeat-radio-content">
+                <select id="repeat-yearly-day" class="repeat-number-select"></select>
+                <span class="repeat-inline-label">day</span>
+              </div>
+            </label>
+            <label class="repeat-radio-line">
+              <input type="radio" name="repeat-yearly-mode" value="weekday" />
+              <div class="repeat-radio-content">
+                <select id="repeat-yearly-ordinal" class="repeat-select"></select>
+                <select id="repeat-yearly-weekday" class="repeat-select"></select>
+              </div>
+            </label>
           </div>
+          <div class="repeat-line repeat-end-line">
+            <label class="modal-label" for="repeat-end-type">End</label>
+            <div class="repeat-inline">
+              <select id="repeat-end-type" class="repeat-end-select">
+                <option value="none">No end date</option>
+                <option value="on">On this day</option>
+                <option value="after">After</option>
+              </select>
+              <input id="repeat-end-date" type="date" class="repeat-date-input" />
+              <input id="repeat-end-count" type="number" min="1" value="1" class="repeat-count-input" />
+              <span id="repeat-end-occurrences" class="repeat-inline-label">occurrences</span>
+            </div>
+          </div>
+          <div id="repeat-summary" class="repeat-summary"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat">✕</button>
+          <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat">
+            <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
-    <script type="module" src="renderer/index.js"></script>
-  </body>
+  </div>
+  <script type="module" src="renderer/index.js"></script>
+</body>
+
 </html>

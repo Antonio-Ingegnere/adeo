@@ -1121,6 +1121,7 @@ body {
 
 .repeat-date-input,
 .repeat-select,
+.repeat-end-select,
 .repeat-number-select {
   flex: 1 1 0;
   min-width: 0;
@@ -1144,11 +1145,15 @@ body {
 }
 
 .repeat-number-select {
-  max-width: 90px;
+  max-width: 50px;
+}
+
+.repeat-end-select{
+  max-width: 110px;
 }
 
 .repeat-count-input {
-  width: 90px;
+  max-width: 40px;
   padding: 8px 10px;
   font-size: 14px;
   border: 1px solid #d6d6d6;

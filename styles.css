@@ -776,6 +776,22 @@ body {
   flex: 0 0 auto;
 }
 
+.repeat-ordinal-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 77px;
+  flex: 0 0 auto;
+}
+
+.repeat-weekday-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 110px;
+  flex: 0 0 auto;
+}
+
 .repeat-caret {
   position: absolute;
   right: 10px;
@@ -1204,6 +1220,18 @@ body {
 #repeat-end-type {
   padding-right: 26px;
   width: 100%;
+}
+
+#repeat-monthly-ordinal {
+  padding-right: 26px;
+  width: 100%;
+  max-width: 77px;
+}
+
+#repeat-monthly-weekday {
+  padding-right: 26px;
+  width: 100%;
+  max-width: 110px;
 }
 
 .repeat-select-weekday{

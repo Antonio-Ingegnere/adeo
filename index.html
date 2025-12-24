@@ -286,8 +286,14 @@
               <label class="repeat-radio-line">
                 <input type="radio" name="repeat-monthly-mode" value="weekday" />
                 <div class="repeat-radio-content">
-                  <select id="repeat-monthly-ordinal" class="repeat-select"></select>
-                  <select id="repeat-monthly-weekday" class="repeat-select-weekday"></select>
+                  <div class="repeat-select-wrap repeat-ordinal-inline">
+                    <select id="repeat-monthly-ordinal" class="repeat-select"></select>
+                    <span class="repeat-caret" aria-hidden="true">▾</span>
+                  </div>
+                  <div class="repeat-select-wrap repeat-weekday-inline">
+                    <select id="repeat-monthly-weekday" class="repeat-select-weekday"></select>
+                    <span class="repeat-caret" aria-hidden="true">▾</span>
+                  </div>
                 </div>
               </label>
             </div>

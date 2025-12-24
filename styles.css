@@ -1214,6 +1214,10 @@ body {
   align-items: center;
 }
 
+#repeat-yearly-options .repeat-split-row {
+  align-items: center;
+}
+
 .repeat-split-label {
   margin: 0;
   min-width: 36px;

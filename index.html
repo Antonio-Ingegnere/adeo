@@ -286,20 +286,26 @@
               <label class="modal-label" for="repeat-yearly-month">Every</label>
               <select id="repeat-yearly-month" class="repeat-select-yearly-month"></select>
             </div>
-            <label class="repeat-radio-line">
-              <input type="radio" name="repeat-yearly-mode" value="day" checked />
-              <div class="repeat-radio-content">
-                <select id="repeat-yearly-day" class="repeat-number-select"></select>
-                <span class="repeat-inline-label">day</span>
+            <div class="repeat-split-row">
+              <span class="modal-label repeat-split-label">On</span>
+              <div class="repeat-radio-line">
+                <input type="radio" name="repeat-yearly-mode" value="day" checked />
+                <div class="repeat-radio-content">
+                  <select id="repeat-yearly-day" class="repeat-number-select"></select>
+                  <span class="repeat-inline-label">day</span>
+                </div>
               </div>
-            </label>
-            <label class="repeat-radio-line">
-              <input type="radio" name="repeat-yearly-mode" value="weekday" />
-              <div class="repeat-radio-content">
-                <select id="repeat-yearly-ordinal" class="repeat-select"></select>
-                <select id="repeat-yearly-weekday" class="repeat-select"></select>
-              </div>
-            </label>
+            </div>
+            <div class="repeat-split-row">
+              <span class="repeat-split-spacer" aria-hidden="true"></span>
+              <label class="repeat-radio-line">
+                <input type="radio" name="repeat-yearly-mode" value="weekday" />
+                <div class="repeat-radio-content">
+                  <select id="repeat-yearly-ordinal" class="repeat-select"></select>
+                  <select id="repeat-yearly-weekday" class="repeat-select"></select>
+                </div>
+              </label>
+            </div>
           </div>
           <div class="repeat-line repeat-end-line">
             <label class="modal-label" for="repeat-end-type">End</label>

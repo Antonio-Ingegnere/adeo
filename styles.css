@@ -792,6 +792,30 @@ body {
   flex: 0 0 auto;
 }
 
+.repeat-yearly-month-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 90px;
+  flex: 0 0 auto;
+}
+
+.repeat-yearly-ordinal-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 77px;
+  flex: 0 0 auto;
+}
+
+.repeat-yearly-weekday-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 110px;
+  flex: 0 0 auto;
+}
+
 .repeat-caret {
   position: absolute;
   right: 10px;
@@ -1229,6 +1253,29 @@ body {
 }
 
 #repeat-monthly-weekday {
+  padding-right: 26px;
+  width: 100%;
+  max-width: 110px;
+}
+
+#repeat-yearly-month {
+  padding-right: 26px;
+  width: 100%;
+  max-width: 90px;
+}
+
+#repeat-yearly-day {
+  padding-right: 18px;
+  width: 100%;
+}
+
+#repeat-yearly-ordinal {
+  padding-right: 26px;
+  width: 100%;
+  max-width: 77px;
+}
+
+#repeat-yearly-weekday {
   padding-right: 26px;
   width: 100%;
   max-width: 110px;

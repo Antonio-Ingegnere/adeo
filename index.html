@@ -301,14 +301,20 @@
           <div id="repeat-yearly-options" class="repeat-subsection">
             <div class="repeat-line">
               <label class="modal-label" for="repeat-yearly-month">Every</label>
-              <select id="repeat-yearly-month" class="repeat-select-yearly-month"></select>
+              <div class="repeat-select-wrap repeat-yearly-month-inline">
+                <select id="repeat-yearly-month" class="repeat-select-yearly-month"></select>
+                <span class="repeat-caret" aria-hidden="true">▾</span>
+              </div>
             </div>
             <div class="repeat-split-row">
               <span class="modal-label repeat-split-label">On</span>
               <div class="repeat-radio-line">
                 <input type="radio" name="repeat-yearly-mode" value="day" checked />
                 <div class="repeat-radio-content">
-                  <select id="repeat-yearly-day" class="repeat-number-select"></select>
+                  <div class="repeat-select-wrap repeat-number-inline repeat-number-inline-day">
+                    <select id="repeat-yearly-day" class="repeat-number-select"></select>
+                    <span class="repeat-caret" aria-hidden="true">▾</span>
+                  </div>
                   <span class="repeat-inline-label">day</span>
                 </div>
               </div>
@@ -318,8 +324,14 @@
               <label class="repeat-radio-line">
                 <input type="radio" name="repeat-yearly-mode" value="weekday" />
                 <div class="repeat-radio-content">
-                  <select id="repeat-yearly-ordinal" class="repeat-select"></select>
-                  <select id="repeat-yearly-weekday" class="repeat-select-weekday"></select>
+                  <div class="repeat-select-wrap repeat-yearly-ordinal-inline">
+                    <select id="repeat-yearly-ordinal" class="repeat-select"></select>
+                    <span class="repeat-caret" aria-hidden="true">▾</span>
+                  </div>
+                  <div class="repeat-select-wrap repeat-yearly-weekday-inline">
+                    <select id="repeat-yearly-weekday" class="repeat-select-weekday"></select>
+                    <span class="repeat-caret" aria-hidden="true">▾</span>
+                  </div>
                 </div>
               </label>
             </div>

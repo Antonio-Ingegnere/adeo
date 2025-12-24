@@ -1257,6 +1257,10 @@ body {
   align-items: center;
 }
 
+#repeat-monthly-options input[name="repeat-monthly-mode"] {
+  margin-left: 0;
+}
+
 .repeat-radio-content {
   display: inline-flex;
   align-items: center;

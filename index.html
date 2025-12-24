@@ -247,7 +247,7 @@
             <div class="repeat-line repeat-interval-row">
               <label class="modal-label" for="repeat-interval">Every</label>
               <div class="repeat-inline">
-              <div class="repeat-select-wrap repeat-number-inline">
+              <div class="repeat-select-wrap repeat-number-inline repeat-number-inline-interval">
                 <select id="repeat-interval" class="repeat-number-select"></select>
                 <span class="repeat-caret" aria-hidden="true">▾</span>
               </div>
@@ -273,7 +273,10 @@
               <div class="repeat-radio-line">
                 <input type="radio" name="repeat-monthly-mode" value="day" checked />
                 <div class="repeat-radio-content">
-                  <select id="repeat-monthly-day" class="repeat-number-select"></select>
+                  <div class="repeat-select-wrap repeat-number-inline repeat-number-inline-day">
+                    <select id="repeat-monthly-day" class="repeat-number-select"></select>
+                    <span class="repeat-caret" aria-hidden="true">▾</span>
+                  </div>
                   <span class="repeat-inline-label">day</span>
                 </div>
               </div>

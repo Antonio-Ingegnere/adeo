@@ -749,29 +749,38 @@ body {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: 100%;
-  max-width: 90px;
+  width: 90px;
+  flex: 0 0 auto;
 }
 
 .repeat-number-inline {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: 100%;
-  max-width: 50px;
+  flex: 0 0 auto;
+}
+
+.repeat-number-inline-interval {
+  width: 54px;
+}
+
+.repeat-number-inline-day {
+  width: 50px;
 }
 
 .repeat-end-inline {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: 100%;
-  max-width: 100px;
+  width: 100px;
+  flex: 0 0 auto;
 }
 
 .repeat-caret {
   position: absolute;
   right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #666;
   font-size: 12px;
   pointer-events: none;
@@ -1188,7 +1197,7 @@ body {
 }
 
 #repeat-interval {
-  padding-right: 26px;
+  padding-right: 18px;
   width: 100%;
 }
 
@@ -1209,6 +1218,11 @@ body {
 
 .repeat-number-select {
   max-width: 50px;
+}
+
+#repeat-monthly-day {
+  padding-right: 18px;
+  width: 100%;
 }
 
 .repeat-end-select{
@@ -1337,6 +1351,11 @@ body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+#repeat-monthly-options input[name="repeat-monthly-mode"][value="day"] + .repeat-radio-content,
+#repeat-yearly-options input[name="repeat-yearly-mode"][value="day"] + .repeat-radio-content {
+  flex-wrap: nowrap;
 }
 
 .repeat-end-line .repeat-inline {

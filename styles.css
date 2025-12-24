@@ -1267,7 +1267,15 @@ body {
   align-items: center;
 }
 
+#repeat-yearly-options .repeat-radio-line {
+  align-items: center;
+}
+
 #repeat-monthly-options input[name="repeat-monthly-mode"] {
+  margin-left: 0;
+}
+
+#repeat-yearly-options input[name="repeat-yearly-mode"] {
   margin-left: 0;
 }
 

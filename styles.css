@@ -1120,6 +1120,7 @@ body {
 
 .repeat-date-input,
 .repeat-select,
+.repeat-select-weekday,
 .repeat-end-select,
 .repeat-number-select {
   flex: 1 1 0;
@@ -1141,6 +1142,11 @@ body {
 
 .repeat-select{
   max-width: 70px;
+}
+
+.repeat-select-weekday{
+  max-width: 130px;
+  min-width: 110px;
 }
 
 .repeat-number-select {

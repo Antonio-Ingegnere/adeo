@@ -232,20 +232,26 @@
           </div>
           <div class="repeat-line">
             <label class="modal-label" for="repeat-type">Repeat</label>
-            <select id="repeat-type" class="repeat-select">
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+            <div class="repeat-select-wrap repeat-select-inline">
+              <select id="repeat-type" class="repeat-select">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <span class="repeat-caret" aria-hidden="true">▾</span>
+            </div>
             <div class="modal-right-side-fill"></div>
           </div>
           <div id="repeat-interval-host">
             <div class="repeat-line repeat-interval-row">
               <label class="modal-label" for="repeat-interval">Every</label>
               <div class="repeat-inline">
+              <div class="repeat-select-wrap repeat-number-inline">
                 <select id="repeat-interval" class="repeat-number-select"></select>
-                <span id="repeat-interval-unit" class="repeat-inline-label">day(s)</span>
+                <span class="repeat-caret" aria-hidden="true">▾</span>
+              </div>
+              <span id="repeat-interval-unit" class="repeat-inline-label">day(s)</span>
               </div>
             </div>
           </div>
@@ -312,11 +318,14 @@
           <div class="repeat-line repeat-end-line">
             <label class="modal-label" for="repeat-end-type">End</label>
             <div class="repeat-inline">
-              <select id="repeat-end-type" class="repeat-end-select">
-                <option value="none">No end date</option>
-                <option value="on">On this day</option>
-                <option value="after">After</option>
-              </select>
+              <div class="repeat-select-wrap repeat-end-inline">
+                <select id="repeat-end-type" class="repeat-end-select">
+                  <option value="none">No end date</option>
+                  <option value="on">On this day</option>
+                  <option value="after">After</option>
+                </select>
+                <span class="repeat-caret" aria-hidden="true">▾</span>
+              </div>
               <input id="repeat-end-date" type="date" class="repeat-date-input" />
               <input id="repeat-end-count" type="number" min="1" value="1" class="repeat-count-input" />
               <span id="repeat-end-occurrences" class="repeat-inline-label">occurrences</span>

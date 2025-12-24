@@ -745,6 +745,38 @@ body {
   position: relative;
 }
 
+.repeat-select-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  max-width: 90px;
+}
+
+.repeat-number-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  max-width: 50px;
+}
+
+.repeat-end-inline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  max-width: 100px;
+}
+
+.repeat-caret {
+  position: absolute;
+  right: 10px;
+  color: #666;
+  font-size: 12px;
+  pointer-events: none;
+}
+
 .priority-picker,
 .reminder-picker,
 .add-task-picker {
@@ -1147,6 +1179,22 @@ body {
 
 .repeat-select{
   max-width: 70px;
+}
+
+#repeat-type {
+  padding-right: 26px;
+  width: 100%;
+  max-width: 90px;
+}
+
+#repeat-interval {
+  padding-right: 26px;
+  width: 100%;
+}
+
+#repeat-end-type {
+  padding-right: 26px;
+  width: 100%;
 }
 
 .repeat-select-weekday{

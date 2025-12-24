@@ -1204,6 +1204,10 @@ body {
   gap: 10px;
 }
 
+#repeat-monthly-options .repeat-split-row {
+  align-items: center;
+}
+
 .repeat-split-label {
   margin: 0;
   min-width: 36px;
@@ -1247,6 +1251,10 @@ body {
   gap: 8px;
   font-size: 13px;
   color: #222;
+}
+
+#repeat-monthly-options .repeat-radio-line {
+  align-items: center;
 }
 
 .repeat-radio-content {

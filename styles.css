@@ -1183,6 +1183,11 @@ body {
   gap: 8px;
 }
 
+#repeat-monthly-options,
+#repeat-yearly-options {
+  min-height: 112px;
+}
+
 .repeat-subsection.open {
   display: flex;
   flex-direction: column;

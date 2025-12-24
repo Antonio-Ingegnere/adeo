@@ -234,6 +234,7 @@ const setupEvents = () => {
   });
 
   const repeatIntervalRow = document.querySelector<HTMLDivElement>('.repeat-interval-row');
+  const repeatIntervalHost = document.querySelector<HTMLDivElement>('#repeat-interval-host');
   const monthlyModeSelector = 'input[name="repeat-monthly-mode"]';
   const yearlyModeSelector = 'input[name="repeat-yearly-mode"]';
 
@@ -291,6 +292,13 @@ const setupEvents = () => {
       refs.repeatIntervalUnit.textContent = unitMap[type] ?? 'day(s)';
     }
     if (repeatIntervalRow) {
+      if (type === 'monthly' && refs.repeatMonthlyOptions) {
+        if (repeatIntervalRow.parentElement !== refs.repeatMonthlyOptions) {
+          refs.repeatMonthlyOptions.prepend(repeatIntervalRow);
+        }
+      } else if (repeatIntervalHost && repeatIntervalRow.parentElement !== repeatIntervalHost) {
+        repeatIntervalHost.append(repeatIntervalRow);
+      }
       repeatIntervalRow.style.display = type === 'yearly' ? 'none' : 'flex';
     }
     refs.repeatWeeklyOptions?.classList.toggle('open', type === 'weekly');

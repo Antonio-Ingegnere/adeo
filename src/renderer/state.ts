@@ -20,6 +20,8 @@ export type UIState = {
   modalReminderDate: string | null;
   modalReminderTime: string | null;
   modalRepeat: string | null;
+  modalRepeatRule: string | null;
+  modalRepeatStart: string | null;
   timeFormat: '12h' | '24h';
   dateFormat: string;
 };
@@ -44,6 +46,8 @@ export const state: UIState = {
   modalReminderDate: null,
   modalReminderTime: null,
   modalRepeat: null,
+  modalRepeatRule: null,
+  modalRepeatStart: null,
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
 };

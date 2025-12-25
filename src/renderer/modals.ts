@@ -100,6 +100,31 @@ export const updateRepeatUI = (value: string | null) => {
   refs.repeatLabel.textContent = label;
 };
 
+const deriveRepeatLabel = (repeatRule: string | null) => {
+  if (!repeatRule) return null;
+  const parts = repeatRule.split(';').reduce<Record<string, string>>((acc, part) => {
+    const [key, value] = part.split('=');
+    if (key && value) acc[key] = value;
+    return acc;
+  }, {});
+  const freq = parts.FREQ;
+  const hasEnd = Boolean(parts.COUNT || parts.UNTIL);
+  const hasInterval = Boolean(parts.INTERVAL && parts.INTERVAL !== '1');
+  if (hasEnd || hasInterval) return 'custom';
+  if (freq === 'DAILY' && !parts.BYDAY) return 'daily';
+  if (freq === 'WEEKLY' && parts.BYDAY === 'MO,TU,WE,TH,FR') {
+    return 'weekdays';
+  }
+  if (freq === 'WEEKLY') {
+    const bydayValues = parts.BYDAY ? parts.BYDAY.split(',').filter(Boolean) : [];
+    if (bydayValues.length <= 1) return 'weekly';
+    return 'custom';
+  }
+  if (freq === 'MONTHLY') return 'monthly';
+  if (freq === 'YEARLY') return 'yearly';
+  return 'custom';
+};
+
 export const openEditModal = (taskId: number) => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput || !task) return;
@@ -108,7 +133,9 @@ export const openEditModal = (taskId: number) => {
   state.modalPriority = task.priority ?? 'none';
   state.modalReminderDate = task.reminderDate ?? null;
   state.modalReminderTime = task.reminderTime ?? null;
-  state.modalRepeat = null;
+  state.modalRepeatRule = task.repeatRule ?? null;
+  state.modalRepeatStart = task.repeatStart ?? null;
+  state.modalRepeat = deriveRepeatLabel(task.repeatRule ?? null);
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
   if (refs.reminderDateInput) {
@@ -157,6 +184,8 @@ export const closeEditModal = () => {
   state.modalReminderDate = null;
   state.modalReminderTime = null;
   state.modalRepeat = null;
+  state.modalRepeatRule = null;
+  state.modalRepeatStart = null;
   if (refs.reminderDateInput) refs.reminderDateInput.value = '';
   if (refs.reminderTimeSelect) refs.reminderTimeSelect.value = '';
   updatePriorityUI('none');
@@ -189,15 +218,18 @@ export const saveEdit = async () => {
   const newPriority = state.modalPriority;
   const reminderDate = state.modalReminderDate ?? null;
   const reminderTime = state.modalReminderTime ?? null;
+  const repeatRule = state.modalRepeatRule ?? null;
+  const repeatStart = state.modalRepeatStart ?? null;
   if (!newText) return;
   try {
-    const [textResult, detailsResult, listResult, priorityResult, reminderResult] = await Promise.all([
+    const [textResult, detailsResult, listResult, priorityResult, reminderResult, repeatResult] = await Promise.all([
       window.electronAPI.updateTaskText(state.editingTaskId, newText),
       window.electronAPI.updateTaskDetails(state.editingTaskId, newDetails),
       window.electronAPI.updateTaskList(state.editingTaskId, newListId),
       window.electronAPI.updateTaskDone(state.editingTaskId, newDone),
       window.electronAPI.updateTaskPriority(state.editingTaskId, newPriority),
       window.electronAPI.updateTaskReminder(state.editingTaskId, reminderDate, reminderTime),
+      window.electronAPI.updateTaskRepeat(state.editingTaskId, repeatRule, repeatStart),
     ]);
     if (
       !textResult ||
@@ -205,7 +237,8 @@ export const saveEdit = async () => {
       !detailsResult ||
       (listResult as any)?.error ||
       (priorityResult as any)?.error ||
-      (reminderResult as any)?.error
+      (reminderResult as any)?.error ||
+      (repeatResult as any)?.error
     ) {
       return;
     }
@@ -218,6 +251,8 @@ export const saveEdit = async () => {
       state.tasks[idx].priority = newPriority;
       state.tasks[idx].reminderDate = reminderDate;
       state.tasks[idx].reminderTime = reminderTime;
+      state.tasks[idx].repeatRule = repeatRule;
+      state.tasks[idx].repeatStart = repeatStart;
       renderTasks();
     }
     closeEditModal();

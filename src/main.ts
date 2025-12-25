@@ -99,6 +99,8 @@ function initializeDatabase(): void {
       priority TEXT NOT NULL DEFAULT 'none',
       reminder_date TEXT,
       reminder_time TEXT,
+      repeat_rule TEXT,
+      repeat_start TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -116,6 +118,8 @@ function initializeDatabase(): void {
   const hasPriority = taskColumns.some((col) => col.name === 'priority');
   const hasReminderDate = taskColumns.some((col) => col.name === 'reminder_date');
   const hasReminderTime = taskColumns.some((col) => col.name === 'reminder_time');
+  const hasRepeatRule = taskColumns.some((col) => col.name === 'repeat_rule');
+  const hasRepeatStart = taskColumns.some((col) => col.name === 'repeat_start');
   if (!hasListId) {
     try {
       db.prepare('ALTER TABLE tasks ADD COLUMN list_id INTEGER').run();
@@ -142,6 +146,20 @@ function initializeDatabase(): void {
       db.prepare('ALTER TABLE tasks ADD COLUMN reminder_time TEXT').run();
     } catch (error) {
       console.error('Failed to add reminder_time column to tasks', error);
+    }
+  }
+  if (!hasRepeatRule) {
+    try {
+      db.prepare('ALTER TABLE tasks ADD COLUMN repeat_rule TEXT').run();
+    } catch (error) {
+      console.error('Failed to add repeat_rule column to tasks', error);
+    }
+  }
+  if (!hasRepeatStart) {
+    try {
+      db.prepare('ALTER TABLE tasks ADD COLUMN repeat_start TEXT').run();
+    } catch (error) {
+      console.error('Failed to add repeat_start column to tasks', error);
     }
   }
 
@@ -268,9 +286,9 @@ ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) 
   const nextPosition = typeof nextPositionRow?.maxPos === 'number' ? nextPositionRow.maxPos + 1 : 0;
   const result = database
     .prepare(
-      'INSERT INTO tasks (text, details, done, position, list_id, priority, reminder_date, reminder_time) VALUES (?, ?, 0, ?, ?, ?, ?, ?)'
+      'INSERT INTO tasks (text, details, done, position, list_id, priority, reminder_date, reminder_time, repeat_rule, repeat_start) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .run(trimmed, '', nextPosition, listId ?? null, 'none', null, null);
+    .run(trimmed, '', nextPosition, listId ?? null, 'none', null, null, null, null);
   const task = {
     id: Number(result.lastInsertRowid),
     text: trimmed,
@@ -281,6 +299,8 @@ ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) 
     priority: 'none' as Priority,
     reminderDate: null as string | null,
     reminderTime: null as string | null,
+    repeatRule: null as string | null,
+    repeatStart: null as string | null,
   };
   return task;
 });
@@ -289,7 +309,8 @@ ipcMain.handle('get-tasks', async () => {
   const database = ensureDb();
   const rows = database
     .prepare(
-      `SELECT id, text, details, done, position, list_id as listId, priority, reminder_date as reminderDate, reminder_time as reminderTime
+      `SELECT id, text, details, done, position, list_id as listId, priority, reminder_date as reminderDate, reminder_time as reminderTime,
+        repeat_rule as repeatRule, repeat_start as repeatStart
        FROM tasks
        ORDER BY position ASC, id ASC`
     )
@@ -303,6 +324,8 @@ ipcMain.handle('get-tasks', async () => {
       priority?: Priority;
       reminderDate?: string | null;
       reminderTime?: string | null;
+      repeatRule?: string | null;
+      repeatStart?: string | null;
     }>;
   return rows.map((row) => ({
     id: row.id,
@@ -314,6 +337,8 @@ ipcMain.handle('get-tasks', async () => {
     priority: (row.priority ?? 'none') as Priority,
     reminderDate: row.reminderDate ?? null,
     reminderTime: row.reminderTime ?? null,
+    repeatRule: row.repeatRule ?? null,
+    repeatStart: row.repeatStart ?? null,
   }));
 });
 
@@ -429,6 +454,12 @@ ipcMain.handle('update-task-reminder', async (_event, id: number, reminderDate: 
   const database = ensureDb();
   database.prepare('UPDATE tasks SET reminder_date = ?, reminder_time = ? WHERE id = ?').run(reminderDate, reminderTime, id);
   return { id, reminderDate, reminderTime };
+});
+
+ipcMain.handle('update-task-repeat', async (_event, id: number, repeatRule: string | null, repeatStart: string | null) => {
+  const database = ensureDb();
+  database.prepare('UPDATE tasks SET repeat_rule = ?, repeat_start = ? WHERE id = ?').run(repeatRule, repeatStart, id);
+  return { id, repeatRule, repeatStart };
 });
 
 ipcMain.handle('update-time-format', async (_event, format: TimeFormat) => {

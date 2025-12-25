@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       reminderDate: string | null;
       reminderTime: string | null;
     }>,
+  updateTaskRepeat: (id: number, repeatRule: string | null, repeatStart: string | null) =>
+    ipcRenderer.invoke('update-task-repeat', id, repeatRule, repeatStart) as Promise<{
+      id: number;
+      repeatRule: string | null;
+      repeatStart: string | null;
+    }>,
   getSettings: () => ipcRenderer.invoke('get-settings') as Promise<Settings>,
   onShowCompletedChanged: (callback: (show: boolean) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);

@@ -42,6 +42,12 @@ export const loadTasks = async () => {
       if ((t as any).reminderTime === undefined) {
         (t as any).reminderTime = null;
       }
+      if ((t as any).repeatRule === undefined) {
+        (t as any).repeatRule = null;
+      }
+      if ((t as any).repeatStart === undefined) {
+        (t as any).repeatStart = null;
+      }
     });
     renderTasks();
   } catch (error) {

@@ -8,6 +8,8 @@ export type Task = {
   priority: 'none' | 'low' | 'medium' | 'high';
   reminderDate?: string | null;
   reminderTime?: string | null;
+  repeatRule?: string | null;
+  repeatStart?: string | null;
 };
 
 export type Settings = {
@@ -36,6 +38,11 @@ export type ElectronAPI = {
     reminderDate: string | null,
     reminderTime: string | null
   ) => Promise<{ id: number; reminderDate: string | null; reminderTime: string | null }>;
+  updateTaskRepeat: (
+    id: number,
+    repeatRule: string | null,
+    repeatStart: string | null
+  ) => Promise<{ id: number; repeatRule: string | null; repeatStart: string | null }>;
   getSettings: () => Promise<Settings>;
   onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
   addList: (name: string) => Promise<List | { error: string }>;

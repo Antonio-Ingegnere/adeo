@@ -49,6 +49,237 @@ const setSelectOptions = (
   }
 };
 
+const weekdayMap: Record<string, string> = {
+  mon: 'MO',
+  tue: 'TU',
+  wed: 'WE',
+  thu: 'TH',
+  fri: 'FR',
+  sat: 'SA',
+  sun: 'SU',
+};
+
+const weekdayLabelMap: Record<string, string> = {
+  Monday: 'MO',
+  Tuesday: 'TU',
+  Wednesday: 'WE',
+  Thursday: 'TH',
+  Friday: 'FR',
+  Saturday: 'SA',
+  Sunday: 'SU',
+};
+
+const monthLabelMap: Record<string, number> = {
+  January: 1,
+  February: 2,
+  March: 3,
+  April: 4,
+  May: 5,
+  June: 6,
+  July: 7,
+  August: 8,
+  September: 9,
+  October: 10,
+  November: 11,
+  December: 12,
+};
+
+const monthNumberMap: Record<string, string> = {
+  '1': 'January',
+  '2': 'February',
+  '3': 'March',
+  '4': 'April',
+  '5': 'May',
+  '6': 'June',
+  '7': 'July',
+  '8': 'August',
+  '9': 'September',
+  '10': 'October',
+  '11': 'November',
+  '12': 'December',
+};
+
+const toRruleDate = (value: string) => value.replace(/-/g, '');
+
+const getDefaultRepeatStart = () => state.modalReminderDate ?? toDateInputValue(new Date());
+
+const ordinalToBysetpos = (value: string) => {
+  switch (value) {
+    case 'First':
+      return 1;
+    case 'Second':
+      return 2;
+    case 'Third':
+      return 3;
+    case 'Fourth':
+      return 4;
+    case 'Last':
+      return -1;
+    default:
+      return 1;
+  }
+};
+
+const bysetposToOrdinal = (value: string) => {
+  switch (value) {
+    case '1':
+      return 'First';
+    case '2':
+      return 'Second';
+    case '3':
+      return 'Third';
+    case '4':
+      return 'Fourth';
+    case '-1':
+      return 'Last';
+    default:
+      return 'First';
+  }
+};
+
+const buildWeeklyByday = (selected: string[], startDate: string) => {
+  if (selected.length) {
+    return selected.map((day) => weekdayMap[day]).filter(Boolean);
+  }
+  const start = new Date(`${startDate}T00:00:00`);
+  const dayIndex = start.getDay();
+  const order = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  return [order[dayIndex] ?? 'MO'];
+};
+
+const buildMonthlyOrYearlyByday = (weekdayValue: string, ordinalValue: string) => {
+  const ordinal = ordinalToBysetpos(ordinalValue);
+  if (weekdayValue === 'Day') {
+    return { bymonthday: ordinal === -1 ? '-1' : String(ordinal) };
+  }
+  if (weekdayValue === 'Weekday') {
+    return { byday: 'MO,TU,WE,TH,FR', bysetpos: String(ordinal) };
+  }
+  if (weekdayValue === 'Weekend Day') {
+    return { byday: 'SA,SU', bysetpos: String(ordinal) };
+  }
+  const mapped = weekdayLabelMap[weekdayValue];
+  if (mapped) {
+    return { byday: mapped, bysetpos: String(ordinal) };
+  }
+  return { byday: 'MO', bysetpos: String(ordinal) };
+};
+
+const buildPresetRepeatRule = (type: string) => {
+  const start = getDefaultRepeatStart();
+  const startDate = start;
+  const ruleParts: string[] = [];
+  if (type === 'daily') {
+    ruleParts.push('FREQ=DAILY');
+  } else if (type === 'weekdays') {
+    ruleParts.push('FREQ=WEEKLY', 'BYDAY=MO,TU,WE,TH,FR');
+  } else if (type === 'weekly') {
+    const byday = buildWeeklyByday([], startDate).join(',');
+    ruleParts.push('FREQ=WEEKLY', `BYDAY=${byday}`);
+  } else if (type === 'monthly') {
+    const day = new Date(`${startDate}T00:00:00`).getDate();
+    ruleParts.push('FREQ=MONTHLY', `BYMONTHDAY=${day}`);
+  } else if (type === 'yearly') {
+    const date = new Date(`${startDate}T00:00:00`);
+    ruleParts.push('FREQ=YEARLY', `BYMONTH=${date.getMonth() + 1}`, `BYMONTHDAY=${date.getDate()}`);
+  } else {
+    return null;
+  }
+  return { rule: ruleParts.join(';'), start };
+};
+
+const buildCustomRepeatRule = () => {
+  const start = refs.repeatStartDate?.value || getDefaultRepeatStart();
+  const type = refs.repeatTypeSelect?.value ?? 'daily';
+  const interval = Number(refs.repeatIntervalSelect?.value ?? '1');
+  const ruleParts: string[] = [];
+
+  if (type === 'daily') {
+    ruleParts.push('FREQ=DAILY');
+  } else if (type === 'weekly') {
+    const selectedDays = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.repeat-day-button.selected')
+    ).map((button) => button.dataset.day || '');
+    const byday = buildWeeklyByday(selectedDays, start).join(',');
+    ruleParts.push('FREQ=WEEKLY', `BYDAY=${byday}`);
+  } else if (type === 'monthly') {
+    ruleParts.push('FREQ=MONTHLY');
+    const mode =
+      (document.querySelector<HTMLInputElement>('input[name="repeat-monthly-mode"]:checked')?.value as string) ?? 'day';
+    if (mode === 'day') {
+      const day = refs.repeatMonthlyDay?.value ?? '1';
+      ruleParts.push(`BYMONTHDAY=${day}`);
+    } else {
+      const ordinal = refs.repeatMonthlyOrdinal?.value ?? 'First';
+      const weekday = refs.repeatMonthlyWeekday?.value ?? 'Monday';
+      const parts = buildMonthlyOrYearlyByday(weekday, ordinal);
+      if (parts.byday) ruleParts.push(`BYDAY=${parts.byday}`);
+      if (parts.bysetpos) ruleParts.push(`BYSETPOS=${parts.bysetpos}`);
+      if (parts.bymonthday) ruleParts.push(`BYMONTHDAY=${parts.bymonthday}`);
+    }
+  } else if (type === 'yearly') {
+    ruleParts.push('FREQ=YEARLY');
+    const monthLabel = refs.repeatYearlyMonth?.value ?? 'January';
+    const month = monthLabelMap[monthLabel] ?? 1;
+    ruleParts.push(`BYMONTH=${month}`);
+    const mode =
+      (document.querySelector<HTMLInputElement>('input[name="repeat-yearly-mode"]:checked')?.value as string) ?? 'day';
+    if (mode === 'day') {
+      const day = refs.repeatYearlyDay?.value ?? '1';
+      ruleParts.push(`BYMONTHDAY=${day}`);
+    } else {
+      const ordinal = refs.repeatYearlyOrdinal?.value ?? 'First';
+      const weekday = refs.repeatYearlyWeekday?.value ?? 'Monday';
+      const parts = buildMonthlyOrYearlyByday(weekday, ordinal);
+      if (parts.byday) ruleParts.push(`BYDAY=${parts.byday}`);
+      if (parts.bysetpos) ruleParts.push(`BYSETPOS=${parts.bysetpos}`);
+      if (parts.bymonthday) ruleParts.push(`BYMONTHDAY=${parts.bymonthday}`);
+    }
+  }
+
+  if (!ruleParts.length) {
+    return { rule: null, start: null };
+  }
+
+  if (interval > 1 && type !== 'yearly') {
+    ruleParts.push(`INTERVAL=${interval}`);
+  }
+
+  const endType = refs.repeatEndType?.value ?? 'none';
+  if (endType === 'on' && refs.repeatEndDate?.value) {
+    ruleParts.push(`UNTIL=${toRruleDate(refs.repeatEndDate.value)}`);
+  } else if (endType === 'after' && refs.repeatEndCount?.value) {
+    ruleParts.push(`COUNT=${refs.repeatEndCount.value}`);
+  }
+
+  return { rule: ruleParts.join(';'), start };
+};
+
+const resetWeeklyButtons = () => {
+  document.querySelectorAll<HTMLButtonElement>('.repeat-day-button').forEach((button) => {
+    button.classList.remove('selected');
+  });
+};
+
+const setWeeklyButtons = (byday: string[]) => {
+  const reverseMap: Record<string, string> = {
+    MO: 'mon',
+    TU: 'tue',
+    WE: 'wed',
+    TH: 'thu',
+    FR: 'fri',
+    SA: 'sat',
+    SU: 'sun',
+  };
+  resetWeeklyButtons();
+  byday.forEach((code) => {
+    const mapped = reverseMap[code];
+    if (!mapped) return;
+    const button = document.querySelector<HTMLButtonElement>(`.repeat-day-button[data-day="${mapped}"]`);
+    button?.classList.add('selected');
+  });
+};
+
 const buildNumberOptions = (start: number, end: number) =>
   Array.from({ length: end - start + 1 }, (_, idx) => {
     const value = String(start + idx);
@@ -226,6 +457,9 @@ const setupEvents = () => {
       openRepeatModal();
     } else {
       state.modalRepeat = val || null;
+      const presetRule = val ? buildPresetRepeatRule(val) : null;
+      state.modalRepeatRule = presetRule?.rule ?? null;
+      state.modalRepeatStart = presetRule?.start ?? null;
       updateRepeatUI(state.modalRepeat);
     }
     if (refs.repeatMenu) {
@@ -377,6 +611,108 @@ const setupEvents = () => {
     refs.repeatSummary.textContent = summary;
   };
 
+  const applyRepeatRuleToUI = () => {
+    if (!refs.repeatTypeSelect) return;
+    const rule = state.modalRepeatRule;
+    const startValue = state.modalRepeatStart ?? state.modalReminderDate ?? getDefaultRepeatStart();
+    if (refs.repeatStartDate) {
+      refs.repeatStartDate.value = startValue;
+    }
+    resetWeeklyButtons();
+    if (!rule) {
+      refs.repeatTypeSelect.value = 'daily';
+      updateRepeatTypeUI();
+      updateRepeatEndUI();
+      updateRepeatSummaryText();
+      return;
+    }
+
+    const parts = rule.split(';').reduce<Record<string, string>>((acc, part) => {
+      const [key, value] = part.split('=');
+      if (key && value) acc[key] = value;
+      return acc;
+    }, {});
+    const freq = parts.FREQ ?? 'DAILY';
+    const interval = parts.INTERVAL ?? '1';
+
+    refs.repeatTypeSelect.value = freq.toLowerCase();
+    if (refs.repeatIntervalSelect) {
+      refs.repeatIntervalSelect.value = interval;
+    }
+
+    if (freq === 'WEEKLY') {
+      const byday = parts.BYDAY ? parts.BYDAY.split(',').filter(Boolean) : [];
+      setWeeklyButtons(byday);
+    }
+
+    if (freq === 'MONTHLY') {
+      const monthlyModeInputs = document.querySelectorAll<HTMLInputElement>('input[name="repeat-monthly-mode"]');
+      const hasBymonthday = Boolean(parts.BYMONTHDAY);
+      monthlyModeInputs.forEach((input) => {
+        input.checked = input.value === (hasBymonthday ? 'day' : 'weekday');
+      });
+      if (hasBymonthday && refs.repeatMonthlyDay) {
+        refs.repeatMonthlyDay.value = parts.BYMONTHDAY;
+      } else if (refs.repeatMonthlyOrdinal && refs.repeatMonthlyWeekday) {
+        const ordinal = bysetposToOrdinal(parts.BYSETPOS ?? '1');
+        refs.repeatMonthlyOrdinal.value = ordinal;
+        const byday = parts.BYDAY ?? 'MO';
+        if (byday === 'MO,TU,WE,TH,FR') {
+          refs.repeatMonthlyWeekday.value = 'Weekday';
+        } else if (byday === 'SA,SU') {
+          refs.repeatMonthlyWeekday.value = 'Weekend Day';
+        } else {
+          const mapped = Object.entries(weekdayLabelMap).find(([, code]) => code === byday);
+          refs.repeatMonthlyWeekday.value = mapped?.[0] ?? 'Monday';
+        }
+      }
+    }
+
+    if (freq === 'YEARLY') {
+      const monthLabel = parts.BYMONTH ? monthNumberMap[parts.BYMONTH] : null;
+      if (refs.repeatYearlyMonth && monthLabel) {
+        refs.repeatYearlyMonth.value = monthLabel;
+      }
+      const yearlyModeInputs = document.querySelectorAll<HTMLInputElement>('input[name="repeat-yearly-mode"]');
+      const hasBymonthday = Boolean(parts.BYMONTHDAY);
+      yearlyModeInputs.forEach((input) => {
+        input.checked = input.value === (hasBymonthday ? 'day' : 'weekday');
+      });
+      if (hasBymonthday && refs.repeatYearlyDay) {
+        refs.repeatYearlyDay.value = parts.BYMONTHDAY;
+      } else if (refs.repeatYearlyOrdinal && refs.repeatYearlyWeekday) {
+        const ordinal = bysetposToOrdinal(parts.BYSETPOS ?? '1');
+        refs.repeatYearlyOrdinal.value = ordinal;
+        const byday = parts.BYDAY ?? 'MO';
+        if (byday === 'MO,TU,WE,TH,FR') {
+          refs.repeatYearlyWeekday.value = 'Weekday';
+        } else if (byday === 'SA,SU') {
+          refs.repeatYearlyWeekday.value = 'Weekend Day';
+        } else {
+          const mapped = Object.entries(weekdayLabelMap).find(([, code]) => code === byday);
+          refs.repeatYearlyWeekday.value = mapped?.[0] ?? 'Monday';
+        }
+      }
+    }
+
+    if (refs.repeatEndType) {
+      if (parts.UNTIL && refs.repeatEndDate) {
+        refs.repeatEndType.value = 'on';
+        const until = parts.UNTIL.replace(/(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3');
+        refs.repeatEndDate.value = until;
+      } else if (parts.COUNT && refs.repeatEndCount) {
+        refs.repeatEndType.value = 'after';
+        refs.repeatEndCount.value = parts.COUNT;
+      } else {
+        refs.repeatEndType.value = 'none';
+      }
+    }
+
+    updateRepeatTypeUI();
+    updateRepeatEndUI();
+    updateRepeatSummaryText();
+  };
+
   const openRepeatModal = () => {
     if (!refs.repeatOverlay || !refs.repeatStartDate) return;
     const start = state.modalReminderDate ? new Date(`${state.modalReminderDate}T00:00:00`) : new Date();
@@ -389,9 +725,7 @@ const setupEvents = () => {
       end.setMonth(end.getMonth() + 6);
       refs.repeatEndDate.value = toDateInputValue(end);
     }
-    updateRepeatTypeUI();
-    updateRepeatEndUI();
-    updateRepeatSummaryText();
+    applyRepeatRuleToUI();
     refs.repeatOverlay.classList.add('open');
   };
 
@@ -446,7 +780,14 @@ const setupEvents = () => {
   });
 
   refs.repeatCancel?.addEventListener('click', () => closeRepeatModal());
-  refs.repeatSave?.addEventListener('click', () => closeRepeatModal());
+  refs.repeatSave?.addEventListener('click', () => {
+    const customRule = buildCustomRepeatRule();
+    state.modalRepeat = 'custom';
+    state.modalRepeatRule = customRule.rule;
+    state.modalRepeatStart = customRule.start;
+    updateRepeatUI(state.modalRepeat);
+    closeRepeatModal();
+  });
   refs.repeatOverlay?.addEventListener('click', (event) => {
     if (event.target === refs.repeatOverlay) {
       closeRepeatModal();

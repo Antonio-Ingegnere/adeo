@@ -49,12 +49,16 @@ body {
   padding: 0 4px;
 }
 
+.lists-search-field {
+  position: relative;
+}
+
 .lists-search-input {
   width: 100%;
   border: 1px solid #d6d6d6;
   background: #fff;
   color: #444;
-  padding: 8px 10px 8px 32px;
+  padding: 8px 32px 8px 32px;
   border-radius: 10px;
   font-size: 13px;
   box-sizing: border-box;
@@ -62,6 +66,32 @@ body {
   background-repeat: no-repeat;
   background-position: 10px center;
   background-size: 14px 14px;
+}
+
+.lists-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #888;
+  padding: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.lists-search-clear:hover {
+  color: #444;
+}
+
+.lists-search-clear svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .headline {

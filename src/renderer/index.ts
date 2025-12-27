@@ -471,12 +471,41 @@ const setupEvents = () => {
     updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   });
 
-  refs.listsSearchInput?.addEventListener('input', (event) => {
-    const val = (event.target as HTMLInputElement).value;
-    state.searchQuery = val;
+  const applySearchQuery = (value: string) => {
+    state.searchQuery = value;
+    if (refs.listsSearchClear) {
+      refs.listsSearchClear.style.visibility = value ? 'visible' : 'hidden';
+    }
     updateTasksTitle();
     renderTasks();
+  };
+
+  refs.listsSearchInput?.addEventListener('input', (event) => {
+    const val = (event.target as HTMLInputElement).value;
+    applySearchQuery(val);
   });
+
+  refs.listsSearchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      applySearchQuery('');
+      if (refs.listsSearchInput) {
+        refs.listsSearchInput.value = '';
+      }
+    }
+  });
+
+  refs.listsSearchClear?.addEventListener('click', () => {
+    applySearchQuery('');
+    if (refs.listsSearchInput) {
+      refs.listsSearchInput.value = '';
+      refs.listsSearchInput.focus();
+    }
+  });
+
+  if (refs.listsSearchClear) {
+    refs.listsSearchClear.style.visibility = state.searchQuery ? 'visible' : 'hidden';
+  }
 
   refs.repeatPicker?.addEventListener('click', (event) => {
     event.stopPropagation();

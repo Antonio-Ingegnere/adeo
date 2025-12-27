@@ -22,6 +22,7 @@ export const refs = {
   addTaskListPicker: byId<HTMLButtonElement>('add-task-list-picker'),
   addTaskListMenu: byId<HTMLDivElement>('add-task-list-menu'),
   addTaskListLabel: byId<HTMLSpanElement>('add-task-list-label'),
+  listsSearchInput: byId<HTMLInputElement>('lists-search-input'),
   modalListPicker: byId<HTMLButtonElement>('modal-list-picker'),
   modalListMenu: byId<HTMLDivElement>('modal-list-menu'),
   modalListLabel: byId<HTMLSpanElement>('modal-list-label'),

@@ -22,6 +22,7 @@ export type UIState = {
   modalRepeat: string | null;
   modalRepeatRule: string | null;
   modalRepeatStart: string | null;
+  searchQuery: string;
   timeFormat: '12h' | '24h';
   dateFormat: string;
 };
@@ -48,6 +49,7 @@ export const state: UIState = {
   modalRepeat: null,
   modalRepeatRule: null,
   modalRepeatStart: null,
+  searchQuery: '',
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
 };

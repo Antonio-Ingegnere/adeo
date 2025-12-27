@@ -45,6 +45,10 @@ const formatDate = (date: string | null) => {
 
 export const updateTasksTitle = () => {
   if (!refs.tasksTitleEl) return;
+  if (state.searchQuery.trim()) {
+    refs.tasksTitleEl.textContent = 'Search results';
+    return;
+  }
   if (state.selectedListId === null) {
     refs.tasksTitleEl.textContent = 'All tasks';
     return;
@@ -257,6 +261,61 @@ export const renderTasks = () => {
   if (!refs.tasksList) return;
   removeDropIndicator();
   refs.tasksList.innerHTML = '';
+
+  const searchQuery = state.searchQuery.trim().toLowerCase();
+  if (searchQuery) {
+    const matches = state.tasks.filter((task) => {
+      const text = task.text.toLowerCase();
+      const details = task.details?.toLowerCase() ?? '';
+      return text.includes(searchQuery) || details.includes(searchQuery);
+    });
+
+    if (matches.length === 0) {
+      if (refs.emptyState) {
+        refs.tasksList.appendChild(refs.emptyState);
+      }
+      return;
+    }
+
+    const grouped = new Map<number | null, Task[]>();
+    matches.forEach((task) => {
+      const listId = task.listId ?? null;
+      const existing = grouped.get(listId) ?? [];
+      existing.push(task);
+      grouped.set(listId, existing);
+    });
+
+    state.lists.forEach((list) => {
+      const tasks = grouped.get(list.id);
+      if (!tasks || tasks.length === 0) return;
+      const header = document.createElement('p');
+      header.className = 'tasks-title';
+      header.textContent = list.name;
+      refs.tasksList?.appendChild(header);
+      tasks.forEach((task) => {
+        const index = state.tasks.findIndex((t) => t.id === task.id);
+        if (index === -1) return;
+        const row = buildTaskRow(task, index, renderTasks);
+        refs.tasksList?.appendChild(row);
+      });
+      grouped.delete(list.id);
+    });
+
+    const unlisted = grouped.get(null);
+    if (unlisted && unlisted.length) {
+      const header = document.createElement('p');
+      header.className = 'tasks-title';
+      header.textContent = 'No list';
+      refs.tasksList?.appendChild(header);
+      unlisted.forEach((task) => {
+        const index = state.tasks.findIndex((t) => t.id === task.id);
+        if (index === -1) return;
+        const row = buildTaskRow(task, index, renderTasks);
+        refs.tasksList?.appendChild(row);
+      });
+    }
+    return;
+  }
 
   const visibleTasks = getVisibleTasks();
 

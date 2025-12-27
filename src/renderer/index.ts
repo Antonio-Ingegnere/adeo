@@ -471,6 +471,13 @@ const setupEvents = () => {
     updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   });
 
+  refs.listsSearchInput?.addEventListener('input', (event) => {
+    const val = (event.target as HTMLInputElement).value;
+    state.searchQuery = val;
+    updateTasksTitle();
+    renderTasks();
+  });
+
   refs.repeatPicker?.addEventListener('click', (event) => {
     event.stopPropagation();
     if (refs.repeatMenu) {

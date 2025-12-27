@@ -1,13 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage } from 'electron';
-import Database from 'better-sqlite3';
-import type { Database as BetterSqliteDatabase } from 'better-sqlite3';
+import { spawn, type ChildProcess } from 'child_process';
+import net from 'net';
 import path from 'path';
 import fs from 'fs';
 
 const APP_NAME = 'Adeo';
 
 
-let db: BetterSqliteDatabase | null = null;
 let mainWindow: BrowserWindow | null = null;
 let showCompleted = true;
 type Priority = 'none' | 'low' | 'medium' | 'high';
@@ -77,103 +76,112 @@ if (process.platform === 'darwin') {
   app.setAboutPanelOptions({ applicationName: APP_NAME });
 }
 
-function ensureDb(): BetterSqliteDatabase {
-  if (!db) {
-    throw new Error('Database not initialized');
-  }
-  return db;
-}
+let apiBaseUrl: string | null = null;
+let apiProcess: ChildProcess | null = null;
+let apiReady: Promise<void> | null = null;
 
-function initializeDatabase(): void {
+const getFreePort = () =>
+  new Promise<number>((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(0, '127.0.0.1');
+    server.on('listening', () => {
+      const address = server.address() as net.AddressInfo;
+      server.close(() => resolve(address.port));
+    });
+    server.on('error', reject);
+  });
+
+const waitForApi = async (baseUrl: string) => {
+  const maxAttempts = 40;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const res = await fetch(`${baseUrl}/health`);
+      if (res.ok) return;
+    } catch {
+      // ignore
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  throw new Error('Python API did not start in time');
+};
+
+const startApiProcess = async () => {
+  const port = await getFreePort();
   const dbPath = path.join(app.getPath('userData'), 'tasks.db');
-  db = new Database(dbPath);
-  //db.prepare('DROP TABLE IF EXISTS tasks').run();
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      text TEXT NOT NULL,
-      details TEXT NOT NULL DEFAULT '',
-      done INTEGER NOT NULL DEFAULT 0,
-      position INTEGER NOT NULL DEFAULT 0,
-      list_id INTEGER,
-      priority TEXT NOT NULL DEFAULT 'none',
-      reminder_date TEXT,
-      reminder_time TEXT,
-      repeat_rule TEXT,
-      repeat_start TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS lists (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      position INTEGER NOT NULL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
+  const pythonBin =
+    process.env.ADEO_PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+  const appPath = app.getAppPath();
+  const candidates = [
+    path.join(appPath, 'dist', 'server', 'app.py'),
+    path.join(appPath, 'server', 'app.py'),
+  ];
+  const apiScript = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!apiScript) {
+    throw new Error('Python API script not found. Run `npm run build` or set ADEO_API_URL.');
+  }
+  let stderrOutput = '';
+  apiProcess = spawn(pythonBin, [apiScript], {
+    env: {
+      ...process.env,
+      ADEO_API_HOST: '127.0.0.1',
+      ADEO_API_PORT: String(port),
+      ADEO_DB_PATH: dbPath,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (apiProcess.stderr) {
+    apiProcess.stderr.on('data', (chunk) => {
+      stderrOutput += chunk.toString();
+    });
+  }
+  apiBaseUrl = `http://127.0.0.1:${port}`;
+  const exitPromise = new Promise<never>((_, reject) => {
+    apiProcess?.once('exit', (code) => {
+      const message = stderrOutput.trim() || 'Python API exited before becoming ready.';
+      reject(new Error(`Python API exited (code ${code ?? 'unknown'}): ${message}`));
+    });
+  });
+  await Promise.race([waitForApi(apiBaseUrl), exitPromise]);
+};
 
-  const taskColumns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>;
-  const hasListId = taskColumns.some((col) => col.name === 'list_id');
-  const hasPriority = taskColumns.some((col) => col.name === 'priority');
-  const hasReminderDate = taskColumns.some((col) => col.name === 'reminder_date');
-  const hasReminderTime = taskColumns.some((col) => col.name === 'reminder_time');
-  const hasRepeatRule = taskColumns.some((col) => col.name === 'repeat_rule');
-  const hasRepeatStart = taskColumns.some((col) => col.name === 'repeat_start');
-  if (!hasListId) {
-    try {
-      db.prepare('ALTER TABLE tasks ADD COLUMN list_id INTEGER').run();
-    } catch (error) {
-      console.error('Failed to add list_id column to tasks', error);
-    }
+const ensureApiReady = async () => {
+  if (apiBaseUrl) return;
+  if (!apiReady) {
+    apiReady = (async () => {
+      const manualUrl = process.env.ADEO_API_URL;
+      if (manualUrl) {
+        apiBaseUrl = manualUrl.replace(/\/$/, '');
+        await waitForApi(apiBaseUrl);
+        return;
+      }
+      await startApiProcess();
+    })();
   }
-  if (!hasPriority) {
-    try {
-      db.prepare('ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT \"none\"').run();
-    } catch (error) {
-      console.error('Failed to add priority column to tasks', error);
-    }
-  }
-  if (!hasReminderDate) {
-    try {
-      db.prepare('ALTER TABLE tasks ADD COLUMN reminder_date TEXT').run();
-    } catch (error) {
-      console.error('Failed to add reminder_date column to tasks', error);
-    }
-  }
-  if (!hasReminderTime) {
-    try {
-      db.prepare('ALTER TABLE tasks ADD COLUMN reminder_time TEXT').run();
-    } catch (error) {
-      console.error('Failed to add reminder_time column to tasks', error);
-    }
-  }
-  if (!hasRepeatRule) {
-    try {
-      db.prepare('ALTER TABLE tasks ADD COLUMN repeat_rule TEXT').run();
-    } catch (error) {
-      console.error('Failed to add repeat_rule column to tasks', error);
-    }
-  }
-  if (!hasRepeatStart) {
-    try {
-      db.prepare('ALTER TABLE tasks ADD COLUMN repeat_start TEXT').run();
-    } catch (error) {
-      console.error('Failed to add repeat_start column to tasks', error);
-    }
-  }
+  await apiReady;
+};
 
-  const listColumns = db.prepare('PRAGMA table_info(lists)').all() as Array<{ name: string }>;
-  const hasListPosition = listColumns.some((col) => col.name === 'position');
-  if (!hasListPosition) {
+const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  await ensureApiReady();
+  const url = `${apiBaseUrl}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    let message = res.statusText;
     try {
-      db.prepare('ALTER TABLE lists ADD COLUMN position INTEGER NOT NULL DEFAULT 0').run();
-      db.prepare('UPDATE lists SET position = id WHERE position = 0').run();
-    } catch (error) {
-      console.error('Failed to add position column to lists', error);
+      const data = await res.json();
+      message = data?.detail ?? JSON.stringify(data);
+    } catch {
+      // ignore
     }
+    return { error: message } as T;
   }
-}
+  return (await res.json()) as T;
+};
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -278,74 +286,21 @@ ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) 
   if (!trimmed) {
     return { error: 'Task text is empty' };
   }
-
-  const database = ensureDb();
-  const nextPositionRow = database.prepare('SELECT MAX(position) as maxPos FROM tasks').get() as {
-    maxPos: number | null;
-  };
-  const nextPosition = typeof nextPositionRow?.maxPos === 'number' ? nextPositionRow.maxPos + 1 : 0;
-  const result = database
-    .prepare(
-      'INSERT INTO tasks (text, details, done, position, list_id, priority, reminder_date, reminder_time, repeat_rule, repeat_start) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?)'
-    )
-    .run(trimmed, '', nextPosition, listId ?? null, 'none', null, null, null, null);
-  const task = {
-    id: Number(result.lastInsertRowid),
-    text: trimmed,
-    details: '',
-    done: false,
-    position: nextPosition,
-    listId: listId ?? null,
-    priority: 'none' as Priority,
-    reminderDate: null as string | null,
-    reminderTime: null as string | null,
-    repeatRule: null as string | null,
-    repeatStart: null as string | null,
-  };
-  return task;
+  return apiRequest('/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ text: trimmed, listId: listId ?? null }),
+  });
 });
 
 ipcMain.handle('get-tasks', async () => {
-  const database = ensureDb();
-  const rows = database
-    .prepare(
-      `SELECT id, text, details, done, position, list_id as listId, priority, reminder_date as reminderDate, reminder_time as reminderTime,
-        repeat_rule as repeatRule, repeat_start as repeatStart
-       FROM tasks
-       ORDER BY position ASC, id ASC`
-    )
-    .all() as Array<{
-      id: number;
-      text: string;
-      details: string;
-      done: number;
-      position: number;
-      listId: number | null;
-      priority?: Priority;
-      reminderDate?: string | null;
-      reminderTime?: string | null;
-      repeatRule?: string | null;
-      repeatStart?: string | null;
-    }>;
-  return rows.map((row) => ({
-    id: row.id,
-    text: row.text,
-    details: row.details,
-    done: Boolean(row.done),
-    position: row.position,
-    listId: row.listId ?? null,
-    priority: (row.priority ?? 'none') as Priority,
-    reminderDate: row.reminderDate ?? null,
-    reminderTime: row.reminderTime ?? null,
-    repeatRule: row.repeatRule ?? null,
-    repeatStart: row.repeatStart ?? null,
-  }));
+  return apiRequest('/tasks');
 });
 
 ipcMain.handle('update-task-done', async (_event, id: number, done: boolean) => {
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET done = ? WHERE id = ?').run(done ? 1 : 0, id);
-  return { id, done };
+  return apiRequest(`/tasks/${id}/done`, {
+    method: 'PATCH',
+    body: JSON.stringify({ done }),
+  });
 });
 
 ipcMain.handle('update-task-text', async (_event, id: number, text: string) => {
@@ -353,15 +308,17 @@ ipcMain.handle('update-task-text', async (_event, id: number, text: string) => {
   if (!trimmed) {
     return { error: 'Task text is empty' };
   }
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET text = ? WHERE id = ?').run(trimmed, id);
-  return { id, text: trimmed };
+  return apiRequest(`/tasks/${id}/text`, {
+    method: 'PATCH',
+    body: JSON.stringify({ text: trimmed }),
+  });
 });
 
 ipcMain.handle('update-task-list', async (_event, id: number, listId: number | null) => {
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET list_id = ? WHERE id = ?').run(listId ?? null, id);
-  return { id, listId: listId ?? null };
+  return apiRequest(`/tasks/${id}/list`, {
+    method: 'PATCH',
+    body: JSON.stringify({ listId: listId ?? null }),
+  });
 });
 
 ipcMain.handle('update-task-priority', async (_event, id: number, priority: Priority) => {
@@ -369,27 +326,24 @@ ipcMain.handle('update-task-priority', async (_event, id: number, priority: Prio
   if (!allowed.includes(priority)) {
     return { error: 'Invalid priority' };
   }
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET priority = ? WHERE id = ?').run(priority, id);
-  return { id, priority };
+  return apiRequest(`/tasks/${id}/priority`, {
+    method: 'PATCH',
+    body: JSON.stringify({ priority }),
+  });
 });
 
 ipcMain.handle('update-task-details', async (_event, id: number, details: string) => {
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET details = ? WHERE id = ?').run(details ?? '', id);
-  return { id, details: details ?? '' };
+  return apiRequest(`/tasks/${id}/details`, {
+    method: 'PATCH',
+    body: JSON.stringify({ details: details ?? '' }),
+  });
 });
 
 ipcMain.handle('update-task-order', async (_event, orderedIds: number[]) => {
-  const database = ensureDb();
-  const update = database.prepare('UPDATE tasks SET position = ? WHERE id = ?');
-  const reorder = database.transaction((ids: number[]) => {
-    ids.forEach((taskId, index) => {
-      update.run(index, taskId);
-    });
+  return apiRequest('/tasks/order', {
+    method: 'POST',
+    body: JSON.stringify({ orderedIds }),
   });
-  reorder(orderedIds);
-  return { success: true };
 });
 
 ipcMain.handle('get-settings', async () => {
@@ -401,19 +355,14 @@ ipcMain.handle('add-list', async (_event, name: string) => {
   if (!trimmed) {
     return { error: 'List name is empty' };
   }
-  const database = ensureDb();
-  const nextPosRow = database.prepare('SELECT MAX(position) as maxPos FROM lists').get() as { maxPos: number | null };
-  const nextPos = typeof nextPosRow?.maxPos === 'number' ? nextPosRow.maxPos + 1 : 0;
-  const result = database.prepare('INSERT INTO lists (name, position) VALUES (?, ?)').run(trimmed, nextPos);
-  return { id: Number(result.lastInsertRowid), name: trimmed, position: nextPos };
+  return apiRequest('/lists', {
+    method: 'POST',
+    body: JSON.stringify({ name: trimmed }),
+  });
 });
 
 ipcMain.handle('get-lists', async () => {
-  const database = ensureDb();
-  const rows = database
-    .prepare('SELECT id, name, position FROM lists ORDER BY position ASC, id ASC')
-    .all() as Array<{ id: number; name: string; position: number }>;
-  return rows;
+  return apiRequest('/lists');
 });
 
 ipcMain.handle('update-list-name', async (_event, id: number, name: string) => {
@@ -421,45 +370,35 @@ ipcMain.handle('update-list-name', async (_event, id: number, name: string) => {
   if (!trimmed) {
     return { error: 'List name is empty' };
   }
-  const database = ensureDb();
-  database.prepare('UPDATE lists SET name = ? WHERE id = ?').run(trimmed, id);
-  return { id, name: trimmed };
+  return apiRequest(`/lists/${id}/name`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: trimmed }),
+  });
 });
 
 ipcMain.handle('delete-list', async (_event, id: number) => {
-  const database = ensureDb();
-  const deleteTasks = database.prepare('DELETE FROM tasks WHERE list_id = ?');
-  const deleteListStmt = database.prepare('DELETE FROM lists WHERE id = ?');
-  const tx = database.transaction((listId: number) => {
-    deleteTasks.run(listId);
-    deleteListStmt.run(listId);
-  });
-  tx(id);
-  return { id };
+  return apiRequest(`/lists/${id}`, { method: 'DELETE' });
 });
 
 ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
-  const database = ensureDb();
-  const update = database.prepare('UPDATE lists SET position = ? WHERE id = ?');
-  const reorder = database.transaction((ids: number[]) => {
-    ids.forEach((listId, index) => {
-      update.run(index, listId);
-    });
+  return apiRequest('/lists/order', {
+    method: 'POST',
+    body: JSON.stringify({ orderedIds }),
   });
-  reorder(orderedIds);
-  return { success: true };
 });
 
 ipcMain.handle('update-task-reminder', async (_event, id: number, reminderDate: string | null, reminderTime: string | null) => {
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET reminder_date = ?, reminder_time = ? WHERE id = ?').run(reminderDate, reminderTime, id);
-  return { id, reminderDate, reminderTime };
+  return apiRequest(`/tasks/${id}/reminder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reminderDate, reminderTime }),
+  });
 });
 
 ipcMain.handle('update-task-repeat', async (_event, id: number, repeatRule: string | null, repeatStart: string | null) => {
-  const database = ensureDb();
-  database.prepare('UPDATE tasks SET repeat_rule = ?, repeat_start = ? WHERE id = ?').run(repeatRule, repeatStart, id);
-  return { id, repeatRule, repeatStart };
+  return apiRequest(`/tasks/${id}/repeat`, {
+    method: 'PATCH',
+    body: JSON.stringify({ repeatRule, repeatStart }),
+  });
 });
 
 ipcMain.handle('update-time-format', async (_event, format: TimeFormat) => {
@@ -496,7 +435,7 @@ ipcMain.handle('update-date-format', async (_event, format: DateFormat) => {
 //   }, 2000); // give VS Code 2000ms to attach
 // });
 
-app.on('ready', () => {
+app.whenReady().then(async () => {
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
   if (process.platform === 'darwin' && app.dock) {
     const dockIcon = nativeImage.createFromPath(iconPath);
@@ -505,7 +444,7 @@ app.on('ready', () => {
     }
   }
 
-  initializeDatabase();
+  await ensureApiReady();
   //Get back after debugging
   createWindow();
   if (mainWindow) {
@@ -527,7 +466,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  if (db) {
-    db.close();
+  if (apiProcess) {
+    apiProcess.kill();
+    apiProcess = null;
   }
 });

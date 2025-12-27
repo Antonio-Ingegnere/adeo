@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch Electron (main)",
+      "name": "Launch Electron (main, autostart API)",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}",
@@ -12,6 +12,26 @@
         "--remote-debugging-port=9223"
       ],
       "preLaunchTask": "npm: build",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "autoAttachChildProcesses": true
+    },
+    {
+      "name": "Launch Electron (main, manual API)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "args": [
+        ".",
+        "--remote-debugging-port=9223"
+      ],
+      "env": {
+        "ADEO_API_URL": "http://127.0.0.1:8000"
+      },
+      "preLaunchTask": "dev: build+api",
       "sourceMaps": true,
       "outFiles": [
         "${workspaceFolder}/dist/**/*.js"
@@ -30,9 +50,16 @@
   ],
   "compounds": [
     {
-      "name": "Debug Main + Renderer",
+      "name": "Debug Main + Renderer (autostart API)",
       "configurations": [
-        "Launch Electron (main)",
+        "Launch Electron (main, autostart API)",
+        "Attach to Electron Renderer"
+      ]
+    },
+    {
+      "name": "Debug Main + Renderer (manual API)",
+      "configurations": [
+        "Launch Electron (main, manual API)",
         "Attach to Electron Renderer"
       ]
     }

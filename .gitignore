@@ -5,3 +5,7 @@ out
 release
 .DS_Store
 RnD.html
+.venv
+__pycache__/
+*.pyc
+tasks.db

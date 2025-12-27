@@ -7,6 +7,29 @@
       "script": "build",
       "group": "build",
       "problemMatcher": []
+    },
+    {
+      "label": "api: run",
+      "type": "shell",
+      "command": "python3 server/app.py",
+      "isBackground": true,
+      "options": {
+        "env": {
+          "ADEO_API_HOST": "127.0.0.1",
+          "ADEO_API_PORT": "8000",
+          "ADEO_DB_PATH": "${workspaceFolder}/tasks.db"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: build+api",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "npm: build",
+        "api: run"
+      ],
+      "problemMatcher": []
     }
   ]
 }

@@ -5,7 +5,8 @@
   "description": "Simple Electron boilerplate showing a Hello World window",
   "main": "dist/main.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets && cp index.html dist/index.html && cp styles.css dist/styles.css && cp assets/icon.png dist/assets/icon.png",
+    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server && cp index.html dist/index.html && cp styles.css dist/styles.css && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
+    "api": "python3 server/app.py",
     "start": "npm run build && electron .",
     "package:mac": "npm run build && electron-builder --mac"
   },
@@ -26,14 +27,11 @@
     }
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.4",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "typescript": "^5.6.3"
   },
   "license": "MIT",
-  "dependencies": {
-    "better-sqlite3": "^12.4.6"
-  }
+  "dependencies": {}
 }

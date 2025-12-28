@@ -1,9 +1,11 @@
 import os
 import sqlite3
 import sys
+from datetime import datetime
 from typing import Any, Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException
+from dateutil.rrule import rrulestr
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -53,6 +55,8 @@ def initialize_db() -> None:
         reminder_time TEXT,
         repeat_rule TEXT,
         repeat_start TEXT,
+        series_id INTEGER,
+        completed_at TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
       """
@@ -79,6 +83,10 @@ def initialize_db() -> None:
       conn.execute("ALTER TABLE tasks ADD COLUMN repeat_rule TEXT")
     if not has_column(conn, "tasks", "repeat_start"):
       conn.execute("ALTER TABLE tasks ADD COLUMN repeat_start TEXT")
+    if not has_column(conn, "tasks", "series_id"):
+      conn.execute("ALTER TABLE tasks ADD COLUMN series_id INTEGER")
+    if not has_column(conn, "tasks", "completed_at"):
+      conn.execute("ALTER TABLE tasks ADD COLUMN completed_at TEXT")
     if not has_column(conn, "lists", "position"):
       conn.execute("ALTER TABLE lists ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
       conn.execute("UPDATE lists SET position = id WHERE position = 0")
@@ -161,7 +169,19 @@ def row_to_task(row: sqlite3.Row) -> Dict[str, Any]:
     "reminderTime": row["reminder_time"],
     "repeatRule": row["repeat_rule"],
     "repeatStart": row["repeat_start"],
+    "seriesId": row["series_id"],
   }
+
+
+def parse_dtstart(date_value: Optional[str], time_value: Optional[str]) -> datetime:
+  date_part = date_value or datetime.now().date().isoformat()
+  time_part = time_value or "00:00"
+  return datetime.fromisoformat(f"{date_part}T{time_part}")
+
+
+def compute_next_occurrence(rule: str, dtstart: datetime, now: datetime) -> Optional[datetime]:
+  rrule = rrulestr(rule, dtstart=dtstart)
+  return rrule.after(now, inc=False)
 
 
 @app.post("/tasks")
@@ -204,7 +224,7 @@ def get_tasks() -> List[Dict[str, Any]]:
   try:
     rows = conn.execute(
       """
-      SELECT id, text, details, done, position, list_id, priority, reminder_date, reminder_time, repeat_rule, repeat_start
+      SELECT id, text, details, done, position, list_id, priority, reminder_date, reminder_time, repeat_rule, repeat_start, series_id
       FROM tasks
       ORDER BY position ASC, id ASC
       """
@@ -218,8 +238,55 @@ def get_tasks() -> List[Dict[str, Any]]:
 def update_task_done(task_id: int, payload: TaskDone) -> Dict[str, Any]:
   conn = get_conn()
   try:
-    conn.execute("UPDATE tasks SET done = ? WHERE id = ?", (1 if payload.done else 0, task_id))
-    conn.commit()
+    row = conn.execute(
+      """
+      SELECT id, text, details, position, list_id, priority, reminder_date, reminder_time, repeat_rule,
+             repeat_start, series_id, done, completed_at
+      FROM tasks
+      WHERE id = ?
+      """,
+      (task_id,),
+    ).fetchone()
+
+    next_done = 1 if payload.done else 0
+    conn.execute("UPDATE tasks SET done = ? WHERE id = ?", (next_done, task_id))
+
+    if row and payload.done and not row["done"] and row["repeat_rule"] and not row["completed_at"]:
+      series_id = row["series_id"] or row["id"]
+      if not row["series_id"]:
+        conn.execute("UPDATE tasks SET series_id = ? WHERE id = ?", (series_id, row["id"]))
+      conn.execute("UPDATE tasks SET completed_at = ? WHERE id = ?", (datetime.now().isoformat(timespec="seconds"), row["id"]))
+      base_dt = parse_dtstart(row["reminder_date"] or row["repeat_start"], row["reminder_time"])
+      next_dt = compute_next_occurrence(row["repeat_rule"], base_dt, base_dt)
+      if next_dt:
+        next_date = next_dt.date().isoformat()
+        next_time = row["reminder_time"]
+        position_row = conn.execute("SELECT MAX(position) as maxPos FROM tasks").fetchone()
+        next_pos = (position_row["maxPos"] if position_row and position_row["maxPos"] is not None else -1) + 1
+        conn.execute(
+          """
+          INSERT INTO tasks (
+            text, details, done, position, list_id, priority, reminder_date, reminder_time,
+            repeat_rule, repeat_start, series_id
+          )
+          VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+          """,
+          (
+            row["text"],
+            row["details"],
+            next_pos,
+            row["list_id"],
+            row["priority"],
+            next_date,
+            next_time,
+            row["repeat_rule"],
+            row["repeat_start"],
+            series_id,
+          ),
+        )
+      conn.commit()
+    else:
+      conn.commit()
     return {"id": task_id, "done": payload.done}
   finally:
     conn.close()

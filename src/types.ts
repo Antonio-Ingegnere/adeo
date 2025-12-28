@@ -10,6 +10,7 @@ export type Task = {
   reminderTime?: string | null;
   repeatRule?: string | null;
   repeatStart?: string | null;
+  seriesId?: number | null;
 };
 
 export type Settings = {

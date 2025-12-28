@@ -93,6 +93,40 @@ const applyPriorityStyles = (checkbox: HTMLInputElement, task: Task) => {
   checkbox.style.boxShadow = 'none';
 };
 
+const refreshTasksFromApi = async () => {
+  try {
+    const existingTasks = await window.electronAPI.getTasks();
+    state.tasks.splice(0, state.tasks.length, ...existingTasks);
+    state.tasks.forEach((t) => {
+      if ((t as any).listId === undefined) {
+        t.listId = null;
+      }
+      if (!(t as any).priority) {
+        (t as any).priority = 'none';
+      }
+      if ((t as any).reminderDate === undefined) {
+        (t as any).reminderDate = null;
+      }
+      if ((t as any).reminderTime === undefined) {
+        (t as any).reminderTime = null;
+      }
+      if ((t as any).repeatRule === undefined) {
+        (t as any).repeatRule = null;
+      }
+      if ((t as any).repeatStart === undefined) {
+        (t as any).repeatStart = null;
+      }
+      if ((t as any).seriesId === undefined) {
+        (t as any).seriesId = null;
+      }
+    });
+    updateTasksTitle();
+    renderTasks();
+  } catch (error) {
+    console.error('Failed to refresh tasks', error);
+  }
+};
+
 const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   const row = document.createElement('div');
   row.className = 'task-row';
@@ -172,6 +206,9 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
     textSpan.style.textDecoration = checked ? 'line-through' : 'none';
     try {
       await window.electronAPI.updateTaskDone(task.id, checked);
+      if (checked) {
+        await refreshTasksFromApi();
+      }
     } catch (error) {
       console.error('Failed to update task status', error);
     }

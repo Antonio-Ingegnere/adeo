@@ -80,6 +80,15 @@ let apiBaseUrl: string | null = null;
 let apiProcess: ChildProcess | null = null;
 let apiReady: Promise<void> | null = null;
 
+const resetApiState = () => {
+  apiBaseUrl = null;
+  apiReady = null;
+  if (apiProcess) {
+    apiProcess.kill();
+    apiProcess = null;
+  }
+};
+
 const getFreePort = () =>
   new Promise<number>((resolve, reject) => {
     const server = net.createServer();
@@ -129,11 +138,21 @@ const startApiProcess = async () => {
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  if (apiProcess.stderr) {
-    apiProcess.stderr.on('data', (chunk) => {
-      stderrOutput += chunk.toString();
+  if (apiProcess.stdout) {
+    apiProcess.stdout.on('data', (chunk) => {
+      console.log(`[api] ${chunk.toString().trim()}`);
     });
   }
+  if (apiProcess.stderr) {
+    apiProcess.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderrOutput += text;
+      console.error(`[api] ${text.trim()}`);
+    });
+  }
+  apiProcess.on('exit', () => {
+    apiProcess = null;
+  });
   apiBaseUrl = `http://127.0.0.1:${port}`;
   const exitPromise = new Promise<never>((_, reject) => {
     apiProcess?.once('exit', (code) => {
@@ -160,16 +179,26 @@ const ensureApiReady = async () => {
   await apiReady;
 };
 
-const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> => {
+const apiRequest = async <T>(path: string, options?: RequestInit, retried = false): Promise<T> => {
   await ensureApiReady();
   const url = `${apiBaseUrl}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options?.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    if (!process.env.ADEO_API_URL && !retried) {
+      resetApiState();
+      await ensureApiReady();
+      return apiRequest(path, options, true);
+    }
+    throw error;
+  }
   if (!res.ok) {
     let message = res.statusText;
     try {

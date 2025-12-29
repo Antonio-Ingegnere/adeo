@@ -1,15 +1,16 @@
 {
-  "name": "electron-hello-world",
+  "name": "adeo",
   "productName": "Adeo",
-  "version": "1.0.0",
-  "description": "Simple Electron boilerplate showing a Hello World window",
+  "version": "0.1.0",
+  "description": "Adeo todo app",
   "main": "dist/main.js",
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server && cp index.html dist/index.html && cp styles.css dist/styles.css && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
     "api": "python3 server/app.py",
+    "prestart": "bash -lc 'PY=.venv/bin/python; if [ -x \"$PY\" ]; then $PY -c \"import fastapi\"; else python3 -c \"import fastapi\"; fi'",
     "start": "npm run build && electron .",
     "package:mac": "npm run build && electron-builder --mac",
-    "package:win": "npm run build && electron-builder --win",
+    "package:win": "npm run build && electron-builder --win --x64",
     "package:linux": "npm run build && electron-builder --linux"
   },
   "build": {
@@ -24,6 +25,16 @@
       "node_modules/**/*",
       "package.json"
     ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
     "mac": {
       "category": "public.app-category.productivity"
     }

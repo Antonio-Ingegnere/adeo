@@ -2,6 +2,7 @@ import type { Task } from '../types.js';
 import { createDetailsElement } from './helpers.js';
 import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
+import { repeatSummaryFromRule } from './repeat.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -236,13 +237,36 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   mainBlock.className = 'task-main';
   mainBlock.appendChild(textSpan);
 
-  if (task.reminderDate || task.reminderTime) {
+  if (task.reminderDate || task.reminderTime || task.repeatRule) {
     const reminder = document.createElement('div');
     reminder.className = 'task-reminder';
     const parts: string[] = [];
     if (task.reminderDate) parts.push(formatDate(task.reminderDate));
     if (task.reminderTime) parts.push(task.reminderTime);
-    reminder.textContent = parts.join(' ');
+    const reminderText = document.createElement('span');
+    reminderText.className = 'task-reminder-text';
+    reminderText.textContent = parts.join(' ');
+    reminder.appendChild(reminderText);
+    if (task.repeatRule) {
+      const repeatLine = document.createElement('span');
+      repeatLine.className = 'task-repeat';
+      const repeatIcon = document.createElement('span');
+      repeatIcon.className = 'task-repeat-icon';
+      repeatIcon.setAttribute('aria-hidden', 'true');
+      repeatIcon.innerHTML = `
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M7 7h8a3 3 0 0 1 3 3v2h2v-2a5 5 0 0 0-5-5H7V2L3 6l4 4V7zm10 10H9a3 3 0 0 1-3-3v-2H4v2a5 5 0 0 0 5 5h8v3l4-4-4-4v3z" />
+        </svg>
+      `;
+      const repeatText = document.createElement('span');
+      repeatText.textContent = repeatSummaryFromRule(task.repeatRule);
+      repeatLine.appendChild(repeatIcon);
+      repeatLine.appendChild(repeatText);
+      if (reminderText.textContent) {
+        reminder.appendChild(document.createTextNode(' • '));
+      }
+      reminder.appendChild(repeatLine);
+    }
     mainBlock.appendChild(reminder);
   }
   if (hasDetails) {

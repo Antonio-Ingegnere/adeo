@@ -297,6 +297,36 @@ body {
   font-weight: 400;
   color: #666;
   margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-reminder-text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.task-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-repeat-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /*transform: rotate(90deg);*/
+  color: #666;
+}
+
+.task-repeat-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 
 .task-details {

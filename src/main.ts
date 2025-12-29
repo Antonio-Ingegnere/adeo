@@ -101,7 +101,7 @@ const getFreePort = () =>
   });
 
 const waitForApi = async (baseUrl: string) => {
-  const maxAttempts = 40;
+  const maxAttempts = 120;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const res = await fetch(`${baseUrl}/health`);
@@ -117,13 +117,47 @@ const waitForApi = async (baseUrl: string) => {
 const startApiProcess = async () => {
   const port = await getFreePort();
   const dbPath = path.join(app.getPath('userData'), 'tasks.db');
+  const bundledPython = (() => {
+    if (!app.isPackaged) return null;
+    const basePath = path.join(process.resourcesPath, 'python');
+    if (process.platform === 'win32') {
+      const direct = path.join(basePath, 'python.exe');
+      if (fs.existsSync(direct)) return direct;
+      try {
+        for (const entry of fs.readdirSync(basePath, { withFileTypes: true })) {
+          if (!entry.isDirectory()) continue;
+          const candidate = path.join(basePath, entry.name, 'python.exe');
+          if (fs.existsSync(candidate)) return candidate;
+        }
+      } catch {
+        // ignore missing bundle
+      }
+      return null;
+    }
+    const candidates = [
+      path.join(basePath, 'bin', 'python3'),
+      path.join(basePath, 'bin', 'python'),
+    ];
+    return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+  })();
   const pythonBin =
-    process.env.ADEO_PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+    process.env.ADEO_PYTHON_BIN ||
+    bundledPython ||
+    (process.platform === 'win32' ? 'python' : 'python3');
   const appPath = app.getAppPath();
   const candidates = [
     path.join(appPath, 'dist', 'server', 'app.py'),
     path.join(appPath, 'server', 'app.py'),
   ];
+  if (app.isPackaged) {
+    const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked');
+    candidates.unshift(
+      path.join(unpackedPath, 'dist', 'server', 'app.py'),
+      path.join(unpackedPath, 'server', 'app.py'),
+      path.join(process.resourcesPath, 'dist', 'server', 'app.py'),
+      path.join(process.resourcesPath, 'server', 'app.py'),
+    );
+  }
   const apiScript = candidates.find((candidate) => fs.existsSync(candidate));
   if (!apiScript) {
     throw new Error('Python API script not found. Run `npm run build` or set ADEO_API_URL.');

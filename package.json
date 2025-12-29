@@ -16,6 +16,19 @@
   "build": {
     "appId": "com.adeo.app",
     "productName": "Adeo",
+    "asarUnpack": [
+      "dist/server/**"
+    ],
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server"
+      },
+      {
+        "from": "python",
+        "to": "python"
+      }
+    ],
     "directories": {
       "output": "release"
     },

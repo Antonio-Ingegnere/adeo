@@ -9,3 +9,4 @@ RnD.html
 __pycache__/
 *.pyc
 tasks.db
+python

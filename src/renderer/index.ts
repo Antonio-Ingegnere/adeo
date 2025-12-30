@@ -103,6 +103,15 @@ const toRruleDate = (value: string) => value.replace(/-/g, '');
 
 const getDefaultRepeatStart = () => state.modalReminderDate ?? toDateInputValue(new Date());
 
+const syncReminderFromRepeatStart = (repeatStart: string | null) => {
+  if (!repeatStart || state.modalReminderDate) return;
+  state.modalReminderDate = repeatStart;
+  if (refs.reminderDateInput) {
+    refs.reminderDateInput.value = repeatStart;
+  }
+  updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+};
+
 const ordinalToBysetpos = (value: string) => {
   switch (value) {
     case 'First':
@@ -534,6 +543,7 @@ const setupEvents = () => {
       state.modalRepeatRule = presetRule?.rule ?? null;
       state.modalRepeatStart = presetRule?.start ?? null;
       updateRepeatUI(state.modalRepeat);
+      syncReminderFromRepeatStart(state.modalRepeatStart);
     }
     if (refs.repeatMenu) {
       refs.repeatMenu.style.display = 'none';
@@ -859,6 +869,7 @@ const setupEvents = () => {
     state.modalRepeatRule = customRule.rule;
     state.modalRepeatStart = customRule.start;
     updateRepeatUI(state.modalRepeat);
+    syncReminderFromRepeatStart(state.modalRepeatStart);
     closeRepeatModal();
   });
   refs.repeatOverlay?.addEventListener('click', (event) => {

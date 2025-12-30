@@ -216,7 +216,8 @@ export const saveEdit = async () => {
   const newListId = state.modalSelectedListId;
   const newDone = refs.editDoneInput?.checked ?? false;
   const newPriority = state.modalPriority;
-  const reminderDate = state.modalReminderDate ?? null;
+  const reminderDate =
+    state.modalReminderDate ?? (state.modalRepeatRule && state.modalRepeatStart ? state.modalRepeatStart : null);
   const reminderTime = state.modalReminderTime ?? null;
   const repeatRule = state.modalRepeatRule ?? null;
   const repeatStart = state.modalRepeatStart ?? null;

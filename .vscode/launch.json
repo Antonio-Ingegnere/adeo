@@ -11,6 +11,9 @@
         ".",
         "--remote-debugging-port=9223"
       ],
+      "env": {
+        "ADEO_PYTHON_BIN": "${workspaceFolder}/.venv/bin/python"
+      },
       "preLaunchTask": "npm: build",
       "sourceMaps": true,
       "outFiles": [

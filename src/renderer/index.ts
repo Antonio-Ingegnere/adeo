@@ -295,14 +295,25 @@ const buildNumberOptions = (start: number, end: number) =>
     return { value, label: value };
   });
 
+const normalizeTimeInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
 const buildTimeOptions = () => {
-  if (!refs.reminderTimeSelect) return;
-  const select = refs.reminderTimeSelect;
-  select.innerHTML = '';
+  if (!refs.reminderTimeOptions) return;
+  const optionsHost = refs.reminderTimeOptions;
+  optionsHost.innerHTML = '';
   const empty = document.createElement('option');
   empty.value = '';
-  empty.textContent = 'No time';
-  select.appendChild(empty);
+  optionsHost.appendChild(empty);
 
   const prefers24Hour = state.timeFormat === '24h';
   const formatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: !prefers24Hour });
@@ -315,8 +326,8 @@ const buildTimeOptions = () => {
     const hours = dt.getHours().toString().padStart(2, '0');
     const minutes = dt.getMinutes().toString().padStart(2, '0');
     option.value = `${hours}:${minutes}`;
-    option.textContent = prefers24Hour ? `${hours}:${minutes}` : formatter.format(dt);
-    select.appendChild(option);
+    option.label = prefers24Hour ? `${hours}:${minutes}` : formatter.format(dt);
+    optionsHost.appendChild(option);
   }
 };
 
@@ -474,10 +485,29 @@ const setupEvents = () => {
     updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   });
 
-  refs.reminderTimeSelect?.addEventListener('change', (event) => {
-    const val = (event.target as HTMLSelectElement).value;
-    state.modalReminderTime = val || null;
+  const applyReminderTimeInput = (value: string) => {
+    const previous = state.modalReminderTime;
+    const normalized = normalizeTimeInput(value);
+    if (normalized) {
+      state.modalReminderTime = normalized;
+      if (refs.reminderTimeInput) refs.reminderTimeInput.value = normalized;
+    } else if (!value) {
+      state.modalReminderTime = null;
+      if (refs.reminderTimeInput) refs.reminderTimeInput.value = '';
+    } else if (refs.reminderTimeInput) {
+      refs.reminderTimeInput.value = previous ?? '';
+    }
     updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+  };
+
+  refs.reminderTimeInput?.addEventListener('change', (event) => {
+    const val = (event.target as HTMLInputElement).value;
+    applyReminderTimeInput(val);
+  });
+
+  refs.reminderTimeInput?.addEventListener('blur', (event) => {
+    const val = (event.target as HTMLInputElement).value;
+    applyReminderTimeInput(val);
   });
 
   const applySearchQuery = (value: string) => {

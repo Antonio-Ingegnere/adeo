@@ -141,8 +141,8 @@ export const openEditModal = (taskId: number) => {
   if (refs.reminderDateInput) {
     refs.reminderDateInput.value = state.modalReminderDate ?? '';
   }
-  if (refs.reminderTimeSelect) {
-    refs.reminderTimeSelect.value = state.modalReminderTime ?? '';
+  if (refs.reminderTimeInput) {
+    refs.reminderTimeInput.value = state.modalReminderTime ?? '';
   }
   if (refs.editDoneInput) {
     refs.editDoneInput.checked = task.done;
@@ -187,7 +187,7 @@ export const closeEditModal = () => {
   state.modalRepeatRule = null;
   state.modalRepeatStart = null;
   if (refs.reminderDateInput) refs.reminderDateInput.value = '';
-  if (refs.reminderTimeSelect) refs.reminderTimeSelect.value = '';
+  if (refs.reminderTimeInput) refs.reminderTimeInput.value = '';
   updatePriorityUI('none');
   updateReminderUI(null, null);
   updateRepeatUI(null);

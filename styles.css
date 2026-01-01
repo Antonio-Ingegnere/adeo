@@ -1059,7 +1059,7 @@ body {
 }
 
 .reminder-date-input,
-.reminder-time-select {
+.reminder-time-input {
   width: 100px;
   border: 1px solid #d6d6d6;
   border-radius: 8px;
@@ -1070,7 +1070,7 @@ body {
 }
 
 .reminder-date-input:focus,
-.reminder-time-select:focus {
+.reminder-time-input:focus {
   outline: 2px solid #4c9ffe;
   outline-offset: 1px;
 }

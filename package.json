@@ -8,7 +8,9 @@
     "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server && cp index.html dist/index.html && cp styles.css dist/styles.css && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
     "api": "python3 server/app.py",
     "prestart": "bash -lc 'PY=.venv/bin/python; if [ -x \"$PY\" ]; then $PY -c \"import fastapi\"; else python3 -c \"import fastapi\"; fi'",
-    "start": "npm run build && electron .",
+    "build:notify-agent": "bash -lc 'cd macos/notify-agent && swift build -c release'",
+    "notify-agent:prompt": "bash scripts/notify-agent-prompt.sh",
+    "start": "bash scripts/dev-start.sh",
     "package:mac": "npm run build && electron-builder --mac",
     "package:win": "npm run build && electron-builder --win --x64",
     "package:linux": "npm run build && electron-builder --linux"

@@ -1,6 +1,11 @@
+import json
+import logging
 import os
 import sqlite3
 import sys
+import threading
+import time
+import urllib.request
 from datetime import datetime
 from typing import Any, Optional, List, Dict
 
@@ -9,6 +14,19 @@ from dateutil.rrule import rrulestr
 from pydantic import BaseModel
 
 app = FastAPI()
+notification_thread: Optional[threading.Thread] = None
+notification_stop = threading.Event()
+last_notified: Dict[int, str] = {}
+notification_poll_seconds = 30
+notification_grace_seconds = 60
+notify_agent_port = int(os.environ.get("ADEO_NOTIFY_PORT", "48623"))
+
+logger = logging.getLogger("adeo.notifications")
+if not logger.handlers:
+  logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+  )
 
 
 def default_db_path() -> str:
@@ -95,9 +113,97 @@ def initialize_db() -> None:
     conn.close()
 
 
+def send_agent_notification(payload: Dict[str, str]) -> None:
+  if sys.platform != "darwin":
+    return
+  logger.info("Sending notification to agent on port %s (id=%s)", notify_agent_port, payload.get("id"))
+  data = json.dumps(payload).encode("utf-8")
+  req = urllib.request.Request(
+    f"http://127.0.0.1:{notify_agent_port}/notify",
+    data=data,
+    headers={"Content-Type": "application/json"},
+    method="POST",
+  )
+  with urllib.request.urlopen(req, timeout=2) as res:
+    res.read()
+
+
+def check_due_notifications() -> None:
+  if sys.platform != "darwin":
+    return
+  now = datetime.now()
+  logger.info("Checking reminders at %s (db=%s)", now.isoformat(timespec="seconds"), DB_PATH)
+  conn = get_conn()
+  try:
+    rows = conn.execute(
+      """
+      SELECT id, text, done, reminder_date, reminder_time
+      FROM tasks
+      WHERE done = 0 AND reminder_date IS NOT NULL AND reminder_time IS NOT NULL
+      """
+    ).fetchall()
+  finally:
+    conn.close()
+
+  logger.info("Found %s reminder candidate(s)", len(rows))
+  active: Dict[int, str] = {}
+  for row in rows:
+    task_id = row["id"]
+    time_key = f'{row["reminder_date"]}|{row["reminder_time"]}'
+    active[task_id] = time_key
+    reminder_dt = parse_dtstart(row["reminder_date"], row["reminder_time"])
+    delta = (now - reminder_dt).total_seconds()
+    logger.info(
+      "Task %s reminder at %s (delta=%.1fs, notified=%s)",
+      task_id,
+      reminder_dt.isoformat(timespec="seconds"),
+      delta,
+      last_notified.get(task_id) == time_key,
+    )
+    if delta < 0 or delta > notification_grace_seconds:
+      continue
+    if last_notified.get(task_id) == time_key:
+      continue
+    payload = {
+      "id": f"task-{task_id}-{time_key}",
+      "title": "Adeo Reminder",
+      "body": row["text"] or "Task reminder",
+    }
+    try:
+      send_agent_notification(payload)
+      last_notified[task_id] = time_key
+    except Exception as exc:
+      logger.error("Notification agent error: %s", exc)
+
+  stale_ids = [task_id for task_id, time_key in last_notified.items() if active.get(task_id) != time_key]
+  for task_id in stale_ids:
+    last_notified.pop(task_id, None)
+
+
+def notification_worker() -> None:
+  while not notification_stop.is_set():
+    try:
+      check_due_notifications()
+    except Exception as exc:
+      logger.error("Notification worker error: %s", exc)
+    notification_stop.wait(notification_poll_seconds)
+
+
+def start_notification_worker() -> None:
+  global notification_thread
+  if sys.platform != "darwin":
+    return
+  if notification_thread and notification_thread.is_alive():
+    return
+  notification_stop.clear()
+  notification_thread = threading.Thread(target=notification_worker, daemon=True)
+  notification_thread.start()
+
+
 @app.on_event("startup")
 def on_startup() -> None:
   initialize_db()
+  start_notification_worker()
 
 
 @app.get("/health")

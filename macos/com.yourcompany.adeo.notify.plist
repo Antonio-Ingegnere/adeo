@@ -3,7 +3,7 @@
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.yourcompany.adeo.notify</string>
+    <string>com.yourcompany.adeo.notify2</string>
     <key>ProgramArguments</key>
     <array>
       <string>/Users/Anton_Kratenok/Applications/AdeoNotifyAgent.app/Contents/MacOS/AdeoNotifyAgent</string>

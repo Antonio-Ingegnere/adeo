@@ -21,7 +21,7 @@ final class ConnectionState {
 final class NotificationAgent {
   private let port: UInt16
   private var listener: NWListener?
-  private let queue = DispatchQueue(label: "com.yourcompany.adeo.notify")
+  private let queue = DispatchQueue(label: "com.yourcompany.adeo.notify2")
   private let logFilePath: String
   private let shouldPrompt: Bool
 

@@ -40,7 +40,7 @@ setup_notify_agent() {
   local agent_dir="$ROOT_DIR/macos/notify-agent"
   local build_bin="$agent_dir/.build/release/AdeoNotifyAgent"
   local agent_app="$HOME/Applications/AdeoNotifyAgent.app"
-  local plist_path="$HOME/Library/LaunchAgents/com.yourcompany.adeo.notify.plist"
+  local plist_path="$HOME/Library/LaunchAgents/com.yourcompany.adeo.notify2.plist"
   local log_path="$HOME/Library/Logs/AdeoNotifyAgent.log"
 
   if [[ ! -x "$build_bin" ]]; then
@@ -50,6 +50,23 @@ setup_notify_agent() {
   mkdir -p "$agent_app/Contents/MacOS"
   cp "$build_bin" "$agent_app/Contents/MacOS/AdeoNotifyAgent"
   cp "$agent_dir/Info.plist" "$agent_app/Contents/Info.plist"
+  mkdir -p "$agent_app/Contents/Resources"
+  if [[ -f "$ROOT_DIR/assets/icon.png" && -x "$(command -v sips)" && -x "$(command -v iconutil)" ]]; then
+    iconset_dir="$(mktemp -d)/AdeoNotifyAgent.iconset"
+    mkdir -p "$iconset_dir"
+    sips -z 16 16 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_16x16.png" >/dev/null
+    sips -z 32 32 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_16x16@2x.png" >/dev/null
+    sips -z 32 32 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_32x32.png" >/dev/null
+    sips -z 64 64 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_32x32@2x.png" >/dev/null
+    sips -z 128 128 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_128x128.png" >/dev/null
+    sips -z 256 256 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_128x128@2x.png" >/dev/null
+    sips -z 256 256 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_256x256.png" >/dev/null
+    sips -z 512 512 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_256x256@2x.png" >/dev/null
+    sips -z 512 512 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_512x512.png" >/dev/null
+    sips -z 1024 1024 "$ROOT_DIR/assets/icon.png" --out "$iconset_dir/icon_512x512@2x.png" >/dev/null
+    iconutil -c icns "$iconset_dir" -o "$agent_app/Contents/Resources/AdeoNotifyAgent.icns"
+    rm -rf "$(dirname "$iconset_dir")"
+  fi
   xattr -dr com.apple.quarantine "$agent_app" >/dev/null 2>&1 || true
   codesign --force --deep --sign - "$agent_app" >/dev/null 2>&1 || true
 
@@ -59,7 +76,7 @@ setup_notify_agent() {
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.yourcompany.adeo.notify</string>
+    <string>com.yourcompany.adeo.notify2</string>
     <key>ProgramArguments</key>
     <array>
       <string>__AGENT_BIN__</string>

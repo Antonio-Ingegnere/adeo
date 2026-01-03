@@ -10,3 +10,4 @@ __pycache__/
 *.pyc
 tasks.db
 python
+macos/notify-agent/.build/

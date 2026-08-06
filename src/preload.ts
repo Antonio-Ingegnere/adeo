@@ -52,6 +52,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('open-settings', listener);
     return () => ipcRenderer.removeListener('open-settings', listener);
   },
+  onOpenTaskEdit: (callback: (taskId: number) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, taskId: number) => callback(taskId);
+    ipcRenderer.on('open-task-edit', listener);
+    return () => ipcRenderer.removeListener('open-task-edit', listener);
+  },
 } satisfies ElectronAPI);
 
 window.addEventListener('DOMContentLoaded', () => {

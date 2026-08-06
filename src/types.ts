@@ -55,6 +55,7 @@ export type ElectronAPI = {
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   onOpenSettings: (callback: () => void) => () => void;
+  onOpenTaskEdit: (callback: (taskId: number) => void) => () => void;
 };
 
 declare global {

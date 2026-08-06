@@ -940,6 +940,10 @@ const setupEvents = () => {
     });
   }
 
+  window.electronAPI.onOpenTaskEdit((taskId) => {
+    openEditModal(taskId);
+  });
+
   window.electronAPI.onOpenSettings(() => {
     if (refs.settingsOverlay) {
       if (state.timeFormat === '24h') {

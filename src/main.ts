@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification } from 'electron';
 import { spawn, type ChildProcess } from 'child_process';
 import net from 'net';
 import path from 'path';
@@ -74,6 +74,9 @@ app.name = APP_NAME;
 app.setName(APP_NAME);
 if (process.platform === 'darwin') {
   app.setAboutPanelOptions({ applicationName: APP_NAME });
+}
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.adeo.app');
 }
 
 let apiBaseUrl: string | null = null;
@@ -244,6 +247,75 @@ const apiRequest = async <T>(path: string, options?: RequestInit, retried = fals
     return { error: message } as T;
   }
   return (await res.json()) as T;
+};
+
+type DueReminder = {
+  id: number;
+  text: string;
+  reminderDate: string;
+  reminderTime: string;
+};
+
+const notifiedReminders = new Map<number, string>();
+let reminderPollTimer: NodeJS.Timeout | null = null;
+
+const focusWindowAndOpenTask = (taskId: number) => {
+  if (!mainWindow) {
+    createWindow();
+  }
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('open-task-edit', taskId);
+};
+
+const pollDueReminders = async () => {
+  let due: DueReminder[];
+  try {
+    due = await apiRequest<DueReminder[]>('/reminders/due');
+  } catch (error) {
+    console.error('Failed to poll due reminders', error);
+    return;
+  }
+  if (!Array.isArray(due)) return;
+
+  const activeIds = new Set<number>();
+  for (const reminder of due) {
+    activeIds.add(reminder.id);
+    const key = `${reminder.reminderDate}|${reminder.reminderTime}`;
+    if (notifiedReminders.get(reminder.id) === key) continue;
+    notifiedReminders.set(reminder.id, key);
+
+    if (!Notification.isSupported()) continue;
+    const notification = new Notification({
+      title: 'Adeo Reminder',
+      body: reminder.text,
+    });
+    notification.on('click', () => focusWindowAndOpenTask(reminder.id));
+    notification.show();
+  }
+
+  for (const id of Array.from(notifiedReminders.keys())) {
+    if (!activeIds.has(id)) {
+      notifiedReminders.delete(id);
+    }
+  }
+};
+
+const startReminderPolling = () => {
+  if (reminderPollTimer) return;
+  pollDueReminders();
+  reminderPollTimer = setInterval(pollDueReminders, 30000);
+};
+
+const stopReminderPolling = () => {
+  if (reminderPollTimer) {
+    clearInterval(reminderPollTimer);
+    reminderPollTimer = null;
+  }
 };
 
 function createWindow(): void {
@@ -507,12 +579,20 @@ app.whenReady().then(async () => {
     }
   }
 
-  await ensureApiReady();
-  //Get back after debugging
+  try {
+    await ensureApiReady();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    dialog.showErrorBox('Adeo failed to start', `The local API could not be started.\n\n${message}`);
+    app.quit();
+    return;
+  }
+
   createWindow();
   if (mainWindow) {
     setupMenu(mainWindow);
   }
+  startReminderPolling();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -529,6 +609,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  stopReminderPolling();
   if (apiProcess) {
     apiProcess.kill();
     apiProcess = null;

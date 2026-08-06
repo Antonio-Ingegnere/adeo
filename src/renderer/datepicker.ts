@@ -43,6 +43,16 @@ export const attachDatePicker = (input: HTMLInputElement | null | undefined): vo
   const trigger = document.createElement('button');
   trigger.type = 'button';
   trigger.className = `${input.className} date-picker-trigger`;
+  trigger.innerHTML = `
+    <span class="date-picker-trigger-label"></span>
+    <span class="date-picker-trigger-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+        <path d="M3 9h18M8 3v4M16 3v4"></path>
+      </svg>
+    </span>
+  `;
+  const triggerLabel = trigger.querySelector<HTMLSpanElement>('.date-picker-trigger-label')!;
   input.insertAdjacentElement('afterend', trigger);
 
   const popover = document.createElement('div');
@@ -53,7 +63,7 @@ export const attachDatePicker = (input: HTMLInputElement | null | undefined): vo
   const getRawValue = (): string => nativeDescriptor.get!.call(input) as string;
 
   const refreshTrigger = () => {
-    trigger.textContent = formatDate(getRawValue() || null) || 'Select date';
+    triggerLabel.textContent = formatDate(getRawValue() || null) || 'Select date';
   };
 
   Object.defineProperty(input, 'value', {

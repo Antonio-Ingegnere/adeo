@@ -1,4 +1,31 @@
 import type { Task } from '../types.js';
+import { state } from './state.js';
+
+export const formatDate = (date: string | null): string => {
+  if (!date) return '';
+  const [y, m, d] = date.split('-');
+  const map: Record<string, string> = {
+    'YYYY-MM-DD': `${y}-${m}-${d}`,
+    'DD/MM/YYYY': `${d}/${m}/${y}`,
+    'MM/DD/YYYY': `${m}/${d}/${y}`,
+    'DD.MM.YYYY': `${d}.${m}.${y}`,
+    'YYYY/MM/DD': `${y}/${m}/${d}`,
+    'MM-DD-YYYY': `${m}-${d}-${y}`,
+    'DD-MM-YYYY': `${d}-${m}-${y}`,
+    'MMM DD, YYYY': new Date(`${y}-${m}-${d}T00:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    }),
+    'DD MMM YYYY': new Date(`${y}-${m}-${d}T00:00:00`).toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }),
+    'YYYY.MM.DD': `${y}.${m}.${d}`,
+  };
+  return map[state.dateFormat] ?? `${y}-${m}-${d}`;
+};
 
 export const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

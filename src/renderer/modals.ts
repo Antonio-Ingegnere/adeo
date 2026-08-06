@@ -3,6 +3,7 @@ import { renderListOptions, renderLists } from './lists.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { refs } from './dom.js';
 import { state } from './state.js';
+import { formatDate } from './helpers.js';
 
 const priorityColors: Record<string, string> = {
   none: '#C9C9C9',
@@ -32,33 +33,6 @@ export const updatePriorityUI = (value: string | null) => {
     refs.editDoneInput.style.borderColor = color ?? priorityColors.none;
     refs.editDoneInput.style.background = fill ?? priorityFillColors.none;
   }
-};
-
-const formatDate = (date: string | null) => {
-  if (!date) return '';
-  const [y, m, d] = date.split('-');
-  const base = `${y}-${m}-${d}`;
-  const map: Record<string, string> = {
-    'YYYY-MM-DD': `${y}-${m}-${d}`,
-    'DD/MM/YYYY': `${d}/${m}/${y}`,
-    'MM/DD/YYYY': `${m}/${d}/${y}`,
-    'DD.MM.YYYY': `${d}.${m}.${y}`,
-    'YYYY/MM/DD': `${y}/${m}/${d}`,
-    'MM-DD-YYYY': `${m}-${d}-${y}`,
-    'DD-MM-YYYY': `${d}-${m}-${y}`,
-    'MMM DD, YYYY': new Date(base).toLocaleDateString(undefined, {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    }),
-    'DD MMM YYYY': new Date(base).toLocaleDateString(undefined, {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }),
-    'YYYY.MM.DD': `${y}.${m}.${d}`,
-  };
-  return map[state.dateFormat] ?? `${y}-${m}-${d}`;
 };
 
 const formatReminderLabel = (date: string | null, time: string | null) => {

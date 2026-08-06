@@ -16,18 +16,14 @@ import {
   updateRepeatUI,
 } from './modals.js';
 import { state } from './state.js';
+import { formatDate } from './helpers.js';
+import { attachDatePicker } from './datepicker.js';
 
 const toDateInputValue = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-const formatLongDate = (value: string) => {
-  if (!value) return '';
-  const date = new Date(`${value}T00:00:00`);
-  return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 };
 
 const setSelectOptions = (
@@ -679,7 +675,7 @@ const setupEvents = () => {
       refs.repeatSummary.textContent = '';
       return;
     }
-    const startLabel = formatLongDate(startValue);
+    const startLabel = formatDate(startValue);
     const type = refs.repeatTypeSelect.value;
     const interval = refs.repeatIntervalSelect?.value ?? '1';
     let summary = '';
@@ -717,7 +713,7 @@ const setupEvents = () => {
     }
     const endType = refs.repeatEndType?.value ?? 'none';
     if (endType === 'on' && refs.repeatEndDate?.value) {
-      summary += ` until ${formatLongDate(refs.repeatEndDate.value)}`;
+      summary += ` until ${formatDate(refs.repeatEndDate.value)}`;
     } else if (endType === 'after' && refs.repeatEndCount?.value) {
       summary += ` for ${refs.repeatEndCount.value} occurrences`;
     }
@@ -1007,6 +1003,9 @@ const setupEvents = () => {
 
 const init = async () => {
   setupEvents();
+  attachDatePicker(refs.reminderDateInput);
+  attachDatePicker(refs.repeatStartDate);
+  attachDatePicker(refs.repeatEndDate);
   renderLists();
   renderModalLists();
   renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);

@@ -114,6 +114,28 @@ This produces both `release/mac-arm64/Adeo.app` and `release/mac-x64/Adeo.app` (
 
 `package:linux` does not bundle Python either — the same fix (a standalone runtime under `python/`, referenced from `build.linux.extraResources`) would be needed if that becomes necessary; it's currently out of scope.
 
+## Background reminder notifications (macOS: bundling terminal-notifier)
+
+Reminders fire even when Adeo isn't running via a per-OS background scheduler (a LaunchAgent on macOS, a Scheduled Task on Windows, a systemd user timer on Linux — see `ensureBackgroundReminderService()` in `src/main.ts`) that invokes `server/reminder_notifier.py`. On macOS, posting a *clickable* notification from that standalone script (one that can launch Adeo via `adeo://open-task/<id>` when clicked) requires the [terminal-notifier](https://github.com/julienXX/terminal-notifier) CLI, since plain `osascript display notification` has no click-action support.
+
+```
+curl -L -o terminal-notifier.zip \
+  https://github.com/julienXX/terminal-notifier/releases/download/2.0.0/terminal-notifier-2.0.0.zip
+unzip terminal-notifier.zip -d vendor/mac
+rm terminal-notifier.zip
+
+# Required: the downloaded .app is completely unsigned, and macOS silently
+# drops notifications from unsigned bundles (no prompt, no error — it just
+# never appears). Ad-hoc signing it is enough:
+codesign --force --deep --sign - vendor/mac/terminal-notifier.app
+```
+
+Expected layout: `vendor/mac/terminal-notifier.app/Contents/MacOS/terminal-notifier`. `package:mac`'s `extraResources` copies this into the packaged app (see `mac.extraResources` in `package.json`); the signature survives that copy, so this only needs to be done once per download, not per build.
+
+`terminal-notifier`'s binary is x86_64-only (no arm64 build), so it runs under Rosetta 2 on Apple Silicon — `ensureBackgroundReminderService()` does a one-time synchronous invocation when installing the LaunchAgent specifically to surface any first-run Rosetta-install prompt during a normal interactive app launch, rather than silently inside the background LaunchAgent later.
+
+Windows uses a bundled PowerShell script (`server/reminder_notify_windows.ps1`) instead — no extra download needed, since `New-ToastNotification`-style APIs are built into Windows. Linux's click-through support depends on the desktop environment's notification daemon and is best-effort (see `notify_linux()` in `reminder_notifier.py`).
+
 ## Python references
 
 - Windows embeddable packages: https://www.python.org/downloads/windows/

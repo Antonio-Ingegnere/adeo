@@ -1020,6 +1020,7 @@ const init = async () => {
   updateRepeatUI(state.modalRepeat);
   await loadTasks();
   await loadLists();
+  window.electronAPI.notifyRendererReady();
 };
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {

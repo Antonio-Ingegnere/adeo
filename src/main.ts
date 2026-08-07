@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification } from 'electron';
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, exec, type ChildProcess } from 'child_process';
 import net from 'net';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
 const APP_NAME = 'Adeo';
 
@@ -79,6 +80,57 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.adeo.app');
 }
 
+// Registers the adeo:// scheme so background reminder notifications (fired by
+// server/reminder_notifier.py while the app itself isn't running) can launch
+// Adeo straight into a task's edit modal, matching in-app notification clicks.
+app.setAsDefaultProtocolClient('adeo');
+
+const findAdeoUrlInArgv = (argv: string[]): string | null =>
+  argv.find((arg) => arg.startsWith('adeo://')) ?? null;
+
+// app.isReady() only means Electron's browser process itself is initialized —
+// it can become true well before our own ensureApiReady()+createWindow()
+// sequence finishes, so it's not a safe proxy for "the renderer can actually
+// handle a deep link yet". Track that explicitly instead, driven by the
+// renderer's own 'renderer-ready' signal (sent once loadTasks()/loadLists()
+// resolve) rather than any Electron-level readiness state.
+let pendingAdeoUrl: string | null = null;
+let rendererIsReady = false;
+
+const tryHandlePendingAdeoUrl = () => {
+  if (pendingAdeoUrl && rendererIsReady) {
+    handleAdeoUrl(pendingAdeoUrl);
+    pendingAdeoUrl = null;
+  }
+};
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  const launchUrl = findAdeoUrlInArgv(process.argv);
+  if (launchUrl) {
+    pendingAdeoUrl = launchUrl;
+  }
+  app.on('second-instance', (_event, argv) => {
+    const url = findAdeoUrlInArgv(argv);
+    if (url) {
+      pendingAdeoUrl = url;
+      tryHandlePendingAdeoUrl();
+    } else if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  pendingAdeoUrl = url;
+  tryHandlePendingAdeoUrl();
+});
+
 let apiBaseUrl: string | null = null;
 let apiProcess: ChildProcess | null = null;
 let apiReady: Promise<void> | null = null;
@@ -117,51 +169,58 @@ const waitForApi = async (baseUrl: string) => {
   throw new Error('Python API did not start in time');
 };
 
-const startApiProcess = async () => {
-  const port = await getFreePort();
-  const dbPath = path.join(app.getPath('userData'), 'tasks.db');
-  const bundledPython = (() => {
-    if (!app.isPackaged) return null;
-    const basePath = path.join(process.resourcesPath, 'python');
-    if (process.platform === 'win32') {
-      const direct = path.join(basePath, 'python.exe');
-      if (fs.existsSync(direct)) return direct;
-      try {
-        for (const entry of fs.readdirSync(basePath, { withFileTypes: true })) {
-          if (!entry.isDirectory()) continue;
-          const candidate = path.join(basePath, entry.name, 'python.exe');
-          if (fs.existsSync(candidate)) return candidate;
-        }
-      } catch {
-        // ignore missing bundle
+const resolveBundledPython = (): string | null => {
+  if (!app.isPackaged) return null;
+  const basePath = path.join(process.resourcesPath, 'python');
+  if (process.platform === 'win32') {
+    const direct = path.join(basePath, 'python.exe');
+    if (fs.existsSync(direct)) return direct;
+    try {
+      for (const entry of fs.readdirSync(basePath, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const candidate = path.join(basePath, entry.name, 'python.exe');
+        if (fs.existsSync(candidate)) return candidate;
       }
-      return null;
+    } catch {
+      // ignore missing bundle
     }
-    const candidates = [
-      path.join(basePath, 'bin', 'python3'),
-      path.join(basePath, 'bin', 'python'),
-    ];
-    return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
-  })();
-  const pythonBin =
-    process.env.ADEO_PYTHON_BIN ||
-    bundledPython ||
-    (process.platform === 'win32' ? 'python' : 'python3');
+    return null;
+  }
+  const candidates = [
+    path.join(basePath, 'bin', 'python3'),
+    path.join(basePath, 'bin', 'python'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+};
+
+const resolvePythonBin = (): string =>
+  process.env.ADEO_PYTHON_BIN ||
+  resolveBundledPython() ||
+  (process.platform === 'win32' ? 'python' : 'python3');
+
+const resolveServerScript = (scriptName: string): string | null => {
   const appPath = app.getAppPath();
   const candidates = [
-    path.join(appPath, 'dist', 'server', 'app.py'),
-    path.join(appPath, 'server', 'app.py'),
+    path.join(appPath, 'dist', 'server', scriptName),
+    path.join(appPath, 'server', scriptName),
   ];
   if (app.isPackaged) {
     const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked');
     candidates.unshift(
-      path.join(unpackedPath, 'dist', 'server', 'app.py'),
-      path.join(unpackedPath, 'server', 'app.py'),
-      path.join(process.resourcesPath, 'dist', 'server', 'app.py'),
-      path.join(process.resourcesPath, 'server', 'app.py'),
+      path.join(unpackedPath, 'dist', 'server', scriptName),
+      path.join(unpackedPath, 'server', scriptName),
+      path.join(process.resourcesPath, 'dist', 'server', scriptName),
+      path.join(process.resourcesPath, 'server', scriptName),
     );
   }
-  const apiScript = candidates.find((candidate) => fs.existsSync(candidate));
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+};
+
+const startApiProcess = async () => {
+  const port = await getFreePort();
+  const dbPath = path.join(app.getPath('userData'), 'tasks.db');
+  const pythonBin = resolvePythonBin();
+  const apiScript = resolveServerScript('app.py');
   if (!apiScript) {
     throw new Error('Python API script not found. Run `npm run build` or set ADEO_API_URL.');
   }
@@ -315,6 +374,182 @@ const stopReminderPolling = () => {
   if (reminderPollTimer) {
     clearInterval(reminderPollTimer);
     reminderPollTimer = null;
+  }
+};
+
+// Lets the standalone background reminder checker (server/reminder_notifier.py,
+// run by the OS scheduler even when Adeo isn't open) know whether this app
+// process is already alive and handling notifications itself, so the two
+// never fire duplicate notifications for the same reminder.
+const lockFilePath = path.join(app.getPath('userData'), 'app-running.lock');
+
+const writeRunningLock = () => {
+  try {
+    fs.mkdirSync(path.dirname(lockFilePath), { recursive: true });
+    fs.writeFileSync(lockFilePath, String(process.pid));
+  } catch (error) {
+    console.error('Failed to write running lock', error);
+  }
+};
+
+const removeRunningLock = () => {
+  try {
+    if (fs.existsSync(lockFilePath)) {
+      fs.unlinkSync(lockFilePath);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+const parseAdeoTaskUrl = (url: string): number | null => {
+  const match = url.match(/^adeo:\/\/open-task\/(\d+)/);
+  return match ? Number(match[1]) : null;
+};
+
+const handleAdeoUrl = (url: string) => {
+  const taskId = parseAdeoTaskUrl(url);
+  if (taskId !== null) {
+    focusWindowAndOpenTask(taskId);
+  }
+};
+
+const resolveMacNotifierBinary = (): string | null => {
+  if (!app.isPackaged) {
+    const devPath = path.join(
+      app.getAppPath(),
+      'vendor',
+      'mac',
+      'terminal-notifier.app',
+      'Contents',
+      'MacOS',
+      'terminal-notifier',
+    );
+    return fs.existsSync(devPath) ? devPath : null;
+  }
+  const candidate = path.join(
+    process.resourcesPath,
+    'terminal-notifier.app',
+    'Contents',
+    'MacOS',
+    'terminal-notifier',
+  );
+  return fs.existsSync(candidate) ? candidate : null;
+};
+
+const installMacLaunchAgent = (pythonBin: string, scriptPath: string) => {
+  const label = 'com.adeo.app.reminders';
+  const plistPath = path.join(os.homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
+  const logPath = path.join(app.getPath('userData'), 'reminder-checker.log');
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>${label}</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>${pythonBin}</string>
+      <string>${scriptPath}</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>30</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${logPath}</string>
+    <key>StandardErrorPath</key>
+    <string>${logPath}</string>
+  </dict>
+</plist>
+`;
+  try {
+    fs.mkdirSync(path.dirname(plistPath), { recursive: true });
+    fs.writeFileSync(plistPath, plist);
+    const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
+    exec(
+      `launchctl bootout gui/${uid}/${label} 2>/dev/null; launchctl bootstrap gui/${uid} "${plistPath}"`,
+      (error) => {
+        if (error) {
+          console.error('Failed to (re)load reminder LaunchAgent', error);
+        }
+      },
+    );
+  } catch (error) {
+    console.error('Failed to install reminder LaunchAgent', error);
+  }
+
+  // Trigger any first-run Rosetta-install prompt for the bundled (Intel-only)
+  // terminal-notifier binary while we're in a normal interactive session,
+  // rather than the first time the background LaunchAgent invokes it silently.
+  const notifierBin = resolveMacNotifierBinary();
+  if (notifierBin) {
+    exec(`"${notifierBin}" -help`, () => {});
+  }
+};
+
+const installWindowsScheduledTask = (pythonBin: string, scriptPath: string) => {
+  const taskName = 'AdeoReminders';
+  const command = `schtasks /create /tn "${taskName}" /tr "\\"${pythonBin}\\" \\"${scriptPath}\\"" /sc minute /mo 1 /f`;
+  exec(command, (error) => {
+    if (error) {
+      console.error('Failed to register reminder Scheduled Task', error);
+    }
+  });
+};
+
+const installLinuxSystemdTimer = (pythonBin: string, scriptPath: string) => {
+  const unitDir = path.join(os.homedir(), '.config', 'systemd', 'user');
+  const serviceContent = `[Unit]
+Description=Adeo reminder notification check
+
+[Service]
+Type=oneshot
+ExecStart=${pythonBin} ${scriptPath}
+`;
+  const timerContent = `[Unit]
+Description=Run the Adeo reminder checker periodically
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`;
+  try {
+    fs.mkdirSync(unitDir, { recursive: true });
+    fs.writeFileSync(path.join(unitDir, 'adeo-reminders.service'), serviceContent);
+    fs.writeFileSync(path.join(unitDir, 'adeo-reminders.timer'), timerContent);
+    exec('systemctl --user daemon-reload && systemctl --user enable --now adeo-reminders.timer', (error) => {
+      if (error) {
+        console.error('Failed to enable reminder systemd timer', error);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to install reminder systemd timer', error);
+  }
+};
+
+// Installs (or refreshes) a per-OS background scheduler entry that keeps
+// checking for due reminders and posting native notifications even when
+// Adeo itself is fully closed. Safe to call on every startup — each
+// installer overwrites its previous registration idempotently.
+const ensureBackgroundReminderService = () => {
+  const scriptPath = resolveServerScript('reminder_notifier.py');
+  if (!scriptPath) {
+    console.error('reminder_notifier.py not found; background reminders will not be installed.');
+    return;
+  }
+  const pythonBin = resolvePythonBin();
+
+  if (process.platform === 'darwin') {
+    installMacLaunchAgent(pythonBin, scriptPath);
+  } else if (process.platform === 'win32') {
+    installWindowsScheduledTask(pythonBin, scriptPath);
+  } else {
+    installLinuxSystemdTimer(pythonBin, scriptPath);
   }
 };
 
@@ -593,6 +828,16 @@ app.whenReady().then(async () => {
     setupMenu(mainWindow);
   }
   startReminderPolling();
+  writeRunningLock();
+  ensureBackgroundReminderService();
+
+  // A cold launch's deep link can't be applied immediately after createWindow():
+  // the renderer hasn't loaded its tasks yet (openEditModal silently no-ops if
+  // state.tasks doesn't have the task), so wait for it to say it's ready.
+  ipcMain.on('renderer-ready', () => {
+    rendererIsReady = true;
+    tryHandlePendingAdeoUrl();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -610,6 +855,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopReminderPolling();
+  removeRunningLock();
   if (apiProcess) {
     apiProcess.kill();
     apiProcess = null;

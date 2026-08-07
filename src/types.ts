@@ -56,6 +56,7 @@ export type ElectronAPI = {
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   onOpenSettings: (callback: () => void) => () => void;
   onOpenTaskEdit: (callback: (taskId: number) => void) => () => void;
+  notifyRendererReady: () => void;
 };
 
 declare global {

@@ -50,11 +50,15 @@
         }
       ]
     },
+    "nsis": {
+      "include": "scripts/installer.nsh"
+    },
     "mac": {
       "category": "public.app-category.productivity",
       "target": ["dmg", "zip"],
       "extraResources": [
-        { "from": "python/staged", "to": "python" }
+        { "from": "python/staged", "to": "python" },
+        { "from": "vendor/mac/terminal-notifier.app", "to": "terminal-notifier.app" }
       ]
     }
   },

@@ -57,6 +57,7 @@ export const attachDatePicker = (input: HTMLInputElement | null | undefined): vo
 
   const popover = document.createElement('div');
   popover.className = 'date-picker-popover';
+  popover.addEventListener('click', (event) => event.stopPropagation());
   document.body.appendChild(popover);
 
   const nativeDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;

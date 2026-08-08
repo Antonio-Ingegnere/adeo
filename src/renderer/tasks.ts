@@ -1,4 +1,5 @@
 import type { Task } from '../types.js';
+import type { EvalContext } from './query.js';
 import { createDetailsElement, formatDate } from './helpers.js';
 import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
@@ -8,6 +9,26 @@ const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
     dropIndicator.parentNode.removeChild(dropIndicator);
   }
+};
+
+const defaultEmptyText = refs.emptyState?.textContent ?? '';
+
+export const isSearching = (): boolean => {
+  if (!state.searchQuery.trim()) return false;
+  if (state.searchMode === 'advanced') return state.queryPredicate !== null;
+  return true;
+};
+
+const buildEvalContext = (): EvalContext => {
+  const now = new Date();
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate()
+  ).padStart(2, '0')}`;
+  return {
+    listNameById: new Map(state.lists.map((l) => [l.id, l.name.toLowerCase()])),
+    tagNameById: new Map(state.tags.map((t) => [t.id, t.name.toLowerCase()])),
+    todayISO,
+  };
 };
 
 export const getVisibleTasks = (): Task[] => {
@@ -35,7 +56,7 @@ const updateTagFilterChip = (searching: boolean) => {
 
 export const updateTasksTitle = () => {
   if (!refs.tasksTitleEl) return;
-  const searching = Boolean(state.searchQuery.trim());
+  const searching = isSearching();
   updateTagFilterChip(searching);
   if (searching) {
     refs.tasksTitleEl.textContent = 'Search results';
@@ -348,16 +369,30 @@ const renderTasksInner = () => {
   removeDropIndicator();
   refs.tasksList.innerHTML = '';
 
-  const searchQuery = state.searchQuery.trim().toLowerCase();
-  if (searchQuery) {
-    const matches = state.tasks.filter((task) => {
-      const text = task.text.toLowerCase();
-      const details = task.details?.toLowerCase() ?? '';
-      return text.includes(searchQuery) || details.includes(searchQuery);
-    });
+  if (isSearching()) {
+    let matches: Task[];
+    if (state.searchMode === 'advanced' && state.queryPredicate) {
+      const ctx = buildEvalContext();
+      const predicate = state.queryPredicate;
+      matches = state.tasks.filter((task) => predicate(task, ctx));
+    } else {
+      const searchQuery = state.searchQuery.trim().toLowerCase();
+      matches = state.tasks.filter((task) => {
+        const text = task.text.toLowerCase();
+        const details = task.details?.toLowerCase() ?? '';
+        return text.includes(searchQuery) || details.includes(searchQuery);
+      });
+    }
+    // respect the View > Show completed setting; an advanced query that
+    // explicitly filters on `done` states the user's intent and wins
+    const doneOverride = state.searchMode === 'advanced' && state.queryUsesDone;
+    if (!state.showCompleted && !doneOverride) {
+      matches = matches.filter((task) => !task.done);
+    }
 
     if (matches.length === 0) {
       if (refs.emptyState) {
+        refs.emptyState.textContent = 'No tasks match your search';
         refs.tasksList.appendChild(refs.emptyState);
       }
       return;
@@ -407,6 +442,7 @@ const renderTasksInner = () => {
 
   if (visibleTasks.length === 0) {
     if (refs.emptyState) {
+      refs.emptyState.textContent = defaultEmptyText;
       refs.tasksList.appendChild(refs.emptyState);
     }
     return;

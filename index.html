@@ -15,11 +15,42 @@
         <div class="lists-search">
           <div class="lists-search-field">
             <input id="lists-search-input" class="lists-search-input" type="text" placeholder="Search" />
+            <button id="search-mode-toggle" class="search-mode-toggle" type="button" aria-label="Toggle advanced search"
+              aria-pressed="false" title="Advanced search">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path
+                  d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+              </svg>
+            </button>
             <button id="lists-search-clear" class="lists-search-clear" type="button" aria-label="Clear search">
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                 <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
               </svg>
             </button>
+            <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu"></div>
+          </div>
+          <div id="search-status" class="search-status" style="display:none">
+            <span id="search-status-text" class="search-status-text"></span>
+            <button id="search-help-btn" class="search-help-btn" type="button" aria-label="Search syntax help">?</button>
+          </div>
+          <div id="search-help-popover" class="search-help-popover" style="display:none">
+            <p class="search-help-title">Query syntax</p>
+            <table class="search-help-table">
+              <tr><td><code>text</code>, <code>details</code></td><td><code>: ~ !=</code></td></tr>
+              <tr><td><code>list</code>, <code>tag</code></td><td><code>: ~ !=</code> · <code>none</code>, <code>any</code></td></tr>
+              <tr><td><code>priority</code></td><td>none / low / medium / high</td></tr>
+              <tr><td><code>done</code></td><td>true / false</td></tr>
+              <tr><td><code>due</code></td><td><code>: != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday</td></tr>
+              <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly</td></tr>
+            </table>
+            <p class="search-help-note"><code>:</code> is exact, <code>~</code> is contains. Combine with
+              <code>AND</code>, <code>OR</code>, <code>NOT</code> and parentheses; bare words search text.
+              Quote names with spaces or symbols: <code>list:"Foo list 1"</code>.</p>
+            <p class="search-help-title">Examples</p>
+            <p class="search-help-example"><code>tag:errands AND due&lt;=today</code></p>
+            <p class="search-help-example"><code>priority:high OR priority:medium</code></p>
+            <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
+            <p class="search-help-example"><code>milk due:none #errands</code></p>
           </div>
         </div>
         <div class="lists-panel">

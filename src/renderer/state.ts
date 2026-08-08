@@ -1,4 +1,5 @@
 import type { List, Tag, Task } from '../types';
+import type { CompiledPredicate, ParseError } from './query.js';
 
 export type UIState = {
   tasks: Task[];
@@ -30,6 +31,10 @@ export type UIState = {
   modalRepeatRule: string | null;
   modalRepeatStart: string | null;
   searchQuery: string;
+  searchMode: 'simple' | 'advanced';
+  queryPredicate: CompiledPredicate | null;
+  queryError: ParseError | null;
+  queryUsesDone: boolean;
   timeFormat: '12h' | '24h';
   dateFormat: string;
 };
@@ -64,6 +69,10 @@ export const state: UIState = {
   modalRepeatRule: null,
   modalRepeatStart: null,
   searchQuery: '',
+  searchMode: 'simple',
+  queryPredicate: null,
+  queryError: null,
+  queryUsesDone: false,
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
 };

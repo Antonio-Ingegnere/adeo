@@ -2,6 +2,7 @@ import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions
 import { refs } from './dom.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
+import { closeQueryPopovers, setupQuerySearch } from './querySearch.js';
 import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
 import { attachTaskListDnD, renderTasks, updateTasksTitle } from './tasks.js';
 import {
@@ -558,41 +559,7 @@ const setupEvents = () => {
     applyReminderTimeInput(val);
   });
 
-  const applySearchQuery = (value: string) => {
-    state.searchQuery = value;
-    if (refs.listsSearchClear) {
-      refs.listsSearchClear.style.visibility = value ? 'visible' : 'hidden';
-    }
-    updateTasksTitle();
-    renderTasks();
-  };
-
-  refs.listsSearchInput?.addEventListener('input', (event) => {
-    const val = (event.target as HTMLInputElement).value;
-    applySearchQuery(val);
-  });
-
-  refs.listsSearchInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      applySearchQuery('');
-      if (refs.listsSearchInput) {
-        refs.listsSearchInput.value = '';
-      }
-    }
-  });
-
-  refs.listsSearchClear?.addEventListener('click', () => {
-    applySearchQuery('');
-    if (refs.listsSearchInput) {
-      refs.listsSearchInput.value = '';
-      refs.listsSearchInput.focus();
-    }
-  });
-
-  if (refs.listsSearchClear) {
-    refs.listsSearchClear.style.visibility = state.searchQuery ? 'visible' : 'hidden';
-  }
+  setupQuerySearch();
 
   refs.repeatPicker?.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1067,6 +1034,7 @@ const setupEvents = () => {
     if (refs.tagSuggestMenu) {
       refs.tagSuggestMenu.style.display = 'none';
     }
+    closeQueryPopovers();
   });
 };
 

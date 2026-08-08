@@ -305,12 +305,16 @@ body {
 .task-reminder-text {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .task-repeat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .task-repeat-icon {
@@ -1687,4 +1691,217 @@ body {
   border: 1px dashed #d6d6d6;
   border-radius: 8px;
   color: #777;
+}
+
+/* ---------- Tags ---------- */
+
+.tags-panel {
+  margin-top: 12px;
+}
+
+.tag-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.list-pill-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #888;
+  padding-right: 4px;
+  flex-shrink: 0;
+}
+
+/* the count owns the auto margin in tag pills; two auto margins would
+   split the free space and misalign counts across rows */
+.tag-pill .list-menu-btn {
+  margin-left: 0;
+}
+
+.task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.task-reminder .task-tags {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.task-tag-chip {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  color: #3a3a3a;
+  line-height: 16px;
+}
+
+.task-tag-chip:hover {
+  filter: brightness(0.95);
+}
+
+.tasks-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.tag-filter-chip {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 10px;
+  color: #3a3a3a;
+  line-height: 16px;
+  margin-left: 8px;
+  margin-bottom: 8px;
+}
+
+.tag-filter-chip:hover {
+  filter: brightness(0.95);
+}
+
+.add-task-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.add-task-input-wrap .text-input {
+  width: 100%;
+}
+
+.tag-suggest-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  width: auto;
+  background: #fff;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  gap: 4px;
+  z-index: 10;
+}
+
+.tag-suggest-item {
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+}
+
+.tag-suggest-item:hover,
+.tag-suggest-item.active {
+  background: #f0f0f0;
+}
+
+.add-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.add-task-tag-chip {
+  font-size: 11px;
+  padding: 2px 9px;
+}
+
+.tags-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  gap: 4px;
+  z-index: 10;
+}
+
+#tags-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.tags-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tags-menu-item:hover {
+  background: #f4f4f4;
+}
+
+.tags-menu-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tags-menu-check {
+  margin-left: auto;
+  color: #1d72f3;
+  font-weight: 700;
+}
+
+.tags-menu-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #888;
+}
+
+.tags-menu-new-input {
+  border: 1px solid #d6d6d6;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.tags-menu-new-input:focus {
+  outline: 2px solid #4c9ffe;
+  outline-offset: 1px;
 }

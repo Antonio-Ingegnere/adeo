@@ -1,5 +1,6 @@
 import type { List } from '../types.js';
 import { renderListOptions, renderLists } from './lists.js';
+import { renderTags, sortTags } from './tags.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { refs } from './dom.js';
 import { state } from './state.js';
@@ -74,6 +75,63 @@ export const updateRepeatUI = (value: string | null) => {
   refs.repeatLabel.textContent = label;
 };
 
+export const updateTagsUI = () => {
+  if (!refs.tagsLabel) return;
+  const selected = state.modalTagIds
+    .map((id) => state.tags.find((t) => t.id === id))
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
+  if (selected.length === 0) {
+    refs.tagsLabel.textContent = 'None';
+  } else if (selected.length === 1) {
+    refs.tagsLabel.textContent = selected[0].name;
+  } else {
+    refs.tagsLabel.textContent = `${selected[0].name} +${selected.length - 1}`;
+  }
+};
+
+export const renderTagsMenu = () => {
+  if (!refs.tagsMenuList) return;
+  const container = refs.tagsMenuList;
+  container.innerHTML = '';
+  if (state.tags.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'tags-menu-empty';
+    empty.textContent = 'No tags yet';
+    container.appendChild(empty);
+    return;
+  }
+  state.tags.forEach((tag) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'tags-menu-item';
+    const dot = document.createElement('span');
+    dot.className = 'tag-dot';
+    dot.style.background = tag.color;
+    const name = document.createElement('span');
+    name.className = 'tags-menu-name';
+    name.textContent = tag.name;
+    item.appendChild(dot);
+    item.appendChild(name);
+    if (state.modalTagIds.includes(tag.id)) {
+      const check = document.createElement('span');
+      check.className = 'tags-menu-check';
+      check.textContent = '✓';
+      item.appendChild(check);
+    }
+    item.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (state.modalTagIds.includes(tag.id)) {
+        state.modalTagIds = state.modalTagIds.filter((id) => id !== tag.id);
+      } else {
+        state.modalTagIds.push(tag.id);
+      }
+      renderTagsMenu();
+      updateTagsUI();
+    });
+    container.appendChild(item);
+  });
+};
+
 const deriveRepeatLabel = (repeatRule: string | null) => {
   if (!repeatRule) return null;
   const parts = repeatRule.split(';').reduce<Record<string, string>>((acc, part) => {
@@ -110,6 +168,7 @@ export const openEditModal = (taskId: number) => {
   state.modalRepeatRule = task.repeatRule ?? null;
   state.modalRepeatStart = task.repeatStart ?? null;
   state.modalRepeat = deriveRepeatLabel(task.repeatRule ?? null);
+  state.modalTagIds = [...(task.tagIds ?? [])];
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
   if (refs.reminderDateInput) {
@@ -126,6 +185,8 @@ export const openEditModal = (taskId: number) => {
   updatePriorityUI(state.modalPriority);
   updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   updateRepeatUI(state.modalRepeat);
+  renderTagsMenu();
+  updateTagsUI();
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
   }
@@ -140,6 +201,9 @@ export const openEditModal = (taskId: number) => {
   }
   if (refs.modalListMenu) {
     refs.modalListMenu.style.display = 'none';
+  }
+  if (refs.tagsMenu) {
+    refs.tagsMenu.style.display = 'none';
   }
   setTimeout(() => refs.editInput?.focus(), 0);
 };
@@ -160,11 +224,13 @@ export const closeEditModal = () => {
   state.modalRepeat = null;
   state.modalRepeatRule = null;
   state.modalRepeatStart = null;
+  state.modalTagIds = [];
   if (refs.reminderDateInput) refs.reminderDateInput.value = '';
   if (refs.reminderTimeInput) refs.reminderTimeInput.value = '';
   updatePriorityUI('none');
   updateReminderUI(null, null);
   updateRepeatUI(null);
+  updateTagsUI();
   renderModalLists();
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
@@ -181,6 +247,9 @@ export const closeEditModal = () => {
   if (refs.modalListMenu) {
     refs.modalListMenu.style.display = 'none';
   }
+  if (refs.tagsMenu) {
+    refs.tagsMenu.style.display = 'none';
+  }
 };
 
 export const saveEdit = async () => {
@@ -196,8 +265,9 @@ export const saveEdit = async () => {
   const repeatRule = state.modalRepeatRule ?? null;
   const repeatStart = state.modalRepeatStart ?? null;
   if (!newText) return;
+  const newTagIds = [...state.modalTagIds];
   try {
-    const [textResult, detailsResult, listResult, priorityResult, reminderResult, repeatResult] = await Promise.all([
+    const [textResult, detailsResult, listResult, doneResult, priorityResult, reminderResult, repeatResult, tagsResult] = await Promise.all([
       window.electronAPI.updateTaskText(state.editingTaskId, newText),
       window.electronAPI.updateTaskDetails(state.editingTaskId, newDetails),
       window.electronAPI.updateTaskList(state.editingTaskId, newListId),
@@ -205,15 +275,18 @@ export const saveEdit = async () => {
       window.electronAPI.updateTaskPriority(state.editingTaskId, newPriority),
       window.electronAPI.updateTaskReminder(state.editingTaskId, reminderDate, reminderTime),
       window.electronAPI.updateTaskRepeat(state.editingTaskId, repeatRule, repeatStart),
+      window.electronAPI.setTaskTags(state.editingTaskId, newTagIds),
     ]);
     if (
       !textResult ||
       (textResult as any).error ||
       !detailsResult ||
       (listResult as any)?.error ||
+      (doneResult as any)?.error ||
       (priorityResult as any)?.error ||
       (reminderResult as any)?.error ||
-      (repeatResult as any)?.error
+      (repeatResult as any)?.error ||
+      (tagsResult as any)?.error
     ) {
       return;
     }
@@ -228,12 +301,52 @@ export const saveEdit = async () => {
       state.tasks[idx].reminderTime = reminderTime;
       state.tasks[idx].repeatRule = repeatRule;
       state.tasks[idx].repeatStart = repeatStart;
+      state.tasks[idx].tagIds = (tagsResult as { tagIds: number[] }).tagIds ?? newTagIds;
       renderTasks();
     }
     closeEditModal();
   } catch (error) {
     console.error('Failed to update task text', error);
   }
+};
+
+export const openEditTagModal = (tagId: number) => {
+  const tag = state.tags.find((t) => t.id === tagId);
+  if (!tag || !refs.tagOverlay || !refs.tagInput) return;
+  state.editingTagId = tagId;
+  refs.tagOverlay.classList.add('open');
+  refs.tagInput.value = tag.name;
+  setTimeout(() => refs.tagInput?.focus(), 0);
+};
+
+export const closeTagModal = () => {
+  if (!refs.tagOverlay || !refs.tagInput) return;
+  refs.tagOverlay.classList.remove('open');
+  refs.tagInput.value = '';
+  state.editingTagId = null;
+};
+
+export const saveTag = () => {
+  if (!refs.tagInput || !state.editingTagId) return;
+  const name = refs.tagInput.value.trim();
+  if (!name) return;
+  window.electronAPI
+    .updateTagName(state.editingTagId, name)
+    .then((updated) => {
+      if (!updated || (updated as any).error) return;
+      const idx = state.tags.findIndex((t) => t.id === state.editingTagId);
+      if (idx !== -1) {
+        state.tags[idx].name = (updated as { name: string }).name;
+        sortTags();
+      }
+      closeTagModal();
+      updateTasksTitle();
+      renderTags();
+      renderTasks();
+      renderTagsMenu();
+      updateTagsUI();
+    })
+    .catch((error) => console.error('Failed to update tag', error));
 };
 
 export const openListModal = () => {

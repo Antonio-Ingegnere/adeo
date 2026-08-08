@@ -758,14 +758,14 @@ ipcMain.handle('show-message', async (_event, text: string) => {
   });
 });
 
-ipcMain.handle('add-task', async (_event, text: string, listId?: number | null) => {
+ipcMain.handle('add-task', async (_event, text: string, listId?: number | null, tagIds?: number[]) => {
   const trimmed = text?.trim();
   if (!trimmed) {
     return { error: 'Task text is empty' };
   }
   return apiRequest('/tasks', {
     method: 'POST',
-    body: JSON.stringify({ text: trimmed, listId: listId ?? null }),
+    body: JSON.stringify({ text: trimmed, listId: listId ?? null, tagIds: tagIds ?? [] }),
   });
 });
 
@@ -861,6 +861,63 @@ ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
   return apiRequest('/lists/order', {
     method: 'POST',
     body: JSON.stringify({ orderedIds }),
+  });
+});
+
+const confirmDelete = async (message: string, detail: string): Promise<boolean> => {
+  const result = await dialog.showMessageBox({
+    type: 'warning',
+    message,
+    detail,
+    buttons: ['Cancel', 'Delete'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  return result.response === 1;
+};
+
+ipcMain.handle('confirm-delete-list', async (_event, name: string) => {
+  return confirmDelete(`Delete list "${name}"?`, 'The list and all of its tasks will be removed.');
+});
+
+ipcMain.handle('confirm-delete-tag', async (_event, name: string) => {
+  return confirmDelete(`Delete tag "${name}"?`, 'The tag will be removed from all tasks. Tasks are kept.');
+});
+
+ipcMain.handle('add-tag', async (_event, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'Tag name is empty' };
+  }
+  return apiRequest('/tags', {
+    method: 'POST',
+    body: JSON.stringify({ name: trimmed }),
+  });
+});
+
+ipcMain.handle('get-tags', async () => {
+  return apiRequest('/tags');
+});
+
+ipcMain.handle('update-tag-name', async (_event, id: number, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'Tag name is empty' };
+  }
+  return apiRequest(`/tags/${id}/name`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: trimmed }),
+  });
+});
+
+ipcMain.handle('delete-tag', async (_event, id: number) => {
+  return apiRequest(`/tags/${id}`, { method: 'DELETE' });
+});
+
+ipcMain.handle('set-task-tags', async (_event, id: number, tagIds: number[]) => {
+  return apiRequest(`/tasks/${id}/tags`, {
+    method: 'PUT',
+    body: JSON.stringify({ tagIds: tagIds ?? [] }),
   });
 });
 

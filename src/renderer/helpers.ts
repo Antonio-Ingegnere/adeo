@@ -27,6 +27,39 @@ export const formatDate = (date: string | null): string => {
   return map[state.dateFormat] ?? `${y}-${m}-${d}`;
 };
 
+export const positionDropdown = (menu: HTMLElement, trigger: HTMLElement) => {
+  menu.style.top = '';
+  menu.style.bottom = '';
+  menu.style.maxHeight = '';
+  menu.style.overflowY = '';
+  menu.style.visibility = 'hidden';
+  menu.style.display = 'flex';
+
+  const menuRect = menu.getBoundingClientRect();
+  const triggerRect = trigger.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  const spaceBelow = viewportHeight - triggerRect.bottom;
+  const spaceAbove = triggerRect.top;
+
+  if (spaceBelow < menuRect.height && spaceAbove > spaceBelow) {
+    menu.style.top = 'auto';
+    menu.style.bottom = 'calc(100% + 4px)';
+    if (spaceAbove < menuRect.height) {
+      menu.style.maxHeight = `${Math.max(spaceAbove - 8, 80)}px`;
+      menu.style.overflowY = 'auto';
+    }
+  } else {
+    menu.style.top = 'calc(100% + 4px)';
+    menu.style.bottom = 'auto';
+    if (spaceBelow < menuRect.height) {
+      menu.style.maxHeight = `${Math.max(spaceBelow - 8, 80)}px`;
+      menu.style.overflowY = 'auto';
+    }
+  }
+
+  menu.style.visibility = 'visible';
+};
+
 export const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

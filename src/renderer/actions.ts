@@ -1,24 +1,67 @@
-import type { Task } from '../types';
+import type { Tag, Task } from '../types';
 import { refs } from './dom.js';
 import { renderLists, renderListOptions } from './lists.js';
+import { mergeTag, renderTags, sortTags } from './tags.js';
+import { renderPendingTags } from './tagInput.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
 
+const INLINE_TAG_RE = /(^|\s)#([A-Za-z0-9_-]+)/g;
+
 export const addTask = async () => {
-  const text = refs.input?.value.trim();
-  if (!text) return;
+  const input = refs.input;
+  if (!input) return;
+  const raw = input.value;
+
+  const tagIds = [...state.pendingTagIds];
+  const tokenNames: string[] = [];
+  const stripped = raw.replace(INLINE_TAG_RE, (_match, lead: string, name: string) => {
+    tokenNames.push(name);
+    return lead;
+  });
+
+  for (const name of tokenNames) {
+    try {
+      const created = await window.electronAPI.addTag(name);
+      if (created && !(created as any).error) {
+        const tag = created as Tag;
+        mergeTag(tag);
+        if (!tagIds.includes(tag.id)) {
+          tagIds.push(tag.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to resolve tag', error);
+    }
+  }
+
+  const text = stripped.replace(/\s+/g, ' ').trim();
+  if (!text) {
+    if (tokenNames.length) {
+      renderTags();
+    }
+    return;
+  }
 
   try {
-    const createdTask = await window.electronAPI.addTask(text, state.addTaskSelectedListId ?? state.selectedListId);
+    const createdTask = await window.electronAPI.addTask(
+      text,
+      state.addTaskSelectedListId ?? state.selectedListId,
+      tagIds
+    );
     if (!createdTask || (createdTask as any).error) {
       return;
     }
 
-    state.tasks.push({ ...(createdTask as Task), priority: (createdTask as any).priority ?? 'none' });
-    if (refs.input) {
-      refs.input.value = '';
-      refs.input.focus();
-    }
+    state.tasks.push({
+      ...(createdTask as Task),
+      priority: (createdTask as any).priority ?? 'none',
+      tagIds: (createdTask as any).tagIds ?? tagIds,
+    });
+    state.pendingTagIds = [];
+    renderPendingTags();
+    input.value = '';
+    input.focus();
     renderTasks();
   } catch (error) {
     console.error('Failed to add task', error);
@@ -48,6 +91,9 @@ export const loadTasks = async () => {
       if ((t as any).repeatStart === undefined) {
         (t as any).repeatStart = null;
       }
+      if (!Array.isArray((t as any).tagIds)) {
+        (t as any).tagIds = [];
+      }
     });
     renderTasks();
   } catch (error) {
@@ -64,6 +110,17 @@ export const loadSettings = async () => {
     renderTasks();
   } catch (error) {
     console.error('Failed to load settings', error);
+  }
+};
+
+export const loadTags = async () => {
+  try {
+    const existingTags = await window.electronAPI.getTags();
+    state.tags.splice(0, state.tags.length, ...(existingTags ?? []));
+    sortTags();
+    renderTags();
+  } catch (error) {
+    console.error('Failed to load tags', error);
   }
 };
 

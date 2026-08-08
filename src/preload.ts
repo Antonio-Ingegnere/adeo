@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronAPI, List, Settings, Task } from './types';
+import type { ElectronAPI, List, Settings, Tag, Task } from './types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  addTask: (text: string, listId?: number | null) =>
-    ipcRenderer.invoke('add-task', text, listId) as Promise<Task | { error: string }>,
+  addTask: (text: string, listId?: number | null, tagIds?: number[]) =>
+    ipcRenderer.invoke('add-task', text, listId, tagIds) as Promise<Task | { error: string }>,
   getTasks: () => ipcRenderer.invoke('get-tasks') as Promise<Task[]>,
   updateTaskDone: (id: number, done: boolean) =>
     ipcRenderer.invoke('update-task-done', id, done) as Promise<{ id: number; done: boolean }>,
@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateListOrder: (orderedIds: number[]) =>
     ipcRenderer.invoke('update-list-order', orderedIds) as Promise<{ success: boolean }>,
   confirmDeleteList: (name: string) => ipcRenderer.invoke('confirm-delete-list', name) as Promise<boolean>,
+  addTag: (name: string) => ipcRenderer.invoke('add-tag', name) as Promise<Tag | { error: string }>,
+  getTags: () => ipcRenderer.invoke('get-tags') as Promise<Tag[]>,
+  updateTagName: (id: number, name: string) =>
+    ipcRenderer.invoke('update-tag-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
+  deleteTag: (id: number) => ipcRenderer.invoke('delete-tag', id) as Promise<{ id: number }>,
+  setTaskTags: (id: number, tagIds: number[]) =>
+    ipcRenderer.invoke('set-task-tags', id, tagIds) as Promise<{ id: number; tagIds: number[] } | { error: string }>,
+  confirmDeleteTag: (name: string) => ipcRenderer.invoke('confirm-delete-tag', name) as Promise<boolean>,
   updateTimeFormat: (format: '12h' | '24h') =>
     ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
   updateDateFormat: (format: string) =>

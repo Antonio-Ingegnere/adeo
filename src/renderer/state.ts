@@ -1,10 +1,13 @@
-import type { List, Task } from '../types';
+import type { List, Tag, Task } from '../types';
 
 export type UIState = {
   tasks: Task[];
   lists: List[];
+  tags: Tag[];
   selectedListId: number | null;
+  selectedTagId: number | null;
   listsExpanded: boolean;
+  tagsExpanded: boolean;
   showCompleted: boolean;
   expandedDetails: Set<number>;
   dragIndex: number | null;
@@ -13,9 +16,13 @@ export type UIState = {
   listDropIndex: number | null;
   editingTaskId: number | null;
   editingListId: number | null;
+  editingTagId: number | null;
   modalSelectedListId: number | null;
+  modalTagIds: number[];
   addTaskSelectedListId: number | null;
   openListMenuId: number | null;
+  openTagMenuId: number | null;
+  pendingTagIds: number[];
   modalPriority: Task['priority'];
   modalReminderDate: string | null;
   modalReminderTime: string | null;
@@ -30,8 +37,11 @@ export type UIState = {
 export const state: UIState = {
   tasks: [],
   lists: [],
+  tags: [],
   selectedListId: null,
+  selectedTagId: null,
   listsExpanded: true,
+  tagsExpanded: true,
   showCompleted: true,
   expandedDetails: new Set<number>(),
   dragIndex: null,
@@ -40,9 +50,13 @@ export const state: UIState = {
   listDropIndex: null,
   editingTaskId: null,
   editingListId: null,
+  editingTagId: null,
   modalSelectedListId: null,
+  modalTagIds: [],
   addTaskSelectedListId: null,
   openListMenuId: null,
+  openTagMenuId: null,
+  pendingTagIds: [],
   modalPriority: 'none',
   modalReminderDate: null,
   modalReminderTime: null,

@@ -1,22 +1,30 @@
-import { addTask, loadLists, loadSettings, loadTasks } from './actions.js';
+import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions.js';
 import { refs } from './dom.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
+import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
+import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
 import { attachTaskListDnD, renderTasks, updateTasksTitle } from './tasks.js';
 import {
   closeEditModal,
   closeListModal,
+  closeTagModal,
   openEditListModal,
   openEditModal,
+  openEditTagModal,
   openListModal,
   renderModalLists,
+  renderTagsMenu,
   saveEdit,
   saveList,
+  saveTag,
   updatePriorityUI,
   updateReminderUI,
   updateRepeatUI,
+  updateTagsUI,
 } from './modals.js';
 import { state } from './state.js';
-import { formatDate } from './helpers.js';
+import type { Tag } from '../types.js';
+import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
 
 const toDateInputValue = (date: Date) => {
@@ -327,48 +335,16 @@ const buildTimeOptions = () => {
   }
 };
 
-const positionDropdown = (menu: HTMLElement, trigger: HTMLElement) => {
-  menu.style.top = '';
-  menu.style.bottom = '';
-  menu.style.maxHeight = '';
-  menu.style.overflowY = '';
-  menu.style.visibility = 'hidden';
-  menu.style.display = 'flex';
-
-  const menuRect = menu.getBoundingClientRect();
-  const triggerRect = trigger.getBoundingClientRect();
-  const viewportHeight = window.innerHeight;
-  const spaceBelow = viewportHeight - triggerRect.bottom;
-  const spaceAbove = triggerRect.top;
-
-  if (spaceBelow < menuRect.height && spaceAbove > spaceBelow) {
-    menu.style.top = 'auto';
-    menu.style.bottom = 'calc(100% + 4px)';
-    if (spaceAbove < menuRect.height) {
-      menu.style.maxHeight = `${Math.max(spaceAbove - 8, 80)}px`;
-      menu.style.overflowY = 'auto';
-    }
-  } else {
-    menu.style.top = 'calc(100% + 4px)';
-    menu.style.bottom = 'auto';
-    if (spaceBelow < menuRect.height) {
-      menu.style.maxHeight = `${Math.max(spaceBelow - 8, 80)}px`;
-      menu.style.overflowY = 'auto';
-    }
-  }
-
-  menu.style.visibility = 'visible';
-};
-
 const setupEvents = () => {
   attachTaskListDnD();
 
   refs.addButton?.addEventListener('click', addTask);
   refs.input?.addEventListener('keypress', (event) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !isTagSuggestOpen()) {
       addTask();
     }
   });
+  setupTagInput();
 
   refs.cancelEditBtn?.addEventListener('click', () => closeEditModal());
   refs.saveEditBtn?.addEventListener('click', () => saveEdit());
@@ -392,6 +368,10 @@ const setupEvents = () => {
     toggleListsExpanded();
   });
 
+  refs.tagsToggle?.addEventListener('click', () => {
+    toggleTagsExpanded();
+  });
+
   refs.addListBtn?.addEventListener('click', () => openListModal());
   refs.saveListBtn?.addEventListener('click', () => saveList());
   refs.cancelListBtn?.addEventListener('click', () => closeListModal());
@@ -404,6 +384,78 @@ const setupEvents = () => {
     if (event.target === refs.listOverlay) {
       closeListModal();
     }
+  });
+
+  refs.saveTagBtn?.addEventListener('click', () => saveTag());
+  refs.cancelTagBtn?.addEventListener('click', () => closeTagModal());
+  refs.tagInput?.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      saveTag();
+    }
+  });
+  refs.tagOverlay?.addEventListener('click', (event) => {
+    if (event.target === refs.tagOverlay) {
+      closeTagModal();
+    }
+  });
+
+  refs.tagsPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (refs.tagsMenu) {
+      if (refs.tagsMenu.style.display === 'flex') {
+        refs.tagsMenu.style.display = 'none';
+      } else {
+        renderTagsMenu();
+        positionDropdown(refs.tagsMenu, refs.tagsPicker ?? refs.tagsMenu);
+      }
+    }
+  });
+
+  refs.tagsMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  refs.tagsMenuNew?.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const name = refs.tagsMenuNew?.value.trim();
+    if (!name) return;
+    try {
+      const created = await window.electronAPI.addTag(name);
+      if (!created || (created as any).error) return;
+      const tag = created as Tag;
+      mergeTag(tag);
+      if (!state.modalTagIds.includes(tag.id)) {
+        state.modalTagIds.push(tag.id);
+      }
+      if (refs.tagsMenuNew) refs.tagsMenuNew.value = '';
+      renderTagsMenu();
+      updateTagsUI();
+      renderTags();
+    } catch (error) {
+      console.error('Failed to create tag', error);
+    }
+  });
+
+  document.addEventListener('tasks-rendered', () => {
+    renderTags();
+  });
+
+  document.addEventListener('filter-by-tag', (event) => {
+    const detail = (event as CustomEvent<{ tagId: number }>).detail;
+    if (detail?.tagId === undefined) return;
+    state.selectedTagId = detail.tagId;
+    updateTasksTitle();
+    renderTags();
+    renderTasks();
+  });
+
+  refs.tagFilterChip?.addEventListener('click', () => {
+    state.selectedTagId = null;
+    updateTasksTitle();
+    renderTags();
+    renderTasks();
   });
 
   refs.addTaskListPicker?.addEventListener('click', (event) => {
@@ -968,6 +1020,13 @@ const setupEvents = () => {
     }
   });
 
+  document.addEventListener('open-edit-tag-modal', (event) => {
+    const detail = (event as CustomEvent<{ tagId: number }>).detail;
+    if (detail?.tagId !== undefined) {
+      openEditTagModal(detail.tagId);
+    }
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (refs.overlay?.classList.contains('open')) {
@@ -982,6 +1041,10 @@ const setupEvents = () => {
     if (state.openListMenuId !== null) {
       state.openListMenuId = null;
       renderLists();
+    }
+    if (state.openTagMenuId !== null) {
+      state.openTagMenuId = null;
+      renderTags();
     }
     if (refs.priorityMenu) {
       refs.priorityMenu.style.display = 'none';
@@ -998,6 +1061,12 @@ const setupEvents = () => {
     if (refs.modalListMenu) {
       refs.modalListMenu.style.display = 'none';
     }
+    if (refs.tagsMenu) {
+      refs.tagsMenu.style.display = 'none';
+    }
+    if (refs.tagSuggestMenu) {
+      refs.tagSuggestMenu.style.display = 'none';
+    }
   });
 };
 
@@ -1012,12 +1081,15 @@ const init = async () => {
   // Initialize lists chevrons orientation
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));
+  refs.tagsToggle?.dispatchEvent(new Event('click'));
+  refs.tagsToggle?.dispatchEvent(new Event('click'));
   updateTasksTitle();
   updatePriorityUI(state.modalPriority);
   await loadSettings();
   buildTimeOptions();
   updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   updateRepeatUI(state.modalRepeat);
+  await loadTags();
   await loadTasks();
   await loadLists();
   window.electronAPI.notifyRendererReady();

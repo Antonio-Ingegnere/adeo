@@ -80,6 +80,26 @@ def initialize_db() -> None:
     if not has_column(conn, "lists", "position"):
       conn.execute("ALTER TABLE lists ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
       conn.execute("UPDATE lists SET position = id WHERE position = 0")
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        color TEXT NOT NULL,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+      """
+    )
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS task_tags (
+        task_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (task_id, tag_id)
+      )
+      """
+    )
     conn.commit()
   finally:
     conn.close()
@@ -103,6 +123,7 @@ def get_reminders_due() -> List[Dict[str, Any]]:
 class TaskCreate(BaseModel):
   text: str
   listId: Optional[int] = None
+  tagIds: Optional[List[int]] = None
 
 
 class TaskOrder(BaseModel):
@@ -151,7 +172,40 @@ class ListName(BaseModel):
   name: str
 
 
-def row_to_task(row: sqlite3.Row) -> Dict[str, Any]:
+class TagCreate(BaseModel):
+  name: str
+
+
+class TagName(BaseModel):
+  name: str
+
+
+class TaskTags(BaseModel):
+  tagIds: List[int]
+
+
+TAG_PALETTE = [
+  "#F6C6C6",  # rose
+  "#F9D9B8",  # peach
+  "#F5EBAE",  # butter
+  "#C9E8C1",  # mint
+  "#BEE3E8",  # aqua
+  "#C5D4F5",  # periwinkle
+  "#DCCDF0",  # lilac
+  "#F3CFE3",  # pink
+]
+
+
+def normalize_tag_name(name: str) -> str:
+  trimmed = name.strip()
+  if trimmed.startswith("#"):
+    trimmed = trimmed[1:].strip()
+  if not trimmed:
+    raise HTTPException(status_code=400, detail="Tag name is empty")
+  return trimmed
+
+
+def row_to_task(row: sqlite3.Row, tag_ids: Optional[List[int]] = None) -> Dict[str, Any]:
   return {
     "id": row["id"],
     "text": row["text"],
@@ -165,6 +219,7 @@ def row_to_task(row: sqlite3.Row) -> Dict[str, Any]:
     "repeatRule": row["repeat_rule"],
     "repeatStart": row["repeat_start"],
     "seriesId": row["series_id"],
+    "tagIds": tag_ids or [],
   }
 
 
@@ -189,9 +244,18 @@ def add_task(payload: TaskCreate) -> Dict[str, Any]:
       """,
       (trimmed, next_pos, payload.listId),
     )
+    task_id = cursor.lastrowid
+    tag_ids: List[int] = []
+    for tag_id in payload.tagIds or []:
+      inserted = conn.execute(
+        "INSERT OR IGNORE INTO task_tags (task_id, tag_id) SELECT ?, id FROM tags WHERE id = ?",
+        (task_id, tag_id),
+      )
+      if inserted.rowcount:
+        tag_ids.append(tag_id)
     conn.commit()
     return {
-      "id": cursor.lastrowid,
+      "id": task_id,
       "text": trimmed,
       "details": "",
       "done": False,
@@ -202,6 +266,7 @@ def add_task(payload: TaskCreate) -> Dict[str, Any]:
       "reminderTime": None,
       "repeatRule": None,
       "repeatStart": None,
+      "tagIds": tag_ids,
     }
   finally:
     conn.close()
@@ -218,7 +283,10 @@ def get_tasks() -> List[Dict[str, Any]]:
       ORDER BY position ASC, id ASC
       """
     ).fetchall()
-    return [row_to_task(row) for row in rows]
+    tag_map: Dict[int, List[int]] = {}
+    for link in conn.execute("SELECT task_id, tag_id FROM task_tags ORDER BY tag_id ASC").fetchall():
+      tag_map.setdefault(link["task_id"], []).append(link["tag_id"])
+    return [row_to_task(row, tag_map.get(row["id"])) for row in rows]
   finally:
     conn.close()
 
@@ -252,7 +320,7 @@ def update_task_done(task_id: int, payload: TaskDone) -> Dict[str, Any]:
         next_time = row["reminder_time"]
         position_row = conn.execute("SELECT MAX(position) as maxPos FROM tasks").fetchone()
         next_pos = (position_row["maxPos"] if position_row and position_row["maxPos"] is not None else -1) + 1
-        conn.execute(
+        insert_cursor = conn.execute(
           """
           INSERT INTO tasks (
             text, details, done, position, list_id, priority, reminder_date, reminder_time,
@@ -272,6 +340,10 @@ def update_task_done(task_id: int, payload: TaskDone) -> Dict[str, Any]:
             row["repeat_start"],
             series_id,
           ),
+        )
+        conn.execute(
+          "INSERT INTO task_tags (task_id, tag_id) SELECT ?, tag_id FROM task_tags WHERE task_id = ?",
+          (insert_cursor.lastrowid, row["id"]),
         )
       conn.commit()
     else:
@@ -416,6 +488,7 @@ def update_list_name(list_id: int, payload: ListName) -> Dict[str, Any]:
 def delete_list(list_id: int) -> Dict[str, Any]:
   conn = get_conn()
   try:
+    conn.execute("DELETE FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE list_id = ?)", (list_id,))
     conn.execute("DELETE FROM tasks WHERE list_id = ?", (list_id,))
     conn.execute("DELETE FROM lists WHERE id = ?", (list_id,))
     conn.commit()
@@ -432,6 +505,96 @@ def update_list_order(payload: ListOrder) -> Dict[str, Any]:
       conn.execute("UPDATE lists SET position = ? WHERE id = ?", (index, list_id))
     conn.commit()
     return {"success": True}
+  finally:
+    conn.close()
+
+
+@app.post("/tags")
+def add_tag(payload: TagCreate) -> Dict[str, Any]:
+  name = normalize_tag_name(payload.name)
+  conn = get_conn()
+  try:
+    existing = conn.execute(
+      "SELECT id, name, color, position FROM tags WHERE name = ? COLLATE NOCASE",
+      (name,),
+    ).fetchone()
+    if existing:
+      return {
+        "id": existing["id"],
+        "name": existing["name"],
+        "color": existing["color"],
+        "position": existing["position"],
+      }
+    count_row = conn.execute("SELECT COUNT(*) as total FROM tags").fetchone()
+    count = count_row["total"] if count_row else 0
+    color = TAG_PALETTE[count % len(TAG_PALETTE)]
+    cursor = conn.execute(
+      "INSERT INTO tags (name, color, position) VALUES (?, ?, ?)",
+      (name, color, count),
+    )
+    conn.commit()
+    return {"id": cursor.lastrowid, "name": name, "color": color, "position": count}
+  finally:
+    conn.close()
+
+
+@app.get("/tags")
+def get_tags() -> List[Dict[str, Any]]:
+  conn = get_conn()
+  try:
+    rows = conn.execute(
+      "SELECT id, name, color, position FROM tags ORDER BY name COLLATE NOCASE ASC, id ASC"
+    ).fetchall()
+    return [
+      {"id": row["id"], "name": row["name"], "color": row["color"], "position": row["position"]}
+      for row in rows
+    ]
+  finally:
+    conn.close()
+
+
+@app.patch("/tags/{tag_id}/name")
+def update_tag_name(tag_id: int, payload: TagName) -> Dict[str, Any]:
+  name = normalize_tag_name(payload.name)
+  conn = get_conn()
+  try:
+    try:
+      conn.execute("UPDATE tags SET name = ? WHERE id = ?", (name, tag_id))
+      conn.commit()
+    except sqlite3.IntegrityError:
+      raise HTTPException(status_code=400, detail="Tag name already exists")
+    return {"id": tag_id, "name": name}
+  finally:
+    conn.close()
+
+
+@app.delete("/tags/{tag_id}")
+def delete_tag(tag_id: int) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    conn.execute("DELETE FROM task_tags WHERE tag_id = ?", (tag_id,))
+    conn.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
+    conn.commit()
+    return {"id": tag_id}
+  finally:
+    conn.close()
+
+
+@app.put("/tasks/{task_id}/tags")
+def set_task_tags(task_id: int, payload: TaskTags) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    conn.execute("DELETE FROM task_tags WHERE task_id = ?", (task_id,))
+    applied: List[int] = []
+    for tag_id in payload.tagIds:
+      inserted = conn.execute(
+        "INSERT OR IGNORE INTO task_tags (task_id, tag_id) SELECT ?, id FROM tags WHERE id = ?",
+        (task_id, tag_id),
+      )
+      if inserted.rowcount:
+        applied.append(tag_id)
+    conn.commit()
+    return {"id": task_id, "tagIds": applied}
   finally:
     conn.close()
 

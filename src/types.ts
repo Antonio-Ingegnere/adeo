@@ -11,6 +11,7 @@ export type Task = {
   repeatRule?: string | null;
   repeatStart?: string | null;
   seriesId?: number | null;
+  tagIds?: number[];
 };
 
 export type Settings = {
@@ -25,8 +26,15 @@ export type List = {
   position: number;
 };
 
+export type Tag = {
+  id: number;
+  name: string;
+  color: string;
+  position: number;
+};
+
 export type ElectronAPI = {
-  addTask: (text: string, listId?: number | null) => Promise<Task | { error: string }>;
+  addTask: (text: string, listId?: number | null, tagIds?: number[]) => Promise<Task | { error: string }>;
   getTasks: () => Promise<Task[]>;
   updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
   updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
@@ -52,6 +60,12 @@ export type ElectronAPI = {
   deleteList: (id: number) => Promise<{ id: number }>;
   updateListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
   confirmDeleteList: (name: string) => Promise<boolean>;
+  addTag: (name: string) => Promise<Tag | { error: string }>;
+  getTags: () => Promise<Tag[]>;
+  updateTagName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
+  deleteTag: (id: number) => Promise<{ id: number }>;
+  setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
+  confirmDeleteTag: (name: string) => Promise<boolean>;
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   onOpenSettings: (callback: () => void) => () => void;

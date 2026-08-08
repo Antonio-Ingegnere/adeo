@@ -15,12 +15,29 @@ export const getVisibleTasks = (): Task[] => {
   if (state.selectedListId !== null) {
     base = base.filter((t) => t.listId === state.selectedListId);
   }
+  if (state.selectedTagId !== null) {
+    base = base.filter((t) => (t.tagIds ?? []).includes(state.selectedTagId!));
+  }
   return base;
+};
+
+const updateTagFilterChip = (searching: boolean) => {
+  if (!refs.tagFilterChip) return;
+  const tag = state.selectedTagId !== null ? state.tags.find((t) => t.id === state.selectedTagId) : undefined;
+  if (!tag || searching) {
+    refs.tagFilterChip.style.display = 'none';
+    return;
+  }
+  refs.tagFilterChip.textContent = `#${tag.name} ✕`;
+  refs.tagFilterChip.style.background = tag.color;
+  refs.tagFilterChip.style.display = 'inline-block';
 };
 
 export const updateTasksTitle = () => {
   if (!refs.tasksTitleEl) return;
-  if (state.searchQuery.trim()) {
+  const searching = Boolean(state.searchQuery.trim());
+  updateTagFilterChip(searching);
+  if (searching) {
     refs.tasksTitleEl.textContent = 'Search results';
     return;
   }
@@ -93,6 +110,9 @@ const refreshTasksFromApi = async () => {
       }
       if ((t as any).seriesId === undefined) {
         (t as any).seriesId = null;
+      }
+      if (!Array.isArray((t as any).tagIds)) {
+        (t as any).tagIds = [];
       }
     });
     updateTasksTitle();
@@ -183,6 +203,8 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
       await window.electronAPI.updateTaskDone(task.id, checked);
       if (checked) {
         await refreshTasksFromApi();
+      } else {
+        document.dispatchEvent(new CustomEvent('tasks-rendered'));
       }
     } catch (error) {
       console.error('Failed to update task status', error);
@@ -243,6 +265,30 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
     }
     mainBlock.appendChild(reminder);
   }
+  if (task.tagIds?.length) {
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'task-tags';
+    task.tagIds.forEach((tagId) => {
+      const tag = state.tags.find((t) => t.id === tagId);
+      if (!tag) return;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'task-tag-chip';
+      chip.textContent = `#${tag.name}`;
+      chip.style.background = tag.color;
+      chip.title = `Filter by #${tag.name}`;
+      chip.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        document.dispatchEvent(new CustomEvent('filter-by-tag', { detail: { tagId } }));
+      });
+      tagsRow.appendChild(chip);
+    });
+    if (tagsRow.childElementCount > 0) {
+      const reminderLine = mainBlock.querySelector('.task-reminder');
+      (reminderLine ?? mainBlock).appendChild(tagsRow);
+    }
+  }
   if (hasDetails) {
     mainBlock.appendChild(detailsDiv);
   }
@@ -293,6 +339,11 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
 };
 
 export const renderTasks = () => {
+  renderTasksInner();
+  document.dispatchEvent(new CustomEvent('tasks-rendered'));
+};
+
+const renderTasksInner = () => {
   if (!refs.tasksList) return;
   removeDropIndicator();
   refs.tasksList.innerHTML = '';

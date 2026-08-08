@@ -49,11 +49,40 @@
             <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
           </div>
         </div>
+        <div class="lists-panel tags-panel">
+          <div class="lists-header">
+            <div class="lists-title-wrap">
+              <span class="lists-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path
+                    d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
+                </svg>
+              </span>
+              <p class="lists-title">Tags</p>
+            </div>
+            <div class="lists-actions">
+              <button id="tags-toggle" class="icon-button" aria-label="Toggle tags">
+                <span class="expand-chevrons" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" focusable="false">
+                    <path d="M2 3 L7 8 L12 3" />
+                    <path d="M2 8 L7 13 L12 8" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div id="tags-list" class="lists-list">
+            <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
+          </div>
+        </div>
       </div>
       <div class="main-column">
         <div class="main-body">
           <div class="input-row">
-            <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
+            <div class="add-task-input-wrap">
+              <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
+              <div id="tag-suggest-menu" class="tag-suggest-menu"></div>
+            </div>
             <div class="add-task-select-wrap reminder-select-wrap">
               <button id="add-task-list-picker" class="add-task-picker reminder-picker" type="button">
                 <span id="add-task-list-label">No list</span>
@@ -67,8 +96,12 @@
               </svg>
             </button>
           </div>
+          <div id="add-task-tags" class="add-task-tags"></div>
           <div id="tasks" class="tasks-section">
-            <p class="tasks-title">All tasks</p>
+            <div class="tasks-title-row">
+              <p class="tasks-title">All tasks</p>
+              <button id="tag-filter-chip" class="tag-filter-chip" type="button" style="display:none"></button>
+            </div>
             <div id="tasks-list" class="tasks-list">
               <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
             </div>
@@ -160,6 +193,18 @@
                   </div>
                 </div>
                 <hr class="modal-list-divider" />
+                <h3>Tags</h3>
+                <div class="tags-select-wrap reminder-select-wrap">
+                  <button id="tags-picker" class="reminder-picker" type="button">
+                    <span id="tags-label">None</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
+                  <div id="tags-menu" class="tags-menu">
+                    <div id="tags-menu-list"></div>
+                    <input id="tags-menu-new" class="tags-menu-new-input" type="text" placeholder="New tag…" />
+                  </div>
+                </div>
+                <hr class="modal-list-divider" />
               </div>
             </div>
           </div>
@@ -182,6 +227,21 @@
         <div class="modal-actions">
           <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list">✕</button>
           <button id="save-list" class="btn primary icon-btn" aria-label="Save list">
+            <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="tag-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal modal-small">
+        <h2>Rename tag</h2>
+        <input id="tag-input" type="text" class="text-input modal-input" placeholder="Tag name" />
+        <div class="modal-actions">
+          <button id="cancel-tag" class="btn icon-btn" aria-label="Cancel tag">✕</button>
+          <button id="save-tag" class="btn primary icon-btn" aria-label="Save tag">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />

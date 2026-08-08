@@ -45,12 +45,18 @@ body {
 }
 
 .lists-search {
-  margin-bottom: 10px;
-  padding: 0 4px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .lists-search-field {
   position: relative;
+  flex: 1 1 auto;
+  min-width: 180px;
 }
 
 .lists-search-input {
@@ -1954,11 +1960,14 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
-  padding: 0 4px;
+  margin-top: 0;
+  padding: 0;
   font-size: 11px;
   min-height: 16px;
   color: #888;
+  flex: 0 1 auto;
+  max-width: 45%;
+  min-width: 0;
 }
 
 .search-status-text {
@@ -1966,6 +1975,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
+  min-width: 0;
 }
 
 .search-status-text.ok {
@@ -2000,9 +2010,13 @@ body {
 
 .search-help-popover {
   position: absolute;
-  left: 4px;
-  right: 4px;
-  margin-top: 4px;
+  left: 0;
+  right: auto;
+  top: calc(100% + 6px);
+  width: 520px;
+  max-width: calc(100vw - 48px);
+  box-sizing: border-box;
+  margin-top: 0;
   background: #fff;
   border: 1px solid #d6d6d6;
   border-radius: 10px;
@@ -2063,4 +2077,19 @@ body {
   color: #999;
   font-size: 11px;
   padding-left: 10px;
+}
+
+/* ---------- App header ---------- */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 16px;
+  margin-right: -32px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-width: 0;
 }

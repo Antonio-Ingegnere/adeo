@@ -60,6 +60,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('open-settings', listener);
     return () => ipcRenderer.removeListener('open-settings', listener);
   },
+  onFocusSearch: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('focus-search', listener);
+    return () => ipcRenderer.removeListener('focus-search', listener);
+  },
   onOpenTaskEdit: (callback: (taskId: number) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, taskId: number) => callback(taskId);
     ipcRenderer.on('open-task-edit', listener);

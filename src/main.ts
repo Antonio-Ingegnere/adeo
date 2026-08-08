@@ -711,6 +711,13 @@ function setupMenu(window: BrowserWindow): void {
       label: 'View',
       submenu: [
         {
+          label: 'Find',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => {
+            window.webContents.send('focus-search');
+          },
+        },
+        {
           label: 'Show Completed Tasks',
           type: 'checkbox',
           checked: showCompleted,

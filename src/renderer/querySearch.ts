@@ -8,7 +8,6 @@ import type { FieldSpec, Token } from './query.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
 
-const MODE_KEY = 'adeo.searchMode';
 const RENDER_DEBOUNCE_MS = 150;
 
 const OP_HINTS: Record<string, string> = {
@@ -158,11 +157,6 @@ const applyModeUI = () => {
 
 const setMode = (mode: 'simple' | 'advanced') => {
   state.searchMode = mode;
-  try {
-    localStorage.setItem(MODE_KEY, mode);
-  } catch {
-    // localStorage unavailable — mode just won't persist
-  }
   state.queryPredicate = null;
   state.queryError = null;
   state.queryUsesDone = false;
@@ -399,13 +393,6 @@ const selectSuggestion = (index: number) => {
 export const setupQuerySearch = () => {
   const input = refs.listsSearchInput;
 
-  try {
-    if (localStorage.getItem(MODE_KEY) === 'advanced') {
-      state.searchMode = 'advanced';
-    }
-  } catch {
-    // ignore
-  }
   applyModeUI();
   renderSearchStatus();
 
@@ -479,4 +466,9 @@ export const setupQuerySearch = () => {
   if (refs.listsSearchClear) {
     refs.listsSearchClear.style.visibility = state.searchQuery ? 'visible' : 'hidden';
   }
+
+  window.electronAPI.onFocusSearch?.(() => {
+    input?.focus();
+    input?.select();
+  });
 };

@@ -1,8 +1,11 @@
 import logging
 import os
 import sqlite3
+import sys
 from datetime import datetime
 from typing import Any, Optional, List, Dict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
 from dateutil.rrule import rrulestr

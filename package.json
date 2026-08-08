@@ -45,7 +45,7 @@
       ],
       "extraResources": [
         {
-          "from": "python",
+          "from": "python/python-3.12.10-embed-amd64",
           "to": "python"
         }
       ]

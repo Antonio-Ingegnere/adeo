@@ -4,6 +4,8 @@ import subprocess
 import sys
 from typing import Any, Dict, Optional
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from reminders import DB_PATH, get_due_reminders
 
 USER_DATA_DIR = os.path.dirname(DB_PATH)

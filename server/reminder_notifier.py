@@ -11,8 +11,19 @@ from reminders import DB_PATH, get_due_reminders
 USER_DATA_DIR = os.path.dirname(DB_PATH)
 LOCK_PATH = os.path.join(USER_DATA_DIR, "app-running.lock")
 NOTIFIED_PATH = os.path.join(USER_DATA_DIR, "notified.json")
+LOG_PATH = os.path.join(USER_DATA_DIR, "reminder-notifier.log")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTIFICATION_TITLE = "Adeo Reminder"
+
+
+def log_error(message: str) -> None:
+  try:
+    from datetime import datetime as _dt
+
+    with open(LOG_PATH, "a") as f:
+      f.write(f"{_dt.now().isoformat()} {message}\n")
+  except Exception:
+    pass
 
 
 def is_pid_alive(pid: int) -> bool:
@@ -25,6 +36,7 @@ def is_pid_alive(pid: int) -> bool:
         capture_output=True,
         text=True,
         timeout=5,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
       )
       return str(pid) in result.stdout
     except Exception:
@@ -82,7 +94,7 @@ def xml_escape(value: str) -> str:
   )
 
 
-def notify_macos(task_id: int, body: str) -> None:
+def notify_macos(task_id: int, body: str) -> bool:
   binary = find_first_existing(
     [
       # Packaged: server/ and terminal-notifier.app/ are sibling folders under Resources/.
@@ -94,7 +106,8 @@ def notify_macos(task_id: int, body: str) -> None:
     ]
   )
   if not binary:
-    return
+    log_error(f"notify_macos: terminal-notifier binary not found for task {task_id}")
+    return False
   url = f"adeo://open-task/{task_id}"
 
   # macOS silently drops notifications posted by a process whose "responsible"
@@ -144,17 +157,20 @@ def notify_macos(task_id: int, body: str) -> None:
       stdout=subprocess.DEVNULL,
       stderr=subprocess.DEVNULL,
     )
-  except Exception:
-    pass
+    return True
+  except Exception as exc:
+    log_error(f"notify_macos: failed for task {task_id}: {exc}")
+    return False
 
 
-def notify_windows(task_id: int, body: str) -> None:
+def notify_windows(task_id: int, body: str) -> bool:
   script = os.path.join(SCRIPT_DIR, "reminder_notify_windows.ps1")
   if not os.path.exists(script):
-    return
+    log_error(f"notify_windows: script not found at {script}")
+    return False
   url = f"adeo://open-task/{task_id}"
   try:
-    subprocess.Popen(
+    result = subprocess.run(
       [
         "powershell.exe",
         "-NoProfile",
@@ -169,15 +185,24 @@ def notify_windows(task_id: int, body: str) -> None:
         "-Url",
         url,
       ],
-      stdout=subprocess.DEVNULL,
-      stderr=subprocess.DEVNULL,
+      capture_output=True,
+      text=True,
+      timeout=15,
       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
-  except Exception:
-    pass
+    if result.returncode != 0:
+      log_error(
+        f"notify_windows: toast script exited {result.returncode} for task {task_id}: "
+        f"{result.stderr.strip()}"
+      )
+      return False
+    return True
+  except Exception as exc:
+    log_error(f"notify_windows: failed to invoke toast script for task {task_id}: {exc}")
+    return False
 
 
-def notify_linux(task_id: int, body: str) -> None:
+def notify_linux(task_id: int, body: str) -> bool:
   url = f"adeo://open-task/{task_id}"
   # notify-send blocks until the user interacts (or times out) when actions are
   # given, printing the chosen action id to stdout — best-effort: many Linux
@@ -194,19 +219,21 @@ def notify_linux(task_id: int, body: str) -> None:
       stderr=subprocess.DEVNULL,
       start_new_session=True,
     )
-  except Exception:
-    pass
+    return True
+  except Exception as exc:
+    log_error(f"notify_linux: failed for task {task_id}: {exc}")
+    return False
 
 
-def notify(reminder: Dict[str, Any]) -> None:
+def notify(reminder: Dict[str, Any]) -> bool:
   body = reminder.get("text") or "Task reminder"
   task_id = reminder["id"]
   if sys.platform == "darwin":
-    notify_macos(task_id, body)
+    return notify_macos(task_id, body)
   elif sys.platform.startswith("win"):
-    notify_windows(task_id, body)
+    return notify_windows(task_id, body)
   else:
-    notify_linux(task_id, body)
+    return notify_linux(task_id, body)
 
 
 def main() -> None:
@@ -224,9 +251,9 @@ def main() -> None:
     time_key = f'{reminder["reminderDate"]}|{reminder["reminderTime"]}'
     if notified.get(key_id) == time_key:
       continue
-    notify(reminder)
-    notified[key_id] = time_key
-    changed = True
+    if notify(reminder):
+      notified[key_id] = time_key
+      changed = True
 
   stale_ids = [key_id for key_id in notified if key_id not in active_ids]
   for key_id in stale_ids:

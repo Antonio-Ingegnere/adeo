@@ -198,6 +198,16 @@ const resolvePythonBin = (): string =>
   resolveBundledPython() ||
   (process.platform === 'win32' ? 'python' : 'python3');
 
+// python.exe is the console-subsystem build: launched detached (as Task
+// Scheduler does for the background reminder checker), Windows flashes a
+// visible console window on every trigger. pythonw.exe is the windowless
+// twin shipped alongside it in the same directory — use it for anything
+// that runs unattended in the background.
+const resolveWindowsPythonwBin = (pythonBin: string): string => {
+  const candidate = path.join(path.dirname(pythonBin), 'pythonw.exe');
+  return fs.existsSync(candidate) ? candidate : pythonBin;
+};
+
 const resolveServerScript = (scriptName: string): string | null => {
   const appPath = app.getAppPath();
   const candidates = [
@@ -488,12 +498,108 @@ const installMacLaunchAgent = (pythonBin: string, scriptPath: string) => {
   }
 };
 
+const xmlEscape = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+
+// The plain `schtasks /create ... /sc minute /mo 1` command-line syntax has
+// no flag to control power conditions, and Task Scheduler's default for
+// tasks created that way is "don't start on battery power" / "stop if going
+// onto battery power" — on a laptop running unplugged, that silently
+// prevents the task from ever firing (confirmed via `schtasks /query /v`
+// showing "Last Run Time" stuck at the never-ran sentinel). Registering via
+// an explicit XML task definition is the only way to disable that.
 const installWindowsScheduledTask = (pythonBin: string, scriptPath: string) => {
   const taskName = 'AdeoReminders';
-  const command = `schtasks /create /tn "${taskName}" /tr "\\"${pythonBin}\\" \\"${scriptPath}\\"" /sc minute /mo 1 /f`;
-  exec(command, (error) => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const startBoundary = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(
+    now.getHours(),
+  )}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const xml = `<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Checks for due Adeo reminders and posts notifications even when Adeo is closed.</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT1M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>${startBoundary}</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>${xmlEscape(pythonBin)}</Command>
+      <Arguments>"${xmlEscape(scriptPath)}"</Arguments>
+    </Exec>
+  </Actions>
+</Task>`;
+  try {
+    const xmlPath = path.join(app.getPath('temp'), 'adeo-reminders-task.xml');
+    // schtasks /create /xml requires UTF-16LE with a BOM; a plain UTF-8 file
+    // fails to import with an opaque "XML data is invalid" error.
+    fs.writeFileSync(xmlPath, '﻿' + xml, 'utf16le');
+    exec(`schtasks /create /tn "${taskName}" /xml "${xmlPath}" /f`, { windowsHide: true }, (error) => {
+      if (error) {
+        console.error('Failed to register reminder Scheduled Task', error);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to write Scheduled Task XML', error);
+  }
+};
+
+// Windows toast notifications posted by a plain Win32 process (not an
+// MSIX-packaged app) require the AUMID to be registered independently of any
+// running process — either via a Start Menu shortcut carrying the AUMID
+// property (which electron-builder's NSIS target does not reliably set) or,
+// as done here, via registry keys under AppUserModelId. Without this,
+// ToastNotificationManager.CreateToastNotifier(aumid) called from the
+// standalone reminder_notifier.py -> reminder_notify_windows.ps1 (run by
+// Task Scheduler while Adeo itself isn't running) fails silently — while
+// Electron's own in-app Notification API keeps working because the live
+// process already called setAppUserModelId. Safe/idempotent to (re)run on
+// every startup.
+const ensureWindowsToastAumidRegistered = () => {
+  const aumid = 'com.adeo.app';
+  const keyPath = `HKCU\\Software\\Classes\\AppUserModelId\\${aumid}`;
+  const iconPath = process.execPath;
+  const commands = [
+    `reg add "${keyPath}" /v DisplayName /t REG_SZ /d "Adeo" /f`,
+    `reg add "${keyPath}" /v IconUri /t REG_SZ /d "${iconPath}" /f`,
+  ];
+  exec(commands.join(' && '), { windowsHide: true }, (error) => {
     if (error) {
-      console.error('Failed to register reminder Scheduled Task', error);
+      console.error('Failed to register Windows toast AUMID', error);
     }
   });
 };
@@ -547,7 +653,8 @@ const ensureBackgroundReminderService = () => {
   if (process.platform === 'darwin') {
     installMacLaunchAgent(pythonBin, scriptPath);
   } else if (process.platform === 'win32') {
-    installWindowsScheduledTask(pythonBin, scriptPath);
+    ensureWindowsToastAumidRegistered();
+    installWindowsScheduledTask(resolveWindowsPythonwBin(pythonBin), scriptPath);
   } else {
     installLinuxSystemdTimer(pythonBin, scriptPath);
   }

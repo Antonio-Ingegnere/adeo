@@ -2,13 +2,22 @@
 // help popover, and context-aware autocomplete for the advanced query mode.
 // All listeners on the search input live here (single keydown owner).
 import { refs } from './dom.js';
-import { positionDropdown } from './helpers.js';
+import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { FIELDS, compilePredicate, parseQuery, queryUsesField, tokenize } from './query.js';
-import type { FieldSpec, Token } from './query.js';
+import type { FieldSpec, ParseError, Token } from './query.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
 
 const RENDER_DEBOUNCE_MS = 150;
+
+// S6: Cmd/Ctrl+F is otherwise undiscoverable. userAgentData is not in every Electron
+// version's lib.dom, so fall back to the (deprecated but reliable) platform string.
+// case-insensitive: userAgentData.platform reports "macOS", navigator.platform "MacIntel"
+const isMac = /mac|iphone|ipad/i.test(
+  (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+    navigator.platform
+);
+export const SEARCH_SHORTCUT = isMac ? '⌘F' : 'Ctrl+F';
 
 const OP_HINTS: Record<string, string> = {
   ':': 'is',
@@ -43,6 +52,7 @@ const closeSuggest = () => {
   if (refs.querySuggestMenu) {
     refs.querySuggestMenu.style.display = 'none';
   }
+  syncComboboxAria(refs.listsSearchInput, false, null);
 };
 
 export const closeQueryPopovers = () => {
@@ -72,24 +82,70 @@ const scheduleRender = () => {
   }, RENDER_DEBOUNCE_MS);
 };
 
+// only settled states are announced; 'pending' deliberately leaves the live region alone
+const announce = (message: string | null) => {
+  if (!refs.searchStatusLive || message === null) return;
+  if (refs.searchStatusLive.textContent !== message) {
+    refs.searchStatusLive.textContent = message;
+  }
+};
+
 const renderSearchStatus = () => {
   if (!refs.searchStatusText) return;
   const el = refs.searchStatusText;
   el.classList.remove('ok', 'err');
-  if (!state.searchQuery.trim()) {
+  if (state.queryStatus === 'empty') {
     el.textContent = 'field:value · AND OR NOT · ( ) — ? for help';
+    el.title = '';
+    announce('');
+    return;
+  }
+  if (state.queryStatus === 'pending') {
+    // mid-token: say nothing rather than accuse the user of a syntax error they are
+    // still in the middle of typing (the suggest dropdown is usually open here)
+    el.textContent = '…';
     el.title = '';
     return;
   }
-  if (state.queryError) {
+  if (state.queryStatus === 'invalid' && state.queryError) {
     el.classList.add('err');
     el.textContent = `⚠ ${state.queryError.message}`;
     el.title = `${state.queryError.message} (at column ${state.queryError.position + 1})`;
+    announce(`Invalid query: ${state.queryError.message}`);
     return;
   }
   el.classList.add('ok');
   el.textContent = '✓ Valid query';
   el.title = '';
+  announce('Valid query');
+};
+
+/**
+ * True when a parse failure is only about the fragment the user is still typing, rather
+ * than a mistake they have finished making. Two signals, both requiring the caret to sit
+ * at the end of the input:
+ *   - everything before the final token parses cleanly, so only the tail is at fault
+ *     (`tag:` -> `tag`, `list:Home AND` -> `list:Home`); or
+ *   - the error points inside the final token and there is no trailing space, i.e. the
+ *     token is still being typed (`priority:hi` on the way to `high`).
+ * A trailing space means the user has moved past the token, so its error is real.
+ */
+const isPendingTail = (value: string, error: ParseError): boolean => {
+  const input = refs.listsSearchInput;
+  if (!input) return false;
+  const caretAtEnd = input.selectionStart === null || input.selectionStart >= value.length;
+  if (!caretAtEnd) return false;
+
+  const tokenized = tokenize(value);
+  if (!tokenized.ok) return true; // e.g. an unclosed quote being typed right now
+  const real = tokenized.tokens.filter((t) => t.kind !== 'eof');
+  if (real.length === 0) return true;
+
+  const last = real[real.length - 1];
+  const head = value.slice(0, last.start);
+  if (!head.trim() || parseQuery(head).ok) return true;
+
+  return error.position >= last.start && value === value.trimEnd();
 };
 
 export const applySearchQuery = (value: string, immediate = false) => {
@@ -99,21 +155,35 @@ export const applySearchQuery = (value: string, immediate = false) => {
   }
   if (state.searchMode === 'advanced') {
     const trimmed = value.trim();
+    const previousStatus = state.queryStatus;
     if (!trimmed) {
       state.queryPredicate = null;
       state.queryError = null;
       state.queryUsesDone = false;
+      state.queryStatus = 'empty';
     } else {
       const result = parseQuery(trimmed);
       if (result.ok) {
         state.queryPredicate = compilePredicate(result.ast);
         state.queryError = null;
         state.queryUsesDone = queryUsesField(result.ast, 'done');
+        state.queryStatus = 'valid';
+      } else if (isPendingTail(value, result.error)) {
+        // keep the last-good predicate AND the results it produced: re-filtering here is
+        // what used to make an in-progress query look like it had zero matches
+        state.queryError = null;
+        state.queryStatus = 'pending';
       } else {
         state.queryError = result.error; // keep last-good predicate (and its usesDone)
+        state.queryStatus = 'invalid';
       }
     }
     renderSearchStatus();
+    // a pending tail changes nothing on screen, so skip the render entirely unless we are
+    // arriving from a state that did change something
+    if (state.queryStatus === 'pending' && previousStatus === 'pending') {
+      return;
+    }
     if (immediate) {
       flushRender();
     } else {
@@ -131,6 +201,7 @@ const clearSearch = () => {
   }
   state.queryPredicate = null;
   state.queryError = null;
+  state.queryStatus = 'empty';
   state.queryUsesDone = false;
   applySearchQuery('', true);
 };
@@ -141,7 +212,9 @@ const applyModeUI = () => {
   const advanced = state.searchMode === 'advanced';
   refs.listsSearchInput?.classList.toggle('query-mode', advanced);
   if (refs.listsSearchInput) {
-    refs.listsSearchInput.placeholder = advanced ? 'Query… e.g. list:Home AND due<=today' : 'Search';
+    refs.listsSearchInput.placeholder = advanced
+      ? 'Query… e.g. list:Home AND due<=today'
+      : `Search (${SEARCH_SHORTCUT})`;
   }
   if (refs.searchModeToggle) {
     refs.searchModeToggle.classList.toggle('active', advanced);
@@ -159,6 +232,7 @@ const setMode = (mode: 'simple' | 'advanced') => {
   state.searchMode = mode;
   state.queryPredicate = null;
   state.queryError = null;
+  state.queryStatus = 'empty';
   state.queryUsesDone = false;
   applyModeUI();
   applySearchQuery(refs.listsSearchInput?.value ?? '', true);
@@ -336,6 +410,10 @@ const renderSuggestMenu = () => {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = `tag-suggest-item query-suggest-item${index === activeIndex ? ' active' : ''}`;
+    el.id = `query-suggest-option-${index}`;
+    el.setAttribute('role', 'option');
+    el.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
+    el.tabIndex = -1; // the input keeps focus; the listbox is driven by aria-activedescendant
     if (item.color) {
       const dot = document.createElement('span');
       dot.className = 'tag-dot';
@@ -358,6 +436,7 @@ const renderSuggestMenu = () => {
     menu.appendChild(el);
   });
   positionDropdown(menu, input);
+  syncComboboxAria(input, true, `query-suggest-option-${activeIndex}`);
 };
 
 const updateSuggestions = () => {

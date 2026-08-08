@@ -1,11 +1,129 @@
+:root {
+  /* ---- Surfaces ---- */
+  --bg: #f5f5f5;
+  --surface: #fff;
+  --surface-sunken: #f7f7f7;
+  --surface-hover: #f4f4f4;
+  --surface-hover-alt: #f0f0f0;
+  --surface-active: #e6e6e6;
+  --surface-active-alt: #ececec;
+  --surface-selected: #e0e0e0;
+  --surface-query: #fbfbf7;
+  --danger-bg: #fde7ec;
+
+  /* ---- Borders ---- */
+  --border: #d6d6d6;
+  --border-alt: #ccc;
+  --border-menu: #ddd;
+  --border-faint: #eee;
+  --border-subtle: #e0e0e0;
+  --border-strong: #a6a6a6;
+  --border-selected: #c8c8c8;
+  --border-control: #b0b0b0;
+  --border-chip: rgba(0, 0, 0, 0.06);
+  --border-chip-strong: rgba(0, 0, 0, 0.08);
+
+  /* ---- Text ---- */
+  --text-strong: #111;
+  --text: #222;
+  --text-heading: #333;
+  --text-body: #444;
+  --text-secondary: #555;
+  --text-muted: #666;
+  --text-faint: #767676;
+  --text-hint: #6e6e6e;
+  --text-ghost: #8a8a8a;
+  --text-chip: #3a3a3a;
+  --text-placeholder: #b8b8b8;
+  --text-disabled: #b0b0b0;
+  --text-disabled-alt: #bbb;
+  --text-on-accent: #fff;
+
+  /* ---- Accent & status ---- */
+  --accent: #1d72f3;
+  --accent-drop: #4a8ef7;
+  --accent-focus: #4c9ffe;
+  --danger: #b00020;
+  --success: #3d8b3d;
+
+  /* ---- Priority ----
+     Three palettes, not one: the modal swatch/checkbox, the task-row checkbox border, and
+     the checkbox fill. They have always had different values; the renderer only sets a
+     data-priority attribute and these decide what it looks like. */
+  --priority-chip-none: #c9c9c9;
+  --priority-chip-low: #7ed957;
+  --priority-chip-medium: #ffb866;
+  --priority-chip-high: #ff6b6b;
+
+  --priority-border-none: #b0b0b0;
+  --priority-border-low: #6ecb4d;
+  --priority-border-medium: #f3a84f;
+  --priority-border-high: #ff5f5f;
+
+  --priority-fill-none: #ffffff;
+  --priority-fill-low: #a4f07f;
+  --priority-fill-medium: #ffd08f;
+  --priority-fill-high: #ff8a8a;
+
+  /* ---- Typography ----
+     One scale, no off-scale sizes. 11px is the floor: anything smaller is uncomfortable
+     at arm's length on a desktop display. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-xs: 11px;
+  --font-s: 12px;
+  --font-m: 13px;
+  --font-l: 14px;
+  --font-xl: 18px;
+  --font-2xl: 28px;
+
+  /* ---- Radius ---- */
+  --radius-xs: 4px;
+  --radius-s: 6px;
+  --radius-m: 8px;
+  --radius-l: 10px;
+  --radius-xl: 12px;
+
+  /* ---- Elevation ---- */
+  --scrim: rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.08);
+  --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-popover: 0 6px 20px rgba(0, 0, 0, 0.12);
+  --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* One focus ring for the whole app. :focus-visible means keyboard users get it and mouse
+   users do not, so nothing needs to suppress the outline locally any more (A5/S2). */
+:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* present to assistive tech, absent from the visual layout */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 body {
   margin: 0;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   min-height: 100vh;
-  font-family: Arial, sans-serif;
-  background: #f5f5f5;
+  font-family: var(--font-sans);
+  background: var(--bg);
 }
 
 .card {
@@ -13,9 +131,9 @@ body {
   padding-left: 0;
   padding-top: 0;
   padding-bottom: 0;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  background: var(--surface);
   text-align: left;
   width: 100vw;
   max-width: 100vw;
@@ -36,7 +154,7 @@ body {
 }
 
 .lists-rail {
-  background: #f7f7f7;
+  background: var(--surface-sunken);
   padding: 16px 12px;
   box-sizing: border-box;
   display: flex;
@@ -57,16 +175,19 @@ body {
   position: relative;
   flex: 1 1 auto;
   min-width: 180px;
+  /* S1: stays fluid, but a full-width field on a wide window is unscannable */
+  max-width: 680px;
 }
 
 .lists-search-input {
   width: 100%;
-  border: 1px solid #d6d6d6;
-  background: #fff;
-  color: #444;
-  padding: 8px 32px 8px 32px;
-  border-radius: 10px;
-  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
+  /* right padding clears both the mode toggle and the clear button */
+  padding: 8px 52px 8px 32px;
+  border-radius: var(--radius-l);
+  font-size: var(--font-m);
   box-sizing: border-box;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -81,7 +202,7 @@ body {
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  color: #888;
+  color: var(--text-hint);
   padding: 4px;
   cursor: pointer;
   display: inline-flex;
@@ -91,7 +212,7 @@ body {
 }
 
 .lists-search-clear:hover {
-  color: #444;
+  color: var(--text-body);
 }
 
 .lists-search-clear svg {
@@ -101,15 +222,15 @@ body {
 }
 
 .headline {
-  font-size: 28px;
+  font-size: var(--font-2xl);
   margin: 0 0 8px;
-  color: #222;
+  color: var(--text);
 }
 
 .meta {
   margin: 0;
-  color: #666;
-  font-size: 14px;
+  color: var(--text-muted);
+  font-size: var(--font-l);
 }
 
 .input-row {
@@ -121,10 +242,10 @@ body {
 
 .select-input {
   padding: 0px 10px;
-  font-size: 14px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: #fff;
+  font-size: var(--font-l);
+  border: 1px solid var(--border-alt);
+  border-radius: var(--radius-m);
+  background: var(--surface);
     /* height: 28px;
   margin-top: 8px; */
 }
@@ -135,24 +256,27 @@ body {
   padding-left: 12px;
   padding-right: 12px;
   padding-top: 8px;
-  font-size: 14px;
+  font-size: var(--font-l);
   border: none;
-  border-bottom: 1px solid #d6d6d6;
+  border-bottom: 1px solid var(--border);
   border-radius: 0;
   height: 28px;
+  /* stated rather than inherited: the UA default is white in light and a mid grey in dark,
+     neither of which matches the surface the field actually sits on */
+  background: var(--surface);
+  color: var(--text);
 }
 
 .text-input:focus {
-  outline: none;
-  border-bottom-color: #a6a6a6;
+  border-bottom-color: var(--border-strong);
 }
 
 .primary-button {
   border: none;
-  background: #1d72f3;
-  color: #fff;
+  background: var(--accent);
+  color: var(--text-on-accent);
   cursor: pointer;
-  font-size: 18px;
+  font-size: var(--font-xl);
   font-weight: 800;
   line-height: 1;
 }
@@ -171,14 +295,14 @@ body {
 .primary-button.icon-btn .icon-check {
   width: 20px;
   height: 20px;
-  fill: #fff;
+  fill: var(--text-on-accent);
   display: block;
 }
 
 .primary-button.icon-btn .icon-add {
   width: 20px;
   height: 20px;
-  fill: #fff;
+  fill: var(--text-on-accent);
   display: block;
 }
 
@@ -190,14 +314,39 @@ body {
 
 .tasks-title {
   margin: 0 0 8px;
-  color: #444;
+  color: var(--text-body);
   font-weight: 600;
+}
+
+/* list-name headers inside search results: subordinate to the page title, not a peer */
+.tasks-group-title {
+  margin: 14px 0 4px;
+  color: var(--text-muted);
+  font-size: var(--font-m);
+  font-weight: 600;
+}
+
+.tasks-group-title:first-child {
+  margin-top: 0;
 }
 
 .tasks-list {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+/* S4: while the query does not parse, these rows answer the *previous* query. Dimming them
+   says so, instead of letting a stale result set pass for a current one. */
+.tasks-list.results-stale {
+  opacity: 0.55;
+}
+
+.search-stale-note {
+  margin: 0 0 8px 10px;
+  font-size: var(--font-xs);
+  color: var(--text-hint);
+  font-style: italic;
 }
 
 .task-row {
@@ -219,7 +368,7 @@ body {
   right: 6px;
   bottom: 0;
   height: 1px;
-  background: #e0e0e0;
+  background: var(--border-subtle);
 }
 
 .task-row:last-child::after {
@@ -237,14 +386,14 @@ body {
 
 .drop-indicator {
   height: 3px;
-  background: #4a8ef7;
+  background: var(--accent-drop);
   border-radius: 999px;
   margin: 0 12px;
 }
 
 .list-drop-indicator {
   height: 3px;
-  background: #4a8ef7;
+  background: var(--accent-drop);
   border-radius: 999px;
   margin: 0 8px;
 }
@@ -255,7 +404,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--text-ghost);
   cursor: grab;
   flex-shrink: 0;
   margin-top: 5px;
@@ -270,10 +419,11 @@ body {
 }
 
 .drag-handle:hover {
-  color: #666;
+  color: var(--text-muted);
 }
 
 .task-row:hover .drag-handle,
+.task-row:focus-within .drag-handle,
 .task-row.dragging .drag-handle {
   opacity: 1;
   visibility: visible;
@@ -289,19 +439,19 @@ body {
 }
 
 .task-text {
-  color: #222;
-  font-size: 14px;
+  color: var(--text);
+  font-size: var(--font-l);
   cursor: pointer;
 }
 
 .task-text:hover {
-  color: #1d72f3;
+  color: var(--accent);
 }
 
 .task-reminder {
-  font-size: 10px;
+  font-size: var(--font-xs);
   font-weight: 400;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 1px;
   display: inline-flex;
   align-items: center;
@@ -330,7 +480,7 @@ body {
   align-items: center;
   justify-content: center;
   /*transform: rotate(90deg);*/
-  color: #666;
+  color: var(--text-muted);
 }
 
 .task-repeat-icon svg {
@@ -340,8 +490,8 @@ body {
 }
 
 .task-details {
-  color: #555;
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: var(--font-m);
   line-height: 1.4;
   text-align: left;
   max-height: 240px;
@@ -358,10 +508,10 @@ body {
 }
 
 .task-details code {
-  background: #f0f0f0;
+  background: var(--surface-hover-alt);
   padding: 0 4px;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-s);
 }
 
 .task-details strong {
@@ -370,7 +520,7 @@ body {
 
 .task-details .md-hr {
   border: none;
-  border-top: 1px solid #d6d6d6;
+  border-top: 1px solid var(--border);
   margin: 8px 0;
 }
 
@@ -397,7 +547,7 @@ body {
   -moz-appearance: none;
   width: 18px;
   height: 18px;
-  border: 1px solid #b0b0b0;
+  border: 1px solid var(--border-control);
   border-radius: 50%;
   background: transparent;
   position: relative;
@@ -413,6 +563,32 @@ body {
   box-shadow: none;
 }
 
+/* Priority colouring. Placed after the :checked rule above (equal specificity, so source
+   order decides) because the priority colours must survive the checked state. */
+.tasks-list input[type='checkbox'][data-priority] {
+  box-shadow: none;
+}
+
+.tasks-list input[type='checkbox'][data-priority='none'] {
+  border-color: var(--priority-border-none);
+  background: var(--priority-fill-none);
+}
+
+.tasks-list input[type='checkbox'][data-priority='low'] {
+  border-color: var(--priority-border-low);
+  background: var(--priority-fill-low);
+}
+
+.tasks-list input[type='checkbox'][data-priority='medium'] {
+  border-color: var(--priority-border-medium);
+  background: var(--priority-fill-medium);
+}
+
+.tasks-list input[type='checkbox'][data-priority='high'] {
+  border-color: var(--priority-border-high);
+  background: var(--priority-fill-high);
+}
+
 .tasks-list input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
@@ -420,7 +596,7 @@ body {
   left: 5.5px;
   width: 4px;
   height: 8px;
-  border: solid #444;
+  border: solid var(--text-body);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -478,7 +654,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 1px;
 }
 
@@ -490,7 +666,7 @@ body {
 
 .lists-title {
   margin: 0;
-  color: #444;
+  color: var(--text-body);
   font-weight: 600;
 }
 
@@ -498,8 +674,8 @@ body {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: #b0b0b0;
-  font-size: 14px;
+  color: var(--text-disabled);
+  font-size: var(--font-l);
   padding: 4px 6px;
   line-height: 1;
   display: inline-flex;
@@ -508,7 +684,7 @@ body {
 }
 
 .icon-button:hover {
-  color: #1d72f3;
+  color: var(--accent);
 }
 
 .lists-list {
@@ -523,7 +699,7 @@ body {
   background: transparent;
   border: none;
   border-radius: 0;
-  font-size: 14px;
+  font-size: var(--font-l);
   text-align: left;
   cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease, border-radius 120ms ease;
@@ -543,7 +719,7 @@ body {
   align-items: center;
   justify-content: center;
   margin-right: 6px;
-  color: #999;
+  color: var(--text-ghost);
   cursor: grab;
   flex-shrink: 0;
   opacity: 0;
@@ -557,10 +733,11 @@ body {
 }
 
 .list-drag-handle:hover {
-  color: #666;
+  color: var(--text-muted);
 }
 
 .list-pill:hover .list-drag-handle,
+.list-pill:focus-within .list-drag-handle,
 .list-pill.selected .list-drag-handle,
 .list-pill.dragging .list-drag-handle {
   opacity: 1;
@@ -569,15 +746,20 @@ body {
 
 .list-pill.selected {
   border: none;
-  background: #e0e0e0;
-  border-radius: 6px;
-  color: #333;
+  background: var(--surface-selected);
+  border-radius: var(--radius-s);
+  color: var(--text-heading);
   font-weight: 700;
 }
 
 .list-pill:hover {
-  background: #e0e0e0;
-  border-radius: 6px;
+  background: var(--surface-selected);
+  border-radius: var(--radius-s);
+}
+
+.list-pill:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-s);
 }
 
 .list-menu-btn {
@@ -589,16 +771,16 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #666;
+  color: var(--text-muted);
   opacity: 0;
   visibility: hidden;
   transition: opacity 120ms ease, visibility 120ms ease, background-color 120ms ease;
 }
 
 .list-menu-btn:hover {
-  color: #222;
-  background: #e0e0e0;
-  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-selected);
+  border-radius: var(--radius-s);
 }
 
 .icon-more {
@@ -611,10 +793,10 @@ body {
   position: absolute;
   top: 110%;
   right: 4px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border-menu);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-menu);
   min-width: 140px;
   padding: 6px;
   flex-direction: column;
@@ -630,23 +812,24 @@ body {
   padding: 8px 10px;
   text-align: left;
   cursor: pointer;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-m);
 }
 
 .list-menu-item:hover {
-  background: #f0f0f0;
+  background: var(--surface-hover-alt);
 }
 
 .list-menu-danger {
-  color: #b00020;
+  color: var(--danger);
 }
 
 .list-menu-danger:hover {
-  background: #fde7ec;
+  background: var(--danger-bg);
 }
 
-.list-pill:hover .list-menu-btn {
+.list-pill:hover .list-menu-btn,
+.list-pill:focus-within .list-menu-btn {
   opacity: 1;
   visibility: visible;
 }
@@ -656,7 +839,7 @@ body {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: #b0b0b0;
+  color: var(--text-disabled);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -666,7 +849,7 @@ body {
 }
 
 .expand-btn:hover {
-  color: #1d72f3;
+  color: var(--accent);
 }
 
 .expand-chevrons {
@@ -692,7 +875,7 @@ body {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--scrim);
   display: none;
   align-items: center;
   justify-content: center;
@@ -704,14 +887,14 @@ body {
 }
 
 .modal {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
   padding: 0;
   width: 80vw;
   height: 80vh;
-  max-width: 1200px;
+  max-width: 860px;
   max-height: 900px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -733,8 +916,8 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to right, #fff calc(100% - 224px), #f7f7f7 calc(100% - 224px), #f7f7f7 100%);
-  border-radius: 12px;
+  background: linear-gradient(to right, var(--surface) calc(100% - 224px), var(--surface-sunken) calc(100% - 224px), var(--surface-sunken) 100%);
+  border-radius: var(--radius-xl);
 }
 
 .modal-body {
@@ -768,7 +951,7 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 1px solid #b0b0b0;
+  border: 1px solid var(--border-control);
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -781,6 +964,26 @@ body {
   border-color: inherit;
 }
 
+.modal-title-row input[type='checkbox'][data-priority='none'] {
+  border-color: var(--priority-chip-none);
+  background: var(--priority-fill-none);
+}
+
+.modal-title-row input[type='checkbox'][data-priority='low'] {
+  border-color: var(--priority-chip-low);
+  background: var(--priority-fill-low);
+}
+
+.modal-title-row input[type='checkbox'][data-priority='medium'] {
+  border-color: var(--priority-chip-medium);
+  background: var(--priority-fill-medium);
+}
+
+.modal-title-row input[type='checkbox'][data-priority='high'] {
+  border-color: var(--priority-chip-high);
+  background: var(--priority-fill-high);
+}
+
 .modal-title-row input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
@@ -788,14 +991,14 @@ body {
   left: 5.5px;
   width: 4px;
   height: 8px;
-  border: solid #444;
+  border: solid var(--text-body);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
 .modal-right {
   padding: 0;
-  background: #f7f7f7;
+  background: var(--surface-sunken);
   height: 100%;
   width: 224px;
   box-sizing: border-box;
@@ -807,19 +1010,19 @@ body {
 
 .modal-right h3 {
   margin: 8px 8px 4px;
-  font-size: 11.2px;
-  color: #333;
+  font-size: var(--font-xs);
+  color: var(--text-heading);
   text-align: left;
 }
 
 .modal-right .select-input {
-  font-size: 11.2px;
+  font-size: var(--font-xs);
   margin-top: -4px;
-  background: #f7f7f7;
-  color: #111;
+  background: var(--surface-sunken);
+  color: var(--text-strong);
   padding: 6px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -911,8 +1114,8 @@ body {
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: #666;
-  font-size: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-s);
   pointer-events: none;
 }
 
@@ -921,10 +1124,10 @@ body {
 .add-task-picker {
   width: 100%;
   border: none;
-  background: #f7f7f7;
-  color: #111;
+  background: var(--surface-sunken);
+  color: var(--text-strong);
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -934,32 +1137,44 @@ body {
 
 .priority-picker,
 .reminder-picker {
-  font-size: 11.2px;
+  font-size: var(--font-xs);
 }
 
 .add-task-picker {
-  font-size: 14px;
+  font-size: var(--font-l);
   padding: 8px 10px;
 }
 
 .priority-picker:hover,
 .reminder-picker:hover,
 .add-task-picker:hover {
-  background: #e6e6e6;
+  background: var(--surface-active);
 }
 
 .priority-chip {
   width: 14px;
   height: 14px;
-  border-radius: 4px;
-  background: #c9c9c9;
+  border-radius: var(--radius-xs);
+  background: var(--priority-chip-none);
   flex-shrink: 0;
   display: inline-block;
 }
 
+/* Static swatches in the priority menu. The live chip (#priority-chip) is still set from
+   TS via theme.ts, since it reflects the currently selected value. */
+.priority-chip[data-priority='none'] { background: var(--priority-chip-none); }
+.priority-chip[data-priority='low'] { background: var(--priority-chip-low); }
+.priority-chip[data-priority='medium'] { background: var(--priority-chip-medium); }
+.priority-chip[data-priority='high'] { background: var(--priority-chip-high); }
+
+.priority-chip--none { background: var(--priority-chip-none); }
+.priority-chip--low { background: var(--priority-chip-low); }
+.priority-chip--medium { background: var(--priority-chip-medium); }
+.priority-chip--high { background: var(--priority-chip-high); }
+
 .priority-caret {
   margin-left: auto;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .priority-menu {
@@ -967,10 +1182,10 @@ body {
   top: calc(100% + 4px);
   left: -7.5%;
   width: 115%;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   display: none;
   flex-direction: column;
   padding: 6px;
@@ -983,13 +1198,13 @@ body {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-s);
 }
 
 .priority-menu-item:hover {
-  background: #f4f4f4;
+  background: var(--surface-hover);
 }
 
 .reminder-menu {
@@ -997,10 +1212,10 @@ body {
   top: calc(100% + 4px);
   left: -7.5%;
   width: 118px;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   display: none;
   flex-direction: column;
   padding: 10px;
@@ -1030,10 +1245,10 @@ body {
   left: 0;
   width: 100%;
   min-width: 140px;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   display: none;
   flex-direction: column;
   padding: 6px;
@@ -1050,8 +1265,8 @@ body {
   padding: 8px 10px;
   text-align: left;
   cursor: pointer;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-m);
+  font-size: var(--font-m);
 }
 
 .add-task-list-item:hover,
@@ -1060,34 +1275,28 @@ body {
 .modal-list-item.selected,
 .repeat-menu-item:hover,
 .repeat-menu-item.selected {
-  background: #f4f4f4;
+  background: var(--surface-hover);
 }
 
 .reminder-label {
-  font-size: 11px;
-  color: #555;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
 }
 
 .reminder-date-input,
 .reminder-time-input {
   width: 100px;
   box-sizing: border-box;
-  border: 1px solid #d6d6d6;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
   padding: 6px 8px;
-  font-size: 11.2px;
-  background: #f7f7f7;
-  color: #111;
-}
-
-.reminder-date-input:focus,
-.reminder-time-input:focus {
-  outline: 2px solid #4c9ffe;
-  outline-offset: 1px;
+  font-size: var(--font-xs);
+  background: var(--surface-sunken);
+  color: var(--text-strong);
 }
 
 .modal-right .select-input:hover {
-  background: #e6e6e6;
+  background: var(--surface-active);
 
   background-image:
     /* left arm */
@@ -1117,14 +1326,14 @@ body {
 .modal-list-divider {
   width: 95%;
   border: none;
-  border-top: 1px solid #d6d6d6;
+  border-top: 1px solid var(--border);
   margin: -2px 4px 4px;
 }
 
 
 /* .modal-right .select-input:hover {
-  background: #e6e6e6;
-  background-image: linear-gradient(45deg, transparent 45%, #555 45%, #555 55%, transparent 55%),
+  background: var(--surface-active);
+  background-image: linear-gradient(45deg, transparent 45%, var(--text-secondary) 45%, var(--text-secondary) 55%, transparent 55%),
                     linear-gradient(315deg, transparent 45%, #555 45%, #555 55%, transparent 55%);
   background-position: calc(100% - 12px) 55%, calc(100% - 6px) 55%;
   background-size: 8px 8px, 8px 8px;
@@ -1148,8 +1357,17 @@ body {
 
 .modal h2 {
   margin: 0 0 12px;
-  font-size: 18px;
-  color: #111;
+  font-size: var(--font-xl);
+  color: var(--text-strong);
+}
+
+/* the edit modal's own title: present, but not competing with the task text below it.
+   Scoped through .modal to outrank the `.modal h2` rule above. */
+.modal .modal-heading {
+  margin: 0;
+  font-size: var(--font-m);
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .modal-details {
@@ -1166,10 +1384,17 @@ body {
 
 .modal-label {
   display: block;
-  color: #333;
+  color: var(--text-heading);
   font-weight: 600;
-  font-size: 11.2px;
+  font-size: var(--font-xs);
   width: 11%;
+}
+
+/* the 11% above is tuned for the repeat modal's inline rows; in Settings it forced
+   "Time format" onto two lines */
+.settings-section .modal-label {
+  width: auto;
+  margin: 0 0 4px;
 }
 
 .repeat-line > .modal-right-side-fill{
@@ -1178,12 +1403,14 @@ body {
 }
 
 .details-textarea {
+  background: var(--surface);
+  color: var(--text);
   width: 100%;
   padding: 10px 12px;
-  font-size: 14px;
+  font-size: var(--font-l);
   border: none;
-  border-top: 1px solid #d6d6d6;
-  border-bottom: 1px solid #d6d6d6;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   border-radius: 0;
   resize: vertical;
   box-sizing: border-box;
@@ -1192,13 +1419,12 @@ body {
 }
 
 .details-textarea:focus {
-  outline: none;
-  border-top-color: #a6a6a6;
-  border-bottom-color: #a6a6a6;
+  border-top-color: var(--border-strong);
+  border-bottom-color: var(--border-strong);
 }
 
 .details-textarea::placeholder {
-  color: #b8b8b8;
+  color: var(--text-placeholder);
 }
 
 .modal-actions {
@@ -1213,20 +1439,20 @@ body {
 }
 
 .modal-content .modal-actions {
-  background: linear-gradient(to right, #fff calc(100% - 224px), #f7f7f7 calc(100% - 224px), #f7f7f7 100%);
+  background: linear-gradient(to right, var(--surface) calc(100% - 224px), var(--surface-sunken) calc(100% - 224px), var(--surface-sunken) 100%);
 }
 
 .btn {
   padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid #d6d6d6;
-  background: #f7f7f7;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-l);
 }
 
 .btn.icon-btn {
-  font-size: 18px;
+  font-size: var(--font-xl);
   font-weight: 800;
   line-height: 1;
   width: 44px;
@@ -1260,8 +1486,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: #222;
+  font-size: var(--font-m);
+  color: var(--text);
 }
 
 .settings-section .select-input {
@@ -1303,10 +1529,10 @@ body {
   flex: 1 1 0;
   min-width: 0;
   padding: 8px 10px;
-  font-size: 11px;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  background: #f7f7f7;
+  font-size: var(--font-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface-sunken);
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -1334,7 +1560,7 @@ body {
   flex: 0 0 13px;
   width: 13px;
   height: 13px;
-  color: #777;
+  color: var(--text-faint);
 }
 
 .date-picker-trigger-icon svg {
@@ -1363,10 +1589,10 @@ body {
   position: fixed;
   display: none;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   padding: 10px;
   gap: 6px;
   z-index: 1000;
@@ -1383,28 +1609,28 @@ body {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-l);
   padding: 2px 8px;
-  border-radius: 6px;
-  color: #333;
+  border-radius: var(--radius-s);
+  color: var(--text-heading);
 }
 
 .date-picker-nav-btn:hover {
-  background: #f4f4f4;
+  background: var(--surface-hover);
 }
 
 .date-picker-month-label {
-  font-size: 12px;
+  font-size: var(--font-s);
   font-weight: 600;
-  color: #111;
+  color: var(--text-strong);
 }
 
 .date-picker-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: 10px;
-  color: #888;
+  font-size: var(--font-xs);
+  color: var(--text-hint);
 }
 
 .date-picker-grid {
@@ -1417,34 +1643,34 @@ body {
   border: none;
   background: transparent;
   padding: 6px 0;
-  font-size: 11.5px;
-  border-radius: 6px;
+  font-size: var(--font-s);
+  border-radius: var(--radius-s);
   cursor: pointer;
-  color: #111;
+  color: var(--text-strong);
 }
 
 .date-picker-day:hover {
-  background: #f4f4f4;
+  background: var(--surface-hover);
 }
 
 .date-picker-day.other-month {
-  color: #bbb;
+  color: var(--text-disabled-alt);
 }
 
 .date-picker-day.today {
   font-weight: 700;
-  color: #4c9ffe;
+  color: var(--accent-focus);
 }
 
 .date-picker-day.selected {
-  background: #4c9ffe;
-  color: #fff;
+  background: var(--accent-focus);
+  color: var(--text-on-accent);
 }
 
 .date-picker-footer {
   display: flex;
   justify-content: space-between;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-faint);
   padding-top: 6px;
   margin-top: 2px;
 }
@@ -1452,15 +1678,15 @@ body {
 .date-picker-footer-btn {
   border: none;
   background: transparent;
-  color: #4c9ffe;
-  font-size: 11px;
+  color: var(--accent-focus);
+  font-size: var(--font-xs);
   cursor: pointer;
   padding: 4px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
 }
 
 .date-picker-footer-btn:hover {
-  background: #f4f4f4;
+  background: var(--surface-hover);
 }
 
 .repeat-select{
@@ -1544,15 +1770,15 @@ body {
 .repeat-count-input {
   max-width: 40px;
   padding: 8px 10px;
-  font-size: 11px;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  background: #f7f7f7;
+  font-size: var(--font-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface-sunken);
 }
 
 .repeat-inline-label {
-  font-size: 12px;
-  color: #555;
+  font-size: var(--font-s);
+  color: var(--text-secondary);
 }
 
 .repeat-subsection {
@@ -1616,11 +1842,11 @@ body {
 }
 
 .repeat-day-button {
-  border: 1px solid #d6d6d6;
-  background: #f7f7f7;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-m);
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   cursor: pointer;
   margin-right: 1px;
 }
@@ -1630,16 +1856,16 @@ body {
 }
 
 .repeat-day-button.selected {
-  background: #e0e0e0;
-  border-color: #c8c8c8;
+  background: var(--surface-selected);
+  border-color: var(--border-selected);
 }
 
 .repeat-radio-line {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 13px;
-  color: #222;
+  font-size: var(--font-m);
+  color: var(--text);
 }
 
 #repeat-monthly-options .repeat-radio-line {
@@ -1681,22 +1907,22 @@ body {
 }
 
 .repeat-summary {
-  font-size: 12px;
-  color: #666;
+  font-size: var(--font-s);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
 .btn.primary {
   border: none;
-  background: #1d72f3;
-  color: #fff;
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .empty-state {
   padding: 10px 12px;
-  border: 1px dashed #d6d6d6;
-  border-radius: 8px;
-  color: #777;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-m);
+  color: var(--text-faint);
 }
 
 /* ---------- Tags ---------- */
@@ -1711,7 +1937,7 @@ body {
   border-radius: 50%;
   margin-right: 8px;
   flex-shrink: 0;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-chip-strong);
 }
 
 .list-pill-label {
@@ -1723,8 +1949,8 @@ body {
 
 .tag-count {
   margin-left: auto;
-  font-size: 11px;
-  color: #888;
+  font-size: var(--font-xs);
+  color: var(--text-hint);
   padding-right: 4px;
   flex-shrink: 0;
 }
@@ -1748,12 +1974,12 @@ body {
 }
 
 .task-tag-chip {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-chip);
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--font-xs);
   padding: 1px 7px;
   border-radius: 9px;
-  color: #3a3a3a;
+  color: var(--text-chip);
   line-height: 16px;
 }
 
@@ -1767,12 +1993,12 @@ body {
 }
 
 .tag-filter-chip {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-chip);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--font-xs);
   padding: 2px 9px;
-  border-radius: 10px;
-  color: #3a3a3a;
+  border-radius: var(--radius-l);
+  color: var(--text-chip);
   line-height: 16px;
   margin-left: 8px;
   margin-bottom: 8px;
@@ -1790,6 +2016,14 @@ body {
 
 .add-task-input-wrap .text-input {
   width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  height: auto;
+  padding: 8px 12px;
+}
+
+.add-task-input-wrap .text-input:focus {
+  border-color: var(--border-strong);
 }
 
 .tag-suggest-menu {
@@ -1798,10 +2032,10 @@ body {
   left: 0;
   min-width: 180px;
   width: auto;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   display: none;
   flex-direction: column;
   padding: 6px;
@@ -1815,15 +2049,15 @@ body {
   padding: 8px 10px;
   text-align: left;
   cursor: pointer;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-m);
+  font-size: var(--font-m);
   display: flex;
   align-items: center;
 }
 
 .tag-suggest-item:hover,
 .tag-suggest-item.active {
-  background: #f0f0f0;
+  background: var(--surface-hover-alt);
 }
 
 .add-task-tags {
@@ -1834,7 +2068,7 @@ body {
 }
 
 .add-task-tag-chip {
-  font-size: 11px;
+  font-size: var(--font-xs);
   padding: 2px 9px;
 }
 
@@ -1844,10 +2078,10 @@ body {
   left: 0;
   width: 100%;
   min-width: 140px;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   display: none;
   flex-direction: column;
   padding: 6px;
@@ -1870,15 +2104,15 @@ body {
   padding: 8px 10px;
   text-align: left;
   cursor: pointer;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-m);
+  font-size: var(--font-m);
   display: flex;
   align-items: center;
   gap: 2px;
 }
 
 .tags-menu-item:hover {
-  background: #f4f4f4;
+  background: var(--surface-hover);
 }
 
 .tags-menu-name {
@@ -1889,34 +2123,25 @@ body {
 
 .tags-menu-check {
   margin-left: auto;
-  color: #1d72f3;
+  color: var(--accent);
   font-weight: 700;
 }
 
 .tags-menu-empty {
   padding: 8px 10px;
-  font-size: 12px;
-  color: #888;
+  font-size: var(--font-s);
+  color: var(--text-hint);
 }
 
 .tags-menu-new-input {
-  border: 1px solid #d6d6d6;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
   padding: 6px 8px;
-  font-size: 13px;
+  font-size: var(--font-m);
   margin-top: 4px;
 }
 
-.tags-menu-new-input:focus {
-  outline: 2px solid #4c9ffe;
-  outline-offset: 1px;
-}
-
 /* ---------- Search: mode toggle, status, query help & autocomplete ---------- */
-
-.lists-search-input {
-  padding-right: 52px;
-}
 
 .search-mode-toggle {
   position: absolute;
@@ -1925,23 +2150,23 @@ body {
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  color: #888;
+  color: var(--text-hint);
   padding: 4px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   z-index: 1;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
 }
 
 .search-mode-toggle:hover {
-  color: #444;
+  color: var(--text-body);
 }
 
 .search-mode-toggle.active {
-  color: #444;
-  background: #ececec;
+  color: var(--text-body);
+  background: var(--surface-active-alt);
 }
 
 .search-mode-toggle svg {
@@ -1951,9 +2176,9 @@ body {
 }
 
 .lists-search-input.query-mode {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  background-color: #fbfbf7;
+  font-family: var(--font-mono);
+  font-size: var(--font-s);
+  background-color: var(--surface-query);
 }
 
 .search-status {
@@ -1962,9 +2187,9 @@ body {
   gap: 6px;
   margin-top: 0;
   padding: 0;
-  font-size: 11px;
+  font-size: var(--font-xs);
   min-height: 16px;
-  color: #888;
+  color: var(--text-hint);
   flex: 0 1 auto;
   max-width: 45%;
   min-width: 0;
@@ -1979,21 +2204,21 @@ body {
 }
 
 .search-status-text.ok {
-  color: #3d8b3d;
+  color: var(--success);
 }
 
 .search-status-text.err {
-  color: #b00020;
+  color: var(--danger);
 }
 
 .search-help-btn {
-  border: 1px solid #d6d6d6;
-  background: #fff;
-  color: #888;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-hint);
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: var(--font-xs);
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -2004,8 +2229,8 @@ body {
 }
 
 .search-help-btn:hover {
-  color: #444;
-  border-color: #a6a6a6;
+  color: var(--text-body);
+  border-color: var(--border-strong);
 }
 
 .search-help-popover {
@@ -2017,21 +2242,21 @@ body {
   max-width: calc(100vw - 48px);
   box-sizing: border-box;
   margin-top: 0;
-  background: #fff;
-  border: 1px solid #d6d6d6;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   padding: 10px 12px;
   z-index: 20;
-  font-size: 11px;
-  color: #444;
+  font-size: var(--font-xs);
+  color: var(--text-body);
 }
 
 .search-help-title {
   margin: 0 0 6px;
   font-weight: 700;
-  font-size: 11px;
-  color: #444;
+  font-size: var(--font-xs);
+  color: var(--text-body);
 }
 
 .search-help-table {
@@ -2046,16 +2271,16 @@ body {
 }
 
 .search-help-popover code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
-  background: #f4f4f4;
-  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  background: var(--surface-hover);
+  border-radius: var(--radius-xs);
   padding: 1px 4px;
 }
 
 .search-help-note {
   margin: 0 0 8px;
-  color: #666;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -2074,8 +2299,8 @@ body {
 
 .query-suggest-hint {
   margin-left: auto;
-  color: #999;
-  font-size: 11px;
+  color: var(--text-hint);
+  font-size: var(--font-xs);
   padding-left: 10px;
 }
 
@@ -2087,9 +2312,159 @@ body {
   height: 48px;
   padding: 0 16px;
   margin-right: -32px;
-  background: #fff;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
   box-sizing: border-box;
   flex-shrink: 0;
   min-width: 0;
+}
+
+/* ---------- Motion ----------
+   Menus and popovers are plain display:none <-> display:flex toggles driven from JS. An
+   entry animation (rather than a transition) is the one thing that works with that without
+   restructuring the show/hide logic: a display:none element runs no animation, so flipping
+   it back on replays the keyframes from the start. Exit is still instant -- animating it out
+   would mean keeping the element displayed after JS has hidden it. */
+@media (prefers-reduced-motion: no-preference) {
+  .list-menu,
+  .priority-menu,
+  .reminder-menu,
+  .add-task-list-menu,
+  .modal-list-menu,
+  .repeat-menu,
+  .tag-suggest-menu,
+  .tags-menu,
+  .date-picker-popover,
+  .search-help-popover {
+    animation: menu-in 140ms ease-out;
+  }
+
+  .overlay.open {
+    animation: overlay-in 140ms ease-out;
+  }
+
+  .overlay.open .modal {
+    animation: modal-in 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+/* ---------- Dark scheme ----------
+   Only token values change; no rule below :root is scheme-aware, which is the payoff for
+   the Phase 1a migration. Two things tokens cannot reach and so are restated here: the
+   search icon (a data: URI with a baked-in fill) and the checkbox tick. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171717;
+    --surface: #202020;
+    --surface-sunken: #191919;
+    --surface-hover: #2a2a2a;
+    --surface-hover-alt: #2e2e2e;
+    --surface-active: #333333;
+    --surface-active-alt: #3a3a3a;
+    --surface-selected: #383838;
+    --surface-query: #232320;
+    --danger-bg: #3d1f26;
+
+    --border: #3a3a3a;
+    --border-alt: #3a3a3a;
+    --border-menu: #3a3a3a;
+    --border-faint: #2b2b2b;
+    --border-subtle: #2e2e2e;
+    --border-strong: #5e5e5e;
+    --border-selected: #4a4a4a;
+    --border-control: #5a5a5a;
+    --border-chip: rgba(0, 0, 0, 0.25);
+    --border-chip-strong: rgba(0, 0, 0, 0.3);
+
+    --text-strong: #f5f5f5;
+    --text: #e9e9e9;
+    --text-heading: #dedede;
+    --text-body: #d2d2d2;
+    --text-secondary: #c0c0c0;
+    --text-muted: #ababab;
+    --text-faint: #9c9c9c;
+    --text-hint: #9c9c9c;
+    --text-ghost: #7d7d7d;
+    /* tag and priority chips keep their light pastel fills, so their text stays dark */
+    --text-chip: #2a2a2a;
+    --text-placeholder: #6b6b6b;
+    --text-disabled: #5e5e5e;
+    --text-disabled-alt: #565656;
+    --text-on-accent: #ffffff;
+
+    --accent: #3d8bfd;
+    --accent-drop: #4a8ef7;
+    --accent-focus: #6ab4ff;
+    --danger: #ff7b8a;
+    --success: #6cc46c;
+
+    /* same hues, dialled back so they do not glare against a dark surface */
+    --priority-chip-none: #6a6a6a;
+    --priority-chip-low: #5fae43;
+    --priority-chip-medium: #c98b3e;
+    --priority-chip-high: #d95757;
+
+    --priority-border-none: #5a5a5a;
+    --priority-border-low: #55a03c;
+    --priority-border-medium: #bd8038;
+    --priority-border-high: #cc4f4f;
+
+    --priority-fill-none: transparent;
+    --priority-fill-low: #2f4526;
+    --priority-fill-medium: #4a3821;
+    --priority-fill-high: #4a2727;
+
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-popover: 0 6px 20px rgba(0, 0, 0, 0.55);
+    --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.65);
+  }
+
+  /* the fill is baked into the data: URI, so the icon needs its own dark copy */
+  .lists-search-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ababab'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20 15.5 14zM9.5 14A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14z'/%3E%3C/svg%3E");
+  }
+
+  /* the tick is drawn in body text colour, which on a pastel-dark fill needs to be light */
+  .tasks-list input[type='checkbox']:checked::after,
+  .modal-title-row input[type='checkbox']:checked::after {
+    border-color: var(--text);
+  }
+
+  /* the modal's two-tone background is a gradient, so it restates the surface colours */
+  .modal-content,
+  .modal-content .modal-actions {
+    background: linear-gradient(
+      to right,
+      var(--surface) calc(100% - 224px),
+      var(--surface-sunken) calc(100% - 224px),
+      var(--surface-sunken) 100%
+    );
+  }
+
+  /* native form controls (date/time inputs, <select>) render light-on-light otherwise */
+  :root {
+    color-scheme: dark;
+  }
 }

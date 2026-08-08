@@ -27,6 +27,7 @@ import { state } from './state.js';
 import type { Tag } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
+import { installModalFocusTrap } from './focusTrap.js';
 
 const toDateInputValue = (date: Date) => {
   const year = date.getFullYear();
@@ -1040,6 +1041,7 @@ const setupEvents = () => {
 
 const init = async () => {
   setupEvents();
+  installModalFocusTrap();
   attachDatePicker(refs.reminderDateInput);
   attachDatePicker(refs.repeatStartDate);
   attachDatePicker(refs.repeatEndDate);

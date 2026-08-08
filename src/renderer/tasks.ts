@@ -4,6 +4,7 @@ import { createDetailsElement, formatDate } from './helpers.js';
 import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
 import { repeatSummaryFromRule } from './repeat.js';
+import { setPriorityAttr } from './theme.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -54,12 +55,49 @@ const updateTagFilterChip = (searching: boolean) => {
   refs.tagFilterChip.style.display = 'inline-block';
 };
 
+/**
+ * The task set a search currently resolves to. Shared by the renderer and the title so the
+ * count in "Search results · N" can never disagree with the rows underneath it.
+ */
+export const getSearchMatches = (): Task[] => {
+  let matches: Task[];
+  if (state.searchMode === 'advanced' && state.queryPredicate) {
+    const ctx = buildEvalContext();
+    const predicate = state.queryPredicate;
+    matches = state.tasks.filter((task) => predicate(task, ctx));
+  } else {
+    const searchQuery = state.searchQuery.trim().toLowerCase();
+    matches = state.tasks.filter((task) => {
+      const text = task.text.toLowerCase();
+      const details = task.details?.toLowerCase() ?? '';
+      return text.includes(searchQuery) || details.includes(searchQuery);
+    });
+  }
+  // respect the View > Show completed setting; an advanced query that
+  // explicitly filters on `done` states the user's intent and wins
+  const doneOverride = state.searchMode === 'advanced' && state.queryUsesDone;
+  if (!state.showCompleted && !doneOverride) {
+    matches = matches.filter((task) => !task.done);
+  }
+  return matches;
+};
+
+const isStale = () => state.searchMode === 'advanced' && state.queryStatus === 'invalid';
+
 export const updateTasksTitle = () => {
   if (!refs.tasksTitleEl) return;
   const searching = isSearching();
   updateTagFilterChip(searching);
+  if (refs.searchStaleNote) {
+    refs.searchStaleNote.style.display = searching && isStale() ? 'inline' : 'none';
+  }
   if (searching) {
-    refs.tasksTitleEl.textContent = 'Search results';
+    // a count while the query is unparseable would be a count of the *previous* query --
+    // exactly the pair of conflicting signals this phase set out to remove, so drop it
+    // and let the "showing last valid results" note carry the meaning instead
+    refs.tasksTitleEl.textContent = isStale()
+      ? 'Search results'
+      : `Search results · ${getSearchMatches().length}`;
     return;
   }
   if (state.selectedListId === null) {
@@ -83,27 +121,8 @@ export const saveTaskOrder = async () => {
 };
 
 
-const priorityBorderColors: Record<string, string> = {
-  none: '#b0b0b0',
-  low: '#6ecb4d',
-  medium: '#f3a84f',
-  high: '#ff5f5f',
-};
-
-const priorityFillColors: Record<string, string> = {
-  none: '#ffffff',
-  low: '#A4F07F',
-  medium: '#FFD08F',
-  high: '#FF8A8A',
-};
-
 const applyPriorityStyles = (checkbox: HTMLInputElement, task: Task) => {
-  const priority = task.priority ?? 'none';
-  const borderColor = priorityBorderColors[priority] ?? '#b0b0b0';
-  const fillColor = priorityFillColors[priority] ?? '#ffffff';
-  checkbox.style.borderColor = borderColor;
-  checkbox.style.background = fillColor;
-  checkbox.style.boxShadow = 'none';
+  setPriorityAttr(checkbox, task.priority);
 };
 
 const refreshTasksFromApi = async () => {
@@ -369,30 +388,19 @@ const renderTasksInner = () => {
   removeDropIndicator();
   refs.tasksList.innerHTML = '';
 
+  const stale = isStale();
+  refs.tasksList.classList.toggle('results-stale', stale);
+
   if (isSearching()) {
-    let matches: Task[];
-    if (state.searchMode === 'advanced' && state.queryPredicate) {
-      const ctx = buildEvalContext();
-      const predicate = state.queryPredicate;
-      matches = state.tasks.filter((task) => predicate(task, ctx));
-    } else {
-      const searchQuery = state.searchQuery.trim().toLowerCase();
-      matches = state.tasks.filter((task) => {
-        const text = task.text.toLowerCase();
-        const details = task.details?.toLowerCase() ?? '';
-        return text.includes(searchQuery) || details.includes(searchQuery);
-      });
-    }
-    // respect the View > Show completed setting; an advanced query that
-    // explicitly filters on `done` states the user's intent and wins
-    const doneOverride = state.searchMode === 'advanced' && state.queryUsesDone;
-    if (!state.showCompleted && !doneOverride) {
-      matches = matches.filter((task) => !task.done);
-    }
+    const matches = getSearchMatches();
 
     if (matches.length === 0) {
+      // while the query is invalid these rows belong to the previous query, so claiming
+      // "no tasks match" would assert something about a query we could not parse
       if (refs.emptyState) {
-        refs.emptyState.textContent = 'No tasks match your search';
+        refs.emptyState.textContent = stale
+          ? 'The last valid query matched no tasks'
+          : 'No tasks match your search';
         refs.tasksList.appendChild(refs.emptyState);
       }
       return;
@@ -410,7 +418,7 @@ const renderTasksInner = () => {
       const tasks = grouped.get(list.id);
       if (!tasks || tasks.length === 0) return;
       const header = document.createElement('p');
-      header.className = 'tasks-title';
+      header.className = 'tasks-group-title';
       header.textContent = list.name;
       refs.tasksList?.appendChild(header);
       tasks.forEach((task) => {
@@ -425,7 +433,7 @@ const renderTasksInner = () => {
     const unlisted = grouped.get(null);
     if (unlisted && unlisted.length) {
       const header = document.createElement('p');
-      header.className = 'tasks-title';
+      header.className = 'tasks-group-title';
       header.textContent = 'No list';
       refs.tasksList?.appendChild(header);
       unlisted.forEach((task) => {

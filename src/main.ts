@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification } from 'electron';
 import { spawn, exec, type ChildProcess } from 'child_process';
 import net from 'net';
 import path from 'path';
@@ -666,6 +666,10 @@ function createWindow(): void {
     height: 600,
     minWidth: 600,
     minHeight: 480,
+    // Painted before the renderer's first frame. Without it every launch flashes white,
+    // which is invisible in the light scheme and glaring in the dark one. Values match
+    // --bg in styles.css.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#171717' : '#f5f5f5',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

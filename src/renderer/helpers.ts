@@ -60,6 +60,44 @@ export const positionDropdown = (menu: HTMLElement, trigger: HTMLElement) => {
   menu.style.visibility = 'visible';
 };
 
+/**
+ * Puts a sidebar pill into the tab order and makes Enter/Space activate it.
+ *
+ * The pills stay <div>s rather than becoming <button>s: each one contains its own kebab
+ * <button>, and a button inside a button is invalid HTML that browsers reparent. role +
+ * tabindex gets the same keyboard behaviour without the nesting. Activation is delegated
+ * to el.click() so there is exactly one copy of the selection logic, in the click handler.
+ */
+export const makePillActivatable = (el: HTMLElement, selected: boolean) => {
+  el.setAttribute('role', 'button');
+  el.tabIndex = 0;
+  el.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  el.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault(); // Space would otherwise scroll the rail
+    el.click();
+  });
+};
+
+/**
+ * Keeps a combobox input's live ARIA in sync with its listbox. Without this a screen
+ * reader announces nothing at all when the suggestion list opens or the active item moves,
+ * because the focus never actually leaves the text input.
+ */
+export const syncComboboxAria = (
+  input: HTMLElement | null,
+  open: boolean,
+  activeOptionId: string | null
+) => {
+  if (!input) return;
+  input.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open && activeOptionId) {
+    input.setAttribute('aria-activedescendant', activeOptionId);
+  } else {
+    input.removeAttribute('aria-activedescendant');
+  }
+};
+
 export const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

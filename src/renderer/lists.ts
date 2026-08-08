@@ -2,6 +2,7 @@ import type { List } from '../types.js';
 import { listDropIndicator, refs } from './dom.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
+import { makePillActivatable } from './helpers.js';
 
 const truncateListName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -104,6 +105,7 @@ export const renderLists = () => {
   container.style.display = 'flex';
   const allItem = document.createElement('div');
   allItem.className = `list-pill${state.selectedListId === null ? ' selected' : ''}`;
+  makePillActivatable(allItem, state.selectedListId === null);
   allItem.appendChild(makeLabel('All lists'));
   allItem.addEventListener('click', () => {
     state.selectedListId = null;
@@ -124,6 +126,7 @@ export const renderLists = () => {
     const item = document.createElement('div');
     const isSelected = state.selectedListId === list.id;
     item.className = `list-pill${isSelected ? ' selected' : ''}`;
+    makePillActivatable(item, isSelected);
     item.dataset.index = String(state.lists.findIndex((l) => l.id === list.id));
 
     item.setAttribute('draggable', 'true');
@@ -140,6 +143,12 @@ export const renderLists = () => {
     const label = makeLabel(list.name);
     item.appendChild(dragHandle);
     item.appendChild(label);
+
+    // matches the tags panel, which has always shown a count
+    const count = document.createElement('span');
+    count.className = 'tag-count';
+    count.textContent = String(state.tasks.filter((t) => !t.done && t.listId === list.id).length);
+    item.appendChild(count);
 
     const menuBtn = document.createElement('button');
     menuBtn.className = 'list-menu-btn';

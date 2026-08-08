@@ -34,6 +34,10 @@ export type UIState = {
   searchMode: 'simple' | 'advanced';
   queryPredicate: CompiledPredicate | null;
   queryError: ParseError | null;
+  // 'pending' means the parse failed only because the user is mid-token: the tail is
+  // incomplete and the caret is still on it. Results are left untouched and no error is
+  // shown. 'invalid' is a real error: the last-good predicate stays on screen but dimmed.
+  queryStatus: 'empty' | 'pending' | 'valid' | 'invalid';
   queryUsesDone: boolean;
   timeFormat: '12h' | '24h';
   dateFormat: string;
@@ -72,6 +76,7 @@ export const state: UIState = {
   searchMode: 'simple',
   queryPredicate: null,
   queryError: null,
+  queryStatus: 'empty',
   queryUsesDone: false,
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',

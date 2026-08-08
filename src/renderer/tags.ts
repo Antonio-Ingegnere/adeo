@@ -2,6 +2,7 @@ import type { Tag } from '../types.js';
 import { refs } from './dom.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { state } from './state.js';
+import { makePillActivatable } from './helpers.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -78,6 +79,7 @@ export const renderTags = () => {
     const item = document.createElement('div');
     const isSelected = state.selectedTagId === tag.id;
     item.className = `list-pill tag-pill${isSelected ? ' selected' : ''}`;
+    makePillActivatable(item, isSelected);
 
     const dot = document.createElement('span');
     dot.className = 'tag-dot';

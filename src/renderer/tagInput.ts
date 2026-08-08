@@ -1,6 +1,6 @@
 import type { Tag } from '../types.js';
 import { refs } from './dom.js';
-import { positionDropdown } from './helpers.js';
+import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { mergeTag, renderTags } from './tags.js';
 import { state } from './state.js';
 
@@ -22,6 +22,7 @@ const closeSuggest = () => {
   if (refs.tagSuggestMenu) {
     refs.tagSuggestMenu.style.display = 'none';
   }
+  syncComboboxAria(refs.input, false, null);
 };
 
 export const renderPendingTags = () => {
@@ -56,6 +57,10 @@ const renderSuggestMenu = () => {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = `tag-suggest-item${index === activeIndex ? ' active' : ''}`;
+    el.id = `tag-suggest-option-${index}`;
+    el.setAttribute('role', 'option');
+    el.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
+    el.tabIndex = -1; // the input keeps focus; the listbox is driven by aria-activedescendant
     if (item.kind === 'tag') {
       const dot = document.createElement('span');
       dot.className = 'tag-dot';
@@ -74,6 +79,7 @@ const renderSuggestMenu = () => {
     menu.appendChild(el);
   });
   positionDropdown(menu, refs.input);
+  syncComboboxAria(refs.input, true, `tag-suggest-option-${activeIndex}`);
 };
 
 const updateSuggestions = () => {

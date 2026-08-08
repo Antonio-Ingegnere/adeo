@@ -5,34 +5,14 @@ import { renderTasks, updateTasksTitle } from './tasks.js';
 import { refs } from './dom.js';
 import { state } from './state.js';
 import { formatDate } from './helpers.js';
-
-const priorityColors: Record<string, string> = {
-  none: '#C9C9C9',
-  low: '#7ED957',
-  medium: '#FFB866',
-  high: '#FF6B6B',
-};
-
-const priorityFillColors: Record<string, string> = {
-  none: '#ffffff',
-  low: '#A4F07F',
-  medium: '#FFD08F',
-  high: '#FF8A8A',
-};
+import { asPriority, setPriorityAttr } from './theme.js';
 
 export const updatePriorityUI = (value: string | null) => {
-  const color = value ? priorityColors[value] : priorityColors.none;
-  const fill = value ? priorityFillColors[value] : priorityFillColors.none;
-  if (refs.priorityChip) {
-    refs.priorityChip.style.background = color ?? priorityColors.none;
-  }
+  const priority = asPriority(value);
+  setPriorityAttr(refs.priorityChip, priority);
+  setPriorityAttr(refs.editDoneInput, priority);
   if (refs.priorityLabel) {
-    const label = value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None';
-    refs.priorityLabel.textContent = label;
-  }
-  if (refs.editDoneInput) {
-    refs.editDoneInput.style.borderColor = color ?? priorityColors.none;
-    refs.editDoneInput.style.background = fill ?? priorityFillColors.none;
+    refs.priorityLabel.textContent = priority.charAt(0).toUpperCase() + priority.slice(1);
   }
 };
 

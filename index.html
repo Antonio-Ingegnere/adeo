@@ -13,7 +13,10 @@
     <header class="app-header">
       <div class="lists-search">
         <div class="lists-search-field">
-          <input id="lists-search-input" class="lists-search-input" type="text" placeholder="Search" />
+          <!-- placeholder is replaced with a platform-aware shortcut hint by applyModeUI() -->
+          <input id="lists-search-input" class="lists-search-input" type="text" placeholder="Search"
+            role="combobox" aria-autocomplete="list" aria-expanded="false"
+            aria-controls="query-suggest-menu" />
           <button id="search-mode-toggle" class="search-mode-toggle" type="button" aria-label="Toggle advanced search"
             aria-pressed="false" title="Advanced search">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -26,10 +29,14 @@
               <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
             </svg>
           </button>
-          <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu"></div>
+          <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu" role="listbox"
+            aria-label="Query suggestions"></div>
         </div>
         <div id="search-status" class="search-status" style="display:none">
           <span id="search-status-text" class="search-status-text"></span>
+          <!-- announced separately so the transient "still typing" state never reaches a
+               screen reader, which would otherwise chatter on every keystroke -->
+          <span id="search-status-live" class="visually-hidden" role="status" aria-live="polite"></span>
           <button id="search-help-btn" class="search-help-btn" type="button" aria-label="Search syntax help">?</button>
         </div>
         <div id="search-help-popover" class="search-help-popover" style="display:none">
@@ -113,8 +120,11 @@
         <div class="main-body">
           <div class="input-row">
             <div class="add-task-input-wrap">
-              <input id="message-input" type="text" placeholder="Add a new task" class="text-input" />
-              <div id="tag-suggest-menu" class="tag-suggest-menu"></div>
+              <input id="message-input" type="text" placeholder="Add a new task" class="text-input"
+                role="combobox" aria-autocomplete="list" aria-expanded="false"
+                aria-controls="tag-suggest-menu" />
+              <div id="tag-suggest-menu" class="tag-suggest-menu" role="listbox"
+                aria-label="Tag suggestions"></div>
             </div>
             <div class="add-task-select-wrap reminder-select-wrap">
               <button id="add-task-list-picker" class="add-task-picker reminder-picker" type="button">
@@ -133,6 +143,7 @@
           <div id="tasks" class="tasks-section">
             <div class="tasks-title-row">
               <p class="tasks-title">All tasks</p>
+              <span id="search-stale-note" class="search-stale-note" style="display:none">Showing last valid results</span>
               <button id="tag-filter-chip" class="tag-filter-chip" type="button" style="display:none"></button>
             </div>
             <div id="tasks-list" class="tasks-list">
@@ -147,6 +158,7 @@
         <div class="modal-content">
           <div class="modal-body">
             <div class="modal-left">
+              <h2 class="modal-heading">Edit task</h2>
               <div class="modal-title-row">
                 <input id="edit-done" type="checkbox" />
                 <input id="edit-input" type="text" class="text-input modal-input" />
@@ -176,20 +188,20 @@
                     <span class="priority-caret">▾</span>
                   </button>
                   <div id="priority-menu" class="priority-menu">
-                    <div class="priority-menu-item" data-value="none" data-color="#C9C9C9">
-                      <span class="priority-chip" aria-hidden="true" style="background:#C9C9C9;"></span>
+                    <div class="priority-menu-item" data-value="none">
+                      <span class="priority-chip priority-chip--none" aria-hidden="true"></span>
                       <span>None</span>
                     </div>
-                    <div class="priority-menu-item" data-value="low" data-color="#7ED957">
-                      <span class="priority-chip" aria-hidden="true" style="background:#7ED957;"></span>
+                    <div class="priority-menu-item" data-value="low">
+                      <span class="priority-chip priority-chip--low" aria-hidden="true"></span>
                       <span>Low</span>
                     </div>
-                    <div class="priority-menu-item" data-value="medium" data-color="#FFB866">
-                      <span class="priority-chip" aria-hidden="true" style="background:#FFB866;"></span>
+                    <div class="priority-menu-item" data-value="medium">
+                      <span class="priority-chip priority-chip--medium" aria-hidden="true"></span>
                       <span>Medium</span>
                     </div>
-                    <div class="priority-menu-item" data-value="high" data-color="#FF6B6B">
-                      <span class="priority-chip" aria-hidden="true" style="background:#FF6B6B;"></span>
+                    <div class="priority-menu-item" data-value="high">
+                      <span class="priority-chip priority-chip--high" aria-hidden="true"></span>
                       <span>High</span>
                     </div>
                   </div>
@@ -242,8 +254,8 @@
             </div>
           </div>
           <div class="modal-actions">
-            <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel">✕</button>
-            <button id="save-edit" class="btn primary icon-btn" aria-label="Save">
+            <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel" title="Cancel">✕</button>
+            <button id="save-edit" class="btn primary icon-btn" aria-label="Save" title="Save">
               <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path
                   d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -258,8 +270,8 @@
         <h2>Add list</h2>
         <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" />
         <div class="modal-actions">
-          <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list">✕</button>
-          <button id="save-list" class="btn primary icon-btn" aria-label="Save list">
+          <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list" title="Cancel">✕</button>
+          <button id="save-list" class="btn primary icon-btn" aria-label="Save list" title="Save">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -273,8 +285,8 @@
         <h2>Rename tag</h2>
         <input id="tag-input" type="text" class="text-input modal-input" placeholder="Tag name" />
         <div class="modal-actions">
-          <button id="cancel-tag" class="btn icon-btn" aria-label="Cancel tag">✕</button>
-          <button id="save-tag" class="btn primary icon-btn" aria-label="Save tag">
+          <button id="cancel-tag" class="btn icon-btn" aria-label="Cancel tag" title="Cancel">✕</button>
+          <button id="save-tag" class="btn primary icon-btn" aria-label="Save tag" title="Save">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -315,8 +327,8 @@
           </select>
         </div>
         <div class="modal-actions">
-          <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings">✕</button>
-          <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings">
+          <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings" title="Cancel">✕</button>
+          <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings" title="Save">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -459,8 +471,8 @@
           <div id="repeat-summary" class="repeat-summary"></div>
         </div>
         <div class="modal-actions">
-          <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat">✕</button>
-          <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat">
+          <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat" title="Cancel">✕</button>
+          <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat" title="Save">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />

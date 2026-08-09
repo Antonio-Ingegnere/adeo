@@ -1,7 +1,9 @@
 // Search-field wiring: simple/advanced mode toggle, live parse status, syntax
 // help popover, and context-aware autocomplete for the advanced query mode.
 // All listeners on the search input live here (single keydown owner).
+import { syncFilterUI } from './activeFilter.js';
 import { refs } from './dom.js';
+import { renderFilters } from './filters.js';
 import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { FIELDS, compilePredicate, parseQuery, queryUsesField, tokenize } from './query.js';
 import type { FieldSpec, ParseError, Token } from './query.js';
@@ -172,6 +174,9 @@ export const applySearchQuery = (value: string, immediate = false) => {
   if (refs.listsSearchClear) {
     refs.listsSearchClear.style.visibility = value ? 'visible' : 'hidden';
   }
+  // a saved filter is "running" iff the bar holds exactly its query, so this is where the
+  // sidebar highlight and the add-task hints are kept honest
+  syncFilterUI(renderFilters);
   if (state.searchMode === 'advanced') {
     const trimmed = value.trim();
     const previousStatus = state.queryStatus;
@@ -255,7 +260,7 @@ const applyModeUI = () => {
   }
 };
 
-const setMode = (mode: 'simple' | 'advanced') => {
+export const setSearchMode = (mode: 'simple' | 'advanced') => {
   state.searchMode = mode;
   state.queryPredicate = null;
   state.queryError = null;
@@ -510,7 +515,7 @@ export const setupQuerySearch = () => {
     (mode: 'simple' | 'advanced', radio: HTMLInputElement) => (event: Event) => {
       event.stopPropagation();
       if (state.searchMode === mode) return;
-      setMode(mode);
+      setSearchMode(mode);
       // Clicking the switch means "now let me type"; arrowing across it does not -- stealing
       // focus there would strand the user, since they could no longer arrow back. A radio
       // matches :focus-visible only when it was reached by keyboard, which is the distinction.

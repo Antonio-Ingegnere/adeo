@@ -143,6 +143,32 @@
             <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
           </div>
         </div>
+        <div class="lists-panel filters-panel">
+          <div class="lists-header">
+            <div class="lists-title-wrap">
+              <span class="lists-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" />
+                </svg>
+              </span>
+              <p class="lists-title">Filters</p>
+            </div>
+            <div class="lists-actions">
+              <button id="add-filter-button" class="icon-button" aria-label="Save current search as a filter">+</button>
+              <button id="filters-toggle" class="icon-button" aria-label="Toggle filters">
+                <span class="expand-chevrons" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" focusable="false">
+                    <path d="M2 3 L7 8 L12 3" />
+                    <path d="M2 8 L7 13 L12 8" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div id="filters-list" class="lists-list">
+            <div id="filters-empty" class="empty-state">No saved filters. Run a query search, then click +.</div>
+          </div>
+        </div>
       </div>
       <div class="main-column">
         <div class="main-body">
@@ -168,6 +194,9 @@
             </button>
           </div>
           <div id="add-task-tags" class="add-task-tags"></div>
+          <!-- non-tag defaults derived from the active saved filter, plus the note listing
+               constraints that could not be turned into an assignment -->
+          <div id="add-task-template" class="add-task-template"></div>
           <div id="tasks" class="tasks-section">
             <div class="tasks-title-row">
               <p class="tasks-title">All tasks</p>
@@ -300,6 +329,25 @@
         <div class="modal-actions">
           <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list" title="Cancel">✕</button>
           <button id="save-list" class="btn primary icon-btn" aria-label="Save list" title="Save">
+            <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="filter-overlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal modal-small">
+        <h2 id="filter-modal-title">Save filter</h2>
+        <input id="filter-name-input" type="text" class="text-input modal-input" placeholder="Filter name" />
+        <p class="modal-label filter-query-label">Query</p>
+        <textarea id="filter-query-input" class="details-textarea filter-query-input" rows="2"
+          placeholder="list:Home AND due&lt;=today"></textarea>
+        <p id="filter-modal-error" class="filter-modal-error" style="display:none"></p>
+        <div class="modal-actions">
+          <button id="cancel-filter" class="btn icon-btn" aria-label="Cancel filter" title="Cancel">✕</button>
+          <button id="save-filter" class="btn primary icon-btn" aria-label="Save filter" title="Save">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />

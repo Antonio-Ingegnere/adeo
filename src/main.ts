@@ -786,16 +786,32 @@ ipcMain.handle('show-message', async (_event, text: string) => {
   });
 });
 
-ipcMain.handle('add-task', async (_event, text: string, listId?: number | null, tagIds?: number[]) => {
-  const trimmed = text?.trim();
-  if (!trimmed) {
-    return { error: 'Task text is empty' };
+type TaskSeed = {
+  priority?: string;
+  reminderDate?: string | null;
+  reminderTime?: string | null;
+  repeatRule?: string | null;
+  repeatStart?: string | null;
+};
+
+ipcMain.handle(
+  'add-task',
+  async (_event, text: string, listId?: number | null, tagIds?: number[], seed?: TaskSeed) => {
+    const trimmed = text?.trim();
+    if (!trimmed) {
+      return { error: 'Task text is empty' };
+    }
+    return apiRequest('/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        text: trimmed,
+        listId: listId ?? null,
+        tagIds: tagIds ?? [],
+        ...(seed ?? {}),
+      }),
+    });
   }
-  return apiRequest('/tasks', {
-    method: 'POST',
-    body: JSON.stringify({ text: trimmed, listId: listId ?? null, tagIds: tagIds ?? [] }),
-  });
-});
+);
 
 ipcMain.handle('get-tasks', async () => {
   return apiRequest('/tasks');
@@ -910,6 +926,62 @@ ipcMain.handle('confirm-delete-list', async (_event, name: string) => {
 
 ipcMain.handle('confirm-delete-tag', async (_event, name: string) => {
   return confirmDelete(`Delete tag "${name}"?`, 'The tag will be removed from all tasks. Tasks are kept.');
+});
+
+ipcMain.handle('confirm-delete-filter', async (_event, name: string) => {
+  return confirmDelete(`Delete filter "${name}"?`, 'Only the saved search is removed. Tasks are kept.');
+});
+
+ipcMain.handle('add-filter', async (_event, name: string, query: string) => {
+  const trimmedName = name?.trim();
+  const trimmedQuery = query?.trim();
+  if (!trimmedName) {
+    return { error: 'Filter name is empty' };
+  }
+  if (!trimmedQuery) {
+    return { error: 'Filter query is empty' };
+  }
+  return apiRequest('/filters', {
+    method: 'POST',
+    body: JSON.stringify({ name: trimmedName, query: trimmedQuery }),
+  });
+});
+
+ipcMain.handle('get-filters', async () => {
+  return apiRequest('/filters');
+});
+
+ipcMain.handle('update-filter-name', async (_event, id: number, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'Filter name is empty' };
+  }
+  return apiRequest(`/filters/${id}/name`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: trimmed }),
+  });
+});
+
+ipcMain.handle('update-filter-query', async (_event, id: number, query: string) => {
+  const trimmed = query?.trim();
+  if (!trimmed) {
+    return { error: 'Filter query is empty' };
+  }
+  return apiRequest(`/filters/${id}/query`, {
+    method: 'PATCH',
+    body: JSON.stringify({ query: trimmed }),
+  });
+});
+
+ipcMain.handle('delete-filter', async (_event, id: number) => {
+  return apiRequest(`/filters/${id}`, { method: 'DELETE' });
+});
+
+ipcMain.handle('update-filter-order', async (_event, orderedIds: number[]) => {
+  return apiRequest('/filters/order', {
+    method: 'POST',
+    body: JSON.stringify({ orderedIds }),
+  });
 });
 
 ipcMain.handle('add-tag', async (_event, name: string) => {

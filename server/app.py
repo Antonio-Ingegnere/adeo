@@ -100,6 +100,17 @@ def initialize_db() -> None:
       )
       """
     )
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS saved_filters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        query TEXT NOT NULL,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+      """
+    )
     conn.commit()
   finally:
     conn.close()
@@ -124,6 +135,12 @@ class TaskCreate(BaseModel):
   text: str
   listId: Optional[int] = None
   tagIds: Optional[List[int]] = None
+  # seeded from a saved filter's derived template; all optional so existing callers are unaffected
+  priority: Optional[str] = None
+  reminderDate: Optional[str] = None
+  reminderTime: Optional[str] = None
+  repeatRule: Optional[str] = None
+  repeatStart: Optional[str] = None
 
 
 class TaskOrder(BaseModel):
@@ -184,6 +201,19 @@ class TaskTags(BaseModel):
   tagIds: List[int]
 
 
+class FilterCreate(BaseModel):
+  name: str
+  query: str
+
+
+class FilterName(BaseModel):
+  name: str
+
+
+class FilterQuery(BaseModel):
+  query: str
+
+
 TAG_PALETTE = [
   "#F6C6C6",  # rose
   "#F9D9B8",  # peach
@@ -194,6 +224,8 @@ TAG_PALETTE = [
   "#DCCDF0",  # lilac
   "#F3CFE3",  # pink
 ]
+
+PRIORITIES = {"none", "low", "medium", "high"}
 
 
 def normalize_tag_name(name: str) -> str:
@@ -237,12 +269,22 @@ def add_task(payload: TaskCreate) -> Dict[str, Any]:
   try:
     row = conn.execute("SELECT MAX(position) as maxPos FROM tasks").fetchone()
     next_pos = (row["maxPos"] if row and row["maxPos"] is not None else -1) + 1
+    priority = payload.priority if payload.priority in PRIORITIES else "none"
     cursor = conn.execute(
       """
       INSERT INTO tasks (text, details, done, position, list_id, priority, reminder_date, reminder_time, repeat_rule, repeat_start)
-      VALUES (?, '', 0, ?, ?, 'none', NULL, NULL, NULL, NULL)
+      VALUES (?, '', 0, ?, ?, ?, ?, ?, ?, ?)
       """,
-      (trimmed, next_pos, payload.listId),
+      (
+        trimmed,
+        next_pos,
+        payload.listId,
+        priority,
+        payload.reminderDate,
+        payload.reminderTime,
+        payload.repeatRule,
+        payload.repeatStart,
+      ),
     )
     task_id = cursor.lastrowid
     tag_ids: List[int] = []
@@ -261,11 +303,11 @@ def add_task(payload: TaskCreate) -> Dict[str, Any]:
       "done": False,
       "position": next_pos,
       "listId": payload.listId,
-      "priority": "none",
-      "reminderDate": None,
-      "reminderTime": None,
-      "repeatRule": None,
-      "repeatStart": None,
+      "priority": priority,
+      "reminderDate": payload.reminderDate,
+      "reminderTime": payload.reminderTime,
+      "repeatRule": payload.repeatRule,
+      "repeatStart": payload.repeatStart,
       "tagIds": tag_ids,
     }
   finally:
@@ -392,8 +434,7 @@ def update_task_list(task_id: int, payload: TaskList) -> Dict[str, Any]:
 
 @app.patch("/tasks/{task_id}/priority")
 def update_task_priority(task_id: int, payload: TaskPriority) -> Dict[str, Any]:
-  allowed = {"none", "low", "medium", "high"}
-  if payload.priority not in allowed:
+  if payload.priority not in PRIORITIES:
     raise HTTPException(status_code=400, detail="Invalid priority")
   conn = get_conn()
   try:
@@ -595,6 +636,106 @@ def set_task_tags(task_id: int, payload: TaskTags) -> Dict[str, Any]:
         applied.append(tag_id)
     conn.commit()
     return {"id": task_id, "tagIds": applied}
+  finally:
+    conn.close()
+
+
+# ---------- Saved filters ----------
+# A saved filter is nothing but a named query string; it is parsed and evaluated entirely in
+# the renderer (src/renderer/query.ts), so the server never inspects `query`.
+
+
+def filter_row(row: sqlite3.Row) -> Dict[str, Any]:
+  return {"id": row["id"], "name": row["name"], "query": row["query"], "position": row["position"]}
+
+
+@app.post("/filters")
+def add_filter(payload: FilterCreate) -> Dict[str, Any]:
+  name = payload.name.strip()
+  query = payload.query.strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Filter name is empty")
+  if not query:
+    raise HTTPException(status_code=400, detail="Filter query is empty")
+  conn = get_conn()
+  try:
+    row = conn.execute("SELECT MAX(position) as maxPos FROM saved_filters").fetchone()
+    next_pos = (row["maxPos"] if row and row["maxPos"] is not None else -1) + 1
+    try:
+      cursor = conn.execute(
+        "INSERT INTO saved_filters (name, query, position) VALUES (?, ?, ?)",
+        (name, query, next_pos),
+      )
+      conn.commit()
+    except sqlite3.IntegrityError:
+      raise HTTPException(status_code=400, detail="Filter name already exists")
+    return {"id": cursor.lastrowid, "name": name, "query": query, "position": next_pos}
+  finally:
+    conn.close()
+
+
+@app.get("/filters")
+def get_filters() -> List[Dict[str, Any]]:
+  conn = get_conn()
+  try:
+    rows = conn.execute(
+      "SELECT id, name, query, position FROM saved_filters ORDER BY position ASC, id ASC"
+    ).fetchall()
+    return [filter_row(row) for row in rows]
+  finally:
+    conn.close()
+
+
+@app.patch("/filters/{filter_id}/name")
+def update_filter_name(filter_id: int, payload: FilterName) -> Dict[str, Any]:
+  name = payload.name.strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Filter name is empty")
+  conn = get_conn()
+  try:
+    try:
+      conn.execute("UPDATE saved_filters SET name = ? WHERE id = ?", (name, filter_id))
+      conn.commit()
+    except sqlite3.IntegrityError:
+      raise HTTPException(status_code=400, detail="Filter name already exists")
+    return {"id": filter_id, "name": name}
+  finally:
+    conn.close()
+
+
+@app.patch("/filters/{filter_id}/query")
+def update_filter_query(filter_id: int, payload: FilterQuery) -> Dict[str, Any]:
+  query = payload.query.strip()
+  if not query:
+    raise HTTPException(status_code=400, detail="Filter query is empty")
+  conn = get_conn()
+  try:
+    conn.execute("UPDATE saved_filters SET query = ? WHERE id = ?", (query, filter_id))
+    conn.commit()
+    return {"id": filter_id, "query": query}
+  finally:
+    conn.close()
+
+
+@app.delete("/filters/{filter_id}")
+def delete_filter(filter_id: int) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    conn.execute("DELETE FROM saved_filters WHERE id = ?", (filter_id,))
+    conn.commit()
+    return {"id": filter_id}
+  finally:
+    conn.close()
+
+
+@app.post("/filters/order")
+def update_filter_order(payload: ListOrder) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    for index, filter_id in enumerate(payload.orderedIds):
+      conn.execute("UPDATE saved_filters SET position = ? WHERE id = ?", (index, filter_id))
+    conn.commit()
+    return {"success": True}
   finally:
     conn.close()
 

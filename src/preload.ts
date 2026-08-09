@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronAPI, List, Settings, Tag, Task, Theme } from './types';
+import type { ElectronAPI, List, SavedFilter, Settings, Tag, Task, TaskSeed, Theme } from './types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  addTask: (text: string, listId?: number | null, tagIds?: number[]) =>
-    ipcRenderer.invoke('add-task', text, listId, tagIds) as Promise<Task | { error: string }>,
+  addTask: (text: string, listId?: number | null, tagIds?: number[], seed?: TaskSeed) =>
+    ipcRenderer.invoke('add-task', text, listId, tagIds, seed) as Promise<Task | { error: string }>,
   getTasks: () => ipcRenderer.invoke('get-tasks') as Promise<Task[]>,
   updateTaskDone: (id: number, done: boolean) =>
     ipcRenderer.invoke('update-task-done', id, done) as Promise<{ id: number; done: boolean }>,
@@ -51,6 +51,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setTaskTags: (id: number, tagIds: number[]) =>
     ipcRenderer.invoke('set-task-tags', id, tagIds) as Promise<{ id: number; tagIds: number[] } | { error: string }>,
   confirmDeleteTag: (name: string) => ipcRenderer.invoke('confirm-delete-tag', name) as Promise<boolean>,
+  addFilter: (name: string, query: string) =>
+    ipcRenderer.invoke('add-filter', name, query) as Promise<SavedFilter | { error: string }>,
+  getFilters: () => ipcRenderer.invoke('get-filters') as Promise<SavedFilter[]>,
+  updateFilterName: (id: number, name: string) =>
+    ipcRenderer.invoke('update-filter-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
+  updateFilterQuery: (id: number, query: string) =>
+    ipcRenderer.invoke('update-filter-query', id, query) as Promise<{ id: number; query: string } | { error: string }>,
+  deleteFilter: (id: number) => ipcRenderer.invoke('delete-filter', id) as Promise<{ id: number }>,
+  updateFilterOrder: (orderedIds: number[]) =>
+    ipcRenderer.invoke('update-filter-order', orderedIds) as Promise<{ success: boolean }>,
+  confirmDeleteFilter: (name: string) => ipcRenderer.invoke('confirm-delete-filter', name) as Promise<boolean>,
   updateTimeFormat: (format: '12h' | '24h') =>
     ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
   updateDateFormat: (format: string) =>

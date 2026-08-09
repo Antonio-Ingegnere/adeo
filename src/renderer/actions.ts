@@ -1,4 +1,11 @@
 import type { Tag, Task } from '../types';
+import {
+  activeTemplate,
+  missingTemplateTagNames,
+  renderTemplateHints,
+  resolveTemplateNames,
+  templateSeed,
+} from './activeFilter.js';
 import { refs } from './dom.js';
 import { renderLists, renderListOptions } from './lists.js';
 import { mergeTag, renderTags, sortTags } from './tags.js';
@@ -18,6 +25,15 @@ export const addTask = async () => {
   const stripped = raw.replace(INLINE_TAG_RE, (_match, lead: string, name: string) => {
     tokenNames.push(name);
     return lead;
+  });
+
+  // a saved filter can name a tag that does not exist yet; create it the same way an inline
+  // #token would, so "add a task to this filter" works on a filter written ahead of time
+  const template = activeTemplate();
+  missingTemplateTagNames(template).forEach((name) => {
+    if (!tokenNames.some((n) => n.toLowerCase() === name.toLowerCase())) {
+      tokenNames.push(name);
+    }
   });
 
   for (const name of tokenNames) {
@@ -43,11 +59,24 @@ export const addTask = async () => {
     return;
   }
 
+  // the filter's list wins over the sidebar selection: it is the more specific statement of
+  // where the user means this task to go
+  const resolved = template ? resolveTemplateNames(template) : null;
+  const listId =
+    resolved && resolved.listId !== undefined
+      ? resolved.listId
+      : state.addTaskSelectedListId ?? state.selectedListId;
+  // tags the filter names that already existed; the rest were just created above
+  resolved?.tagIds.forEach((id) => {
+    if (!tagIds.includes(id)) tagIds.push(id);
+  });
+
   try {
     const createdTask = await window.electronAPI.addTask(
       text,
-      state.addTaskSelectedListId ?? state.selectedListId,
-      tagIds
+      listId,
+      tagIds,
+      templateSeed(template)
     );
     if (!createdTask || (createdTask as any).error) {
       return;
@@ -60,8 +89,11 @@ export const addTask = async () => {
     });
     state.pendingTagIds = [];
     renderPendingTags();
+    renderTemplateHints(); // creating a named-but-missing tag changes what is still unapplied
     input.value = '';
     input.focus();
+    // the title carries the search result count, which is now one out of date
+    updateTasksTitle();
     renderTasks();
   } catch (error) {
     console.error('Failed to add task', error);

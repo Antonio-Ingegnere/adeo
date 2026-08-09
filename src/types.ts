@@ -37,8 +37,30 @@ export type Tag = {
   position: number;
 };
 
+/** A named advanced-search query. The server never parses `query`; the renderer does. */
+export type SavedFilter = {
+  id: number;
+  name: string;
+  query: string;
+  position: number;
+};
+
+/** Fields a saved filter's derived template can seed on a newly added task. */
+export type TaskSeed = {
+  priority?: Task['priority'];
+  reminderDate?: string | null;
+  reminderTime?: string | null;
+  repeatRule?: string | null;
+  repeatStart?: string | null;
+};
+
 export type ElectronAPI = {
-  addTask: (text: string, listId?: number | null, tagIds?: number[]) => Promise<Task | { error: string }>;
+  addTask: (
+    text: string,
+    listId?: number | null,
+    tagIds?: number[],
+    seed?: TaskSeed
+  ) => Promise<Task | { error: string }>;
   getTasks: () => Promise<Task[]>;
   updateTaskDone: (id: number, done: boolean) => Promise<{ id: number; done: boolean }>;
   updateTaskText: (id: number, text: string) => Promise<{ id: number; text: string } | { error: string }>;
@@ -70,6 +92,13 @@ export type ElectronAPI = {
   deleteTag: (id: number) => Promise<{ id: number }>;
   setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
   confirmDeleteTag: (name: string) => Promise<boolean>;
+  addFilter: (name: string, query: string) => Promise<SavedFilter | { error: string }>;
+  getFilters: () => Promise<SavedFilter[]>;
+  updateFilterName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
+  updateFilterQuery: (id: number, query: string) => Promise<{ id: number; query: string } | { error: string }>;
+  deleteFilter: (id: number) => Promise<{ id: number }>;
+  updateFilterOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+  confirmDeleteFilter: (name: string) => Promise<boolean>;
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;

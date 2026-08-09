@@ -2,7 +2,10 @@ import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions
 import { refs } from './dom.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
-import { closeQueryPopovers, setupQuerySearch } from './querySearch.js';
+import { loadFilters, renderFilters, toggleFiltersExpanded } from './filters.js';
+import { activeFilter, invalidateFilterUI, syncFilterUI } from './activeFilter.js';
+import { parseQuery } from './query.js';
+import { applySearchQuery, closeQueryPopovers, setSearchMode, setupQuerySearch } from './querySearch.js';
 import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
 import { attachTaskListDnD, renderTasks, updateTasksTitle } from './tasks.js';
 import {
@@ -24,10 +27,119 @@ import {
   updateTagsUI,
 } from './modals.js';
 import { state } from './state.js';
-import type { Tag, Theme } from '../types.js';
+import type { SavedFilter, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
 import { installModalFocusTrap } from './focusTrap.js';
+
+// ---------- Saved filters ----------
+
+const showFilterError = (message: string | null) => {
+  if (!refs.filterModalError) return;
+  refs.filterModalError.textContent = message ?? '';
+  refs.filterModalError.style.display = message ? 'block' : 'none';
+};
+
+const closeFilterModal = () => {
+  refs.filterOverlay?.classList.remove('open');
+  state.editingFilterId = null;
+  showFilterError(null);
+};
+
+/** With no id, saves whatever query is currently in the search bar. */
+const openFilterModal = (filterId?: number) => {
+  const existing = filterId !== undefined ? state.filters.find((f) => f.id === filterId) : undefined;
+  state.editingFilterId = existing?.id ?? null;
+  showFilterError(null);
+
+  if (refs.filterModalTitle) {
+    refs.filterModalTitle.textContent = existing ? 'Edit filter' : 'Save filter';
+  }
+  if (refs.filterNameInput) {
+    refs.filterNameInput.value = existing?.name ?? '';
+  }
+  if (refs.filterQueryInput) {
+    refs.filterQueryInput.value = existing?.query ?? state.searchQuery.trim();
+  }
+
+  if (!existing && !refs.filterQueryInput?.value) {
+    // nothing to save: tell the user how to get a query rather than opening an empty dialog
+    showFilterError('Type a query in the search bar first, then save it here.');
+  }
+
+  refs.filterOverlay?.classList.add('open');
+  refs.filterNameInput?.focus();
+  refs.filterNameInput?.select();
+};
+
+const saveFilter = async () => {
+  const name = refs.filterNameInput?.value.trim() ?? '';
+  const query = refs.filterQueryInput?.value.trim() ?? '';
+  if (!name) {
+    showFilterError('Give the filter a name.');
+    refs.filterNameInput?.focus();
+    return;
+  }
+  if (!query) {
+    showFilterError('A filter needs a query.');
+    refs.filterQueryInput?.focus();
+    return;
+  }
+  // refuse to save something that will never run; the error is the parser's own wording
+  const parsed = parseQuery(query);
+  if (!parsed.ok) {
+    showFilterError(`${parsed.error.message} (column ${parsed.error.position + 1})`);
+    refs.filterQueryInput?.focus();
+    return;
+  }
+
+  try {
+    if (state.editingFilterId !== null) {
+      const id = state.editingFilterId;
+      const renamed = await window.electronAPI.updateFilterName(id, name);
+      if ((renamed as { error?: string }).error) {
+        showFilterError((renamed as { error: string }).error);
+        return;
+      }
+      const requeried = await window.electronAPI.updateFilterQuery(id, query);
+      if ((requeried as { error?: string }).error) {
+        showFilterError((requeried as { error: string }).error);
+        return;
+      }
+      state.filters = state.filters.map((f) => (f.id === id ? { ...f, name, query } : f));
+    } else {
+      const created = await window.electronAPI.addFilter(name, query);
+      if ((created as { error?: string }).error) {
+        showFilterError((created as { error: string }).error);
+        return;
+      }
+      state.filters.push(created as SavedFilter);
+    }
+    closeFilterModal();
+    invalidateFilterUI();
+    syncFilterUI(renderFilters);
+    renderFilters();
+  } catch (error) {
+    console.error('Failed to save filter', error);
+    showFilterError('Could not save the filter.');
+  }
+};
+
+/** Selecting a saved filter is just running its query — no separate filtering path. */
+const runSavedFilter = (filterId: number) => {
+  const filter = state.filters.find((f) => f.id === filterId);
+  if (!filter || !refs.listsSearchInput) return;
+  const alreadyRunning = activeFilter()?.id === filter.id;
+  // clicking the running filter clears it, matching how list and tag pills toggle
+  const nextQuery = alreadyRunning ? '' : filter.query;
+  setSearchMode('advanced');
+  refs.listsSearchInput.value = nextQuery;
+  applySearchQuery(nextQuery, true);
+  invalidateFilterUI();
+  syncFilterUI(renderFilters);
+  renderFilters();
+  refs.listsSearchInput.focus();
+};
 
 const toDateInputValue = (date: Date) => {
   const year = date.getFullYear();
@@ -390,6 +502,19 @@ const setupEvents = () => {
 
   refs.tagsToggle?.addEventListener('click', () => {
     toggleTagsExpanded();
+  });
+
+  refs.filtersToggle?.addEventListener('click', () => {
+    toggleFiltersExpanded();
+  });
+
+  refs.addFilterBtn?.addEventListener('click', () => openFilterModal());
+  refs.saveFilterBtn?.addEventListener('click', () => saveFilter());
+  refs.cancelFilterBtn?.addEventListener('click', () => closeFilterModal());
+  refs.filterNameInput?.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      saveFilter();
+    }
   });
 
   refs.addListBtn?.addEventListener('click', () => openListModal());
@@ -1019,6 +1144,20 @@ const setupEvents = () => {
     }
   });
 
+  document.addEventListener('open-edit-filter-modal', (event) => {
+    const detail = (event as CustomEvent<{ filterId: number }>).detail;
+    if (detail?.filterId !== undefined) {
+      openFilterModal(detail.filterId);
+    }
+  });
+
+  document.addEventListener('run-saved-filter', (event) => {
+    const detail = (event as CustomEvent<{ filterId: number }>).detail;
+    if (detail?.filterId !== undefined) {
+      runSavedFilter(detail.filterId);
+    }
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (refs.overlay?.classList.contains('open')) {
@@ -1026,6 +1165,9 @@ const setupEvents = () => {
     }
     if (refs.repeatOverlay?.classList.contains('open')) {
       refs.repeatOverlay.classList.remove('open');
+    }
+    if (refs.filterOverlay?.classList.contains('open')) {
+      closeFilterModal();
     }
   });
 
@@ -1037,6 +1179,10 @@ const setupEvents = () => {
     if (state.openTagMenuId !== null) {
       state.openTagMenuId = null;
       renderTags();
+    }
+    if (state.openFilterMenuId !== null) {
+      state.openFilterMenuId = null;
+      renderFilters();
     }
     if (refs.priorityMenu) {
       refs.priorityMenu.style.display = 'none';
@@ -1077,6 +1223,8 @@ const init = async () => {
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.tagsToggle?.dispatchEvent(new Event('click'));
   refs.tagsToggle?.dispatchEvent(new Event('click'));
+  refs.filtersToggle?.dispatchEvent(new Event('click'));
+  refs.filtersToggle?.dispatchEvent(new Event('click'));
   updateTasksTitle();
   updatePriorityUI(state.modalPriority);
   await loadSettings();
@@ -1086,6 +1234,7 @@ const init = async () => {
   await loadTags();
   await loadTasks();
   await loadLists();
+  await loadFilters();
   window.electronAPI.notifyRendererReady();
 };
 

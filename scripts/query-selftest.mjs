@@ -1,6 +1,7 @@
 // Manual self-test for the advanced-search query engine.
 // Run after `npm run build`:  node scripts/query-selftest.mjs
 import { parseQuery, compilePredicate, queryUsesField } from '../dist/renderer/query.js';
+import { deriveTemplate } from '../dist/renderer/filterTemplate.js';
 
 const ctx = {
   listNameById: new Map([
@@ -169,7 +170,77 @@ for (const [query, expected] of usesDoneCases) {
   }
 }
 
-const total = matchCases.length + errorCases.length + usesDoneCases.length;
+// deriveTemplate: inverting a saved filter into defaults for a new task.
+// Each case is [query, expected-subset]; `skipped` is compared as an exact array.
+const templateCases = [
+  // fully assignable conjunctions -- the case that beats Reminders' one-list limit
+  ['list:Work AND #urgent AND priority:high',
+    { listName: 'Work', tagNames: ['urgent'], priority: 'high', skipped: [] }],
+  ['#a #b', { tagNames: ['a', 'b'], skipped: [] }],
+  ['list:"Foo list 1"', { listName: 'Foo list 1', tagNames: [], skipped: [] }],
+  ['due:today', { due: 'today', tagNames: [], skipped: [] }],
+  ['repeat:weekly', { repeat: 'weekly', tagNames: [], skipped: [] }],
+  // 'none' means "the default", which a new task already satisfies
+  ['list:none', { listName: null, tagNames: [], skipped: [] }],
+  ['due:none', { due: undefined, tagNames: [], skipped: [] }],
+  ['repeat:none', { repeat: undefined, tagNames: [], skipped: [] }],
+  ['tag:none', { tagNames: [], skipped: [] }],
+  ['list:Work AND done:false', { listName: 'Work', tagNames: [], skipped: [] }],
+  // ranges and contains describe sets, not values
+  ['list:Work AND due<=today', { listName: 'Work', tagNames: [], skipped: ['due<=today'] }],
+  ['text~milk', { tagNames: [], skipped: ['text~milk'] }],
+  ['priority!=none', { tagNames: [], skipped: ['priority!=none'] }],
+  ['due:any', { tagNames: [], skipped: ['due:any'] }],
+  ['done:true', { tagNames: [], skipped: ['done:true'] }],
+  ['milk', { tagNames: [], skipped: ['milk'] }],
+  // no single satisfying assignment
+  ['tag:a OR tag:b', { tagNames: [], skipped: ['(tag:a OR tag:b)'] }],
+  ['NOT list:Home', { tagNames: [], skipped: ['NOT list:Home'] }],
+  ['list:Work AND NOT #urgent',
+    { listName: 'Work', tagNames: [], skipped: ['NOT tag:urgent'] }],
+  // contradictions: report, never pick one
+  ['list:Work AND list:Home',
+    { listName: undefined, tagNames: [], skipped: ['list is constrained twice (Work, Home)'] }],
+  ['priority:high AND priority:low',
+    { priority: undefined, tagNames: [],
+      skipped: ['priority is constrained twice (high, low)'] }],
+  ['tag:none AND #urgent',
+    { tagNames: [], skipped: ['tag is constrained twice (none, urgent)'] }],
+  // `list:none` (no list) must stay distinct from a list literally *named* "none"
+  ['list:"none"', { listName: 'none', tagNames: [], skipped: [] }],
+  ['list:"none" AND list:none',
+    { listName: undefined, tagNames: [],
+      skipped: ['list is constrained twice (none, no list)'] }],
+  ['list:none AND list:Work',
+    { listName: undefined, tagNames: [],
+      skipped: ['list is constrained twice (no list, Work)'] }],
+  // case-insensitive de-duplication, matching the evaluator
+  ['#Urgent #urgent', { tagNames: ['Urgent'], skipped: [] }],
+  ['list:Work AND list:work', { listName: 'Work', tagNames: [], skipped: [] }],
+  ['', { tagNames: [], skipped: [] }],
+];
+for (const [query, expected] of templateCases) {
+  const parsed = parseQuery(query);
+  if (!parsed.ok) {
+    failures += 1;
+    console.error(`FAIL  template ${JSON.stringify(query)} — unexpected parse error`);
+    continue;
+  }
+  const got = deriveTemplate(parsed.ast);
+  for (const [key, want] of Object.entries(expected)) {
+    const actual = got[key];
+    const same = JSON.stringify(actual) === JSON.stringify(want);
+    if (!same) {
+      failures += 1;
+      console.error(
+        `FAIL  template ${JSON.stringify(query)} .${key} — got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`
+      );
+    }
+  }
+}
+
+const total =
+  matchCases.length + errorCases.length + usesDoneCases.length + templateCases.length;
 if (failures) {
   console.error(`\n${failures}/${total} cases failed`);
   process.exit(1);

@@ -1942,8 +1942,84 @@ body {
 
 /* ---------- Tags ---------- */
 
-.tags-panel {
+.tags-panel,
+.filters-panel {
   margin-top: 12px;
+}
+
+/* ---------- Saved filters ----------
+   A saved filter is a named query. Its pill reuses .list-pill wholesale; only the query
+   preview under the name is new. */
+
+.filter-pill .list-pill-label {
+  font-size: var(--font-m);
+}
+
+.filter-query-label {
+  margin: 12px 0 4px;
+  padding: 0 16px;
+}
+
+.filter-query-input {
+  font-family: var(--font-mono);
+  font-size: var(--font-s);
+}
+
+.filter-modal-error {
+  margin: 8px 0 0;
+  padding: 0 16px;
+  color: var(--danger);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+/* defaults the active filter will apply to the next task, shown so the result is never
+   a surprise */
+.add-task-template {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* --text-body, not --text-chip: these sit on a transparent or priority-tinted background that
+   follows the colour scheme, whereas --text-chip is the dark ink meant for pastel tag fills */
+.template-chip {
+  font-size: var(--font-xs);
+  padding: 2px 9px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--border-chip);
+  color: var(--text-body);
+  background: var(--priority-fill-none);
+  line-height: 16px;
+}
+
+.template-chip[data-priority='low'] {
+  background: var(--priority-fill-low);
+  border-color: var(--priority-border-low);
+}
+
+.template-chip[data-priority='medium'] {
+  background: var(--priority-fill-medium);
+  border-color: var(--priority-border-medium);
+}
+
+.template-chip[data-priority='high'] {
+  background: var(--priority-fill-high);
+  border-color: var(--priority-border-high);
+}
+
+/* a tag chip carries the tag's own pastel fill, so it takes the same ink as .task-tag-chip */
+.template-chip-tag {
+  color: var(--text-chip);
+  border-color: var(--border-chip-strong);
+}
+
+.template-warning {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .tag-dot {

@@ -701,6 +701,30 @@ function createWindow(): void {
     mainWindow = null;
   });
 
+  // Electron ships no default context menu, so right-clicking a field offered nothing either.
+  // Attached here rather than in setupMenu(), which is re-run on settings changes and would
+  // stack duplicate listeners.
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const items: Electron.MenuItemConstructorOptions[] = [];
+    if (params.isEditable) {
+      items.push(
+        { role: 'undo', enabled: params.editFlags.canUndo },
+        { role: 'redo', enabled: params.editFlags.canRedo },
+        { type: 'separator' },
+        { role: 'cut', enabled: params.editFlags.canCut },
+        { role: 'copy', enabled: params.editFlags.canCopy },
+        { role: 'paste', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { role: 'selectAll', enabled: params.editFlags.canSelectAll }
+      );
+    } else if (params.selectionText.trim()) {
+      items.push({ role: 'copy' });
+    }
+    if (items.length) {
+      Menu.buildFromTemplate(items).popup({ window: mainWindow ?? undefined });
+    }
+  });
+
   setupMenu(mainWindow);
 }
 
@@ -728,6 +752,32 @@ function setupMenu(window: BrowserWindow): void {
             submenu: [{ role: 'quit' }],
           } as Electron.MenuItemConstructorOptions,
         ]),
+    // Required, not decorative: Cmd/Ctrl+A, C, V, X, Z are delivered *by these menu roles*.
+    // Calling Menu.setApplicationMenu with a template that omits them removes the
+    // accelerators from the whole app, which is why every text field lost select-all and
+    // clipboard support. Keep this submenu whenever the template changes.
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(isMac
+          ? ([
+              { role: 'pasteAndMatchStyle' },
+              { role: 'delete' },
+              { role: 'selectAll' },
+            ] as Electron.MenuItemConstructorOptions[])
+          : ([
+              { role: 'delete' },
+              { type: 'separator' },
+              { role: 'selectAll' },
+            ] as Electron.MenuItemConstructorOptions[])),
+      ],
+    },
     {
       label: 'View',
       submenu: [

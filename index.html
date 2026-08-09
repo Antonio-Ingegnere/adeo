@@ -47,29 +47,43 @@
             </label>
           </div>
           <button id="search-help-btn" class="search-help-btn" type="button"
-            aria-label="Search syntax help" style="display:none">?</button>
+            aria-label="Search help">?</button>
           <!-- announced separately so the transient "still typing" state never reaches a
                screen reader, which would otherwise chatter on every keystroke -->
           <span id="search-status-live" class="visually-hidden" role="status" aria-live="polite"></span>
           <div id="search-help-popover" class="search-help-popover" style="display:none">
-            <p class="search-help-title">Query syntax</p>
-            <table class="search-help-table">
-              <tr><td><code>text</code>, <code>details</code></td><td><code>: ~ !=</code></td></tr>
-              <tr><td><code>list</code>, <code>tag</code></td><td><code>: ~ !=</code> · <code>none</code>, <code>any</code></td></tr>
-              <tr><td><code>priority</code></td><td>none / low / medium / high</td></tr>
-              <tr><td><code>done</code></td><td>true / false</td></tr>
-              <tr><td><code>due</code></td><td><code>: != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday</td></tr>
-              <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly</td></tr>
-            </table>
-            <p class="search-help-note">A term is <code>field:value</code>. <code>:</code> is exact,
-              <code>~</code> is contains. Combine with <code>AND</code>, <code>OR</code>, <code>NOT</code>
-              and parentheses; bare words search text.
-              Quote names with spaces or symbols: <code>list:"Foo list 1"</code>.</p>
-            <p class="search-help-title">Examples</p>
-            <p class="search-help-example"><code>tag:errands AND due&lt;=today</code></p>
-            <p class="search-help-example"><code>priority:high OR priority:medium</code></p>
-            <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
-            <p class="search-help-example"><code>milk due:none #errands</code></p>
+            <!-- the two variants are swapped by applyModeUI(); advanced is the original -->
+            <div id="search-help-simple">
+              <p class="search-help-title">Text search</p>
+              <p class="search-help-note">Matches task text, details and tags. Every word has to
+                appear, in any order.</p>
+              <p class="search-help-title">Need to be more specific?</p>
+              <p class="search-help-note">Switch to <strong>Query</strong> for a filter language
+                that can search by list, tag, priority, due date, repeat and completion — and
+                combine those with <code>AND</code>, <code>OR</code> and <code>NOT</code>.</p>
+              <p class="search-help-example"><code>tag:errands AND due&lt;=today</code></p>
+              <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
+            </div>
+            <div id="search-help-advanced">
+              <p class="search-help-title">Query syntax</p>
+              <table class="search-help-table">
+                <tr><td><code>text</code>, <code>details</code></td><td><code>: ~ !=</code></td></tr>
+                <tr><td><code>list</code>, <code>tag</code></td><td><code>: ~ !=</code> · <code>none</code>, <code>any</code></td></tr>
+                <tr><td><code>priority</code></td><td>none / low / medium / high</td></tr>
+                <tr><td><code>done</code></td><td>true / false</td></tr>
+                <tr><td><code>due</code></td><td><code>: != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday</td></tr>
+                <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly</td></tr>
+              </table>
+              <p class="search-help-note">A term is <code>field:value</code>. <code>:</code> is exact,
+                <code>~</code> is contains. Combine with <code>AND</code>, <code>OR</code>, <code>NOT</code>
+                and parentheses; bare words search text.
+                Quote names with spaces or symbols: <code>list:"Foo list 1"</code>.</p>
+              <p class="search-help-title">Examples</p>
+              <p class="search-help-example"><code>tag:errands AND due&lt;=today</code></p>
+              <p class="search-help-example"><code>priority:high OR priority:medium</code></p>
+              <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
+              <p class="search-help-example"><code>milk due:none #errands</code></p>
+            </div>
           </div>
         </div>
       </div>

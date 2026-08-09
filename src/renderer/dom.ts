@@ -31,6 +31,8 @@ export const refs = {
   searchStatusLive: byId<HTMLSpanElement>('search-status-live'),
   searchHelpBtn: byId<HTMLButtonElement>('search-help-btn'),
   searchHelpPopover: byId<HTMLDivElement>('search-help-popover'),
+  searchHelpSimple: byId<HTMLDivElement>('search-help-simple'),
+  searchHelpAdvanced: byId<HTMLDivElement>('search-help-advanced'),
   querySuggestMenu: byId<HTMLDivElement>('query-suggest-menu'),
   modalListPicker: byId<HTMLButtonElement>('modal-list-picker'),
   modalListMenu: byId<HTMLDivElement>('modal-list-menu'),

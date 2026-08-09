@@ -239,10 +239,14 @@ const applyModeUI = () => {
     refs.searchModeSimple.checked = !advanced;
     refs.searchModeAdvanced.checked = advanced;
   }
-  // the query language is the only thing the help documents
-  if (refs.searchHelpBtn) {
-    refs.searchHelpBtn.style.display = advanced ? 'inline-flex' : 'none';
+  // help is available in both modes; in simple mode it explains text search and points at
+  // the Query switch, which is where a user who wants more goes looking
+  if (refs.searchHelpSimple && refs.searchHelpAdvanced) {
+    refs.searchHelpSimple.style.display = advanced ? 'none' : 'block';
+    refs.searchHelpAdvanced.style.display = advanced ? 'block' : 'none';
   }
+  refs.searchHelpPopover?.classList.toggle('simple', !advanced);
+  refs.searchHelpBtn?.setAttribute('aria-label', advanced ? 'Query syntax help' : 'Search help');
   if (!advanced) {
     closeQueryPopovers();
     // applySearchQuery's simple branch never reaches renderSearchStatus, so the last

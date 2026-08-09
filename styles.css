@@ -2293,10 +2293,21 @@ body {
   padding: 1px 4px;
 }
 
+/* the simple-mode variant is a couple of short paragraphs; 520px leaves it mostly empty */
+.search-help-popover.simple {
+  width: 340px;
+}
+
 .search-help-note {
   margin: 0 0 8px;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+/* names the "Query" segment, so it should read as prominently as that label does */
+.search-help-note strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .search-help-example {

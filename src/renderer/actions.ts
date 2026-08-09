@@ -89,7 +89,9 @@ export const addTask = async () => {
     });
     state.pendingTagIds = [];
     renderPendingTags();
-    renderTemplateHints(); // creating a named-but-missing tag changes what is still unapplied
+    // forced: creating a named-but-missing tag changes what is still unapplied, and the query
+    // the hints memoize on has not moved
+    renderTemplateHints(true);
     input.value = '';
     input.focus();
     // the title carries the search result count, which is now one out of date

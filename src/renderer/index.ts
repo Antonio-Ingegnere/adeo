@@ -3,7 +3,13 @@ import { refs } from './dom.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
 import { loadSmartLists, renderSmartLists, toggleSmartListsExpanded } from './smartLists.js';
-import { activeSmartList, invalidateSmartListUI, syncSmartListUI } from './activeSmartList.js';
+import {
+  activeSmartList,
+  associatedSmartList,
+  invalidateSmartListUI,
+  syncSmartListUI,
+} from './activeSmartList.js';
+import { exitQueryBarNaming, renderQueryBar, showQueryBarError } from './queryBar.js';
 import { parseQuery } from './query.js';
 import { applySearchQuery, closeQueryPopovers, setSearchMode, setupQuerySearch } from './querySearch.js';
 import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
@@ -153,11 +159,16 @@ const saveSmartList = async () => {
         return;
       }
       state.smartLists.push(created as SmartList);
+      // saving the bar's own query means the user is now working on this one
+      if (query === state.searchQuery.trim()) {
+        state.smartListOrigin = (created as SmartList).id;
+      }
     }
     closeSmartListModal();
     invalidateSmartListUI();
     syncSmartListUI(renderSmartLists);
     renderSmartLists();
+    renderQueryBar();
   } catch (error) {
     console.error('Failed to save smart list', error);
     showSmartListError('Could not save the smart list.');
@@ -168,24 +179,102 @@ const saveSmartList = async () => {
 const runSmartList = (smartListId: number) => {
   const smartList = state.smartLists.find((f) => f.id === smartListId);
   if (!smartList || !refs.listsSearchInput) return;
-  const alreadyRunning = activeSmartList()?.id === smartList.id;
+  // the *association*, so that clicking the pill of a smart list you have edited puts its
+  // saved query back rather than reading as "clear this"
+  const current = associatedSmartList();
+  const alreadyRunning = current?.smartList.id === smartList.id && !current.edited;
   // clicking the running smart list clears it, matching how list and tag pills toggle
   const nextQuery = alreadyRunning ? '' : smartList.query;
+  exitQueryBarNaming();
   setSearchMode('advanced');
+  state.smartListOrigin = alreadyRunning ? null : smartList.id;
   refs.listsSearchInput.value = nextQuery;
   applySearchQuery(nextQuery, true);
-  // deliberately asymmetric, and settled *before* the sync below because the chip's visibility
-  // depends on it: running one leaves the field unfocused so the name chip is what the user
-  // sees, which is the point of picking it by name. Clearing one puts the caret back in an
-  // empty field, ready to type.
-  if (alreadyRunning) {
-    refs.listsSearchInput.focus();
-  } else {
-    refs.listsSearchInput.blur();
-  }
+  // clearing one puts the caret back in an empty field, ready to type; running one leaves
+  // focus alone, since the query it just loaded is the thing to read
+  if (alreadyRunning) refs.listsSearchInput.focus();
   invalidateSmartListUI();
   syncSmartListUI(renderSmartLists);
   renderSmartLists();
+  renderQueryBar();
+};
+
+/**
+ * "Update": the whole point of tracking the association. One click, no modal and no name to
+ * retype -- saving an edit you are already looking at should not be a dialog.
+ */
+const updateSmartListFromBar = async () => {
+  const association = associatedSmartList();
+  if (!association) return;
+  const query = state.searchQuery.trim();
+  if (!query) return;
+  const id = association.smartList.id;
+  try {
+    const result = await window.electronAPI.updateSmartListQuery(id, query);
+    if ((result as { error?: string }).error) {
+      showQueryBarError((result as { error: string }).error);
+      return;
+    }
+    state.smartLists = state.smartLists.map((f) => (f.id === id ? { ...f, query } : f));
+  } catch (error) {
+    console.error('Failed to update smart list', error);
+    showQueryBarError('Could not update the smart list.');
+    return;
+  }
+  // the query now equals the stored one, so the association goes back to a plain match and
+  // the "edited" marker comes down on its own
+  invalidateSmartListUI();
+  syncSmartListUI(renderSmartLists);
+  renderSmartLists();
+  renderQueryBar();
+};
+
+/** "Save as smart list" / "Save as new": named in the bar, so there is no modal in the way. */
+const createSmartListFromBar = async (name: string) => {
+  const query = state.searchQuery.trim();
+  if (!query) return;
+  const parsed = parseQuery(query);
+  if (!parsed.ok) {
+    showQueryBarError(`${parsed.error.message} (column ${parsed.error.position + 1})`);
+    return;
+  }
+  try {
+    const clash = smartListNamed(name, null);
+    if (clash) {
+      const replace = await window.electronAPI.confirmReplaceSmartList(clash.name);
+      if (!replace) {
+        showQueryBarError('That name is taken.');
+        return;
+      }
+      // replacing keeps the clashing record's id, so its sidebar position survives and anyone
+      // running it keeps running it -- only the query changes, and the name is already right
+      const result = await window.electronAPI.updateSmartListQuery(clash.id, query);
+      if ((result as { error?: string }).error) {
+        showQueryBarError((result as { error: string }).error);
+        return;
+      }
+      state.smartLists = state.smartLists.map((f) => (f.id === clash.id ? { ...f, query } : f));
+      state.smartListOrigin = clash.id;
+    } else {
+      const created = await window.electronAPI.addSmartList(name, query);
+      if ((created as { error?: string }).error) {
+        showQueryBarError((created as { error: string }).error);
+        return;
+      }
+      state.smartLists.push(created as SmartList);
+      state.smartListOrigin = (created as SmartList).id;
+    }
+  } catch (error) {
+    console.error('Failed to save smart list', error);
+    showQueryBarError('Could not save the smart list.');
+    return;
+  }
+  exitQueryBarNaming();
+  invalidateSmartListUI();
+  syncSmartListUI(renderSmartLists);
+  renderSmartLists();
+  renderQueryBar();
+  refs.listsSearchInput?.focus();
 };
 
 const toDateInputValue = (date: Date) => {
@@ -1191,7 +1280,7 @@ const setupEvents = () => {
     }
   });
 
-  // no id means "save what is in the search bar", which is how the in-field bookmark creates one
+  // no id means "save what is in the search bar"; the query bar's Edit passes the one it is on
   document.addEventListener('open-smart-list-modal', (event) => {
     const detail = (event as CustomEvent<{ smartListId?: number }>).detail;
     openSmartListModal(detail?.smartListId);
@@ -1202,6 +1291,18 @@ const setupEvents = () => {
     if (detail?.smartListId !== undefined) {
       runSmartList(detail.smartListId);
     }
+  });
+
+  // the query bar owns its own presentation but nothing else: the API calls, the sidebar
+  // repaint and the association all live here, which is what keeps queryBar.ts out of the
+  // smartLists.ts import graph it would otherwise cycle with
+  document.addEventListener('smart-list-create', (event) => {
+    const detail = (event as CustomEvent<{ name: string }>).detail;
+    if (detail?.name) void createSmartListFromBar(detail.name);
+  });
+
+  document.addEventListener('smart-list-update', () => {
+    void updateSmartListFromBar();
   });
 
   document.addEventListener('keydown', (event) => {

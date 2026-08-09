@@ -3,7 +3,13 @@
 // advanced-search machinery does all the work.
 import { refs } from './dom.js';
 import { makePillActivatable } from './helpers.js';
-import { activeSmartList, invalidateSmartListUI, syncSmartListUI } from './activeSmartList.js';
+import {
+  associatedSmartList,
+  clearSmartListOrigin,
+  invalidateSmartListUI,
+  syncSmartListUI,
+} from './activeSmartList.js';
+import { renderQueryBar } from './queryBar.js';
 import { state } from './state.js';
 
 export const toggleSmartListsExpanded = () => {
@@ -37,11 +43,13 @@ export const renderSmartLists = () => {
     return;
   }
 
-  const running = activeSmartList();
+  // the association, not the exact match: editing a saved query is how you edit a smart list,
+  // and dropping the highlight mid-edit would say the user had left it
+  const associated = associatedSmartList();
 
   state.smartLists.forEach((smartList) => {
     const item = document.createElement('div');
-    const isSelected = running?.id === smartList.id;
+    const isSelected = associated?.smartList.id === smartList.id;
     item.className = `list-pill smart-list-pill${isSelected ? ' selected' : ''}`;
     makePillActivatable(item, isSelected);
 
@@ -99,12 +107,14 @@ export const renderSmartLists = () => {
         await window.electronAPI.deleteSmartList(smartList.id);
         state.smartLists = state.smartLists.filter((f) => f.id !== smartList.id);
         state.openSmartListMenuId = null;
-        // the query itself is deliberately left in the search bar: deleting the bookmark
-        // should not also throw away the results the user is looking at. The chip and the
-        // bookmark must still come down, and syncSmartListUI's memo would swallow that
-        // without the invalidate -- nothing about the *query* changed, only what it is called.
+        // the query itself is deliberately left in the search bar: deleting the name should
+        // not also throw away the results the user is looking at. The bar's identity must
+        // still come down, and syncSmartListUI's memo would swallow that without the
+        // invalidate -- nothing about the *query* changed, only what it is called.
+        if (state.smartListOrigin === smartList.id) clearSmartListOrigin();
         invalidateSmartListUI();
         syncSmartListUI(renderSmartLists);
+        renderQueryBar();
       } catch (error) {
         console.error('Failed to delete smart list', error);
       }

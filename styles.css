@@ -236,77 +236,40 @@ body {
   fill: currentColor;
 }
 
-/* Query mode only, and inside the field on purpose: the row's trailing group is pinned to
-   181px so its seams line up with the add-task row, and a fourth element in the row would
-   break that. Sits just inboard of the clear button; .query-mode's padding-right reserves the
-   space, so Text mode is untouched. */
-.search-save-smart-list {
+/* ---------- Query bar ----------
+   The strip under the search field in Query mode: which smart list the query belongs to on
+   the left, what can be done about it on the right. Absolutely positioned, so the header row
+   above it -- and with it the 147/8/26 = 181px trailing group and both cross-row seams -- is
+   untouched by construction. The space it occupies is reserved by .app-header-main.query-mode's
+   padding-bottom, not by this element.
+
+   It keeps its height while the query is empty rather than collapsing: appearing and
+   disappearing on the first keystroke would move the whole page under the user's hands. */
+.query-bar {
   position: absolute;
-  right: 34px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  background: transparent;
-  color: var(--text-hint);
-  padding: 4px;
-  cursor: pointer;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  height: 24px;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.search-save-smart-list:hover {
-  color: var(--text-body);
-}
-
-.search-save-smart-list svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-
-/* both icons ship in the markup; this picks which one is drawn, so saved vs unsaved costs no
-   DOM work on a state that changes with every keystroke */
-.search-save-smart-list .icon-bookmark-filled,
-.search-save-smart-list.is-saved .icon-bookmark-outline {
-  display: none;
-}
-
-.search-save-smart-list.is-saved .icon-bookmark-filled {
-  display: block;
-}
-
-.search-save-smart-list.is-saved {
-  color: var(--accent);
-}
-
-/* Masks the raw query with the running smart list's name. Opaque and inset inside the input's
-   border rather than layered over it: --surface-query is defined in both themes, and the input
-   has no focus-specific background, so one value covers every state. left:30px keeps the
-   magnifier glyph visible; right:60px clears both in-field buttons. */
-.search-smart-list-chip {
-  position: absolute;
-  left: 30px;
-  right: 60px;
-  top: 2px;
-  bottom: 2px;
-  align-items: center;
-  gap: 6px;
-  padding-right: 4px;
-  background: var(--surface-query);
-  border-radius: var(--radius-l);
-  cursor: text;
-  overflow: hidden;
-  z-index: 2;
-}
-
-.search-smart-list-chip-name {
-  flex: 0 1 auto;
+  gap: 8px;
   min-width: 0;
-  padding: 3px 10px;
+}
+
+.query-bar-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* the fill and ink the sidebar pill uses when selected, so the rail and the bar are visibly
+   showing the same thing */
+.query-bar-name {
+  padding: 2px 10px;
   border-radius: var(--radius-l);
-  /* the same fill and ink the sidebar pill uses when selected, so the bar and the rail are
-     visibly showing the same thing */
   background: var(--surface-selected);
   color: var(--text-heading);
   font-weight: 700;
@@ -316,26 +279,67 @@ body {
   text-overflow: ellipsis;
 }
 
-.search-smart-list-chip-clear {
+.query-bar-edited {
   flex: 0 0 auto;
+  color: var(--text-hint);
+  font-size: var(--font-xs);
+}
+
+.query-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+/* text buttons, not icons: this is the one place in the app where the label has to carry a
+   distinction between actions ("Update" vs "Save as new") that no glyph pair can */
+.query-bar-action {
   border: none;
   background: transparent;
   color: var(--text-hint);
-  padding: 4px;
+  font-size: var(--font-xs);
+  padding: 3px 8px;
+  border-radius: var(--radius-m);
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  white-space: nowrap;
 }
 
-.search-smart-list-chip-clear:hover {
+.query-bar-action:hover {
   color: var(--text-body);
+  background: var(--surface-sunken);
 }
 
-.search-smart-list-chip-clear svg {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
+/* only Update is promoted: with unsaved edits on screen it is the one thing the user came
+   here to do, and "Save as new" beside it is the escape hatch */
+.query-bar-action.primary {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.query-bar-action.primary:hover {
+  color: var(--accent);
+  background: var(--surface-selected);
+}
+
+.query-bar-name-input {
+  flex: 0 1 220px;
+  min-width: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text-body);
+  font-size: var(--font-s);
+}
+
+.query-bar-error {
+  color: var(--danger);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .headline {
@@ -2397,9 +2401,6 @@ body {
 .lists-search-input.query-mode {
   font-family: var(--font-mono);
   font-size: var(--font-s);
-  /* reserves the bookmark's slot alongside the clear button. Kept here rather than toggled
-     from JS so the text never reflows as the button shows and hides. */
-  padding-right: 60px;
   background-color: var(--surface-query);
 }
 
@@ -2407,7 +2408,8 @@ body {
    width, and wrapping -- the old status text was capped at 45% and ellipsized the message. */
 .search-status-line {
   position: absolute;
-  top: calc(100% + 4px);
+  /* clears the query bar, same 34px the suggest menu uses */
+  top: calc(100% + 34px);
   left: 0;
   right: 0;
   box-sizing: border-box;
@@ -2542,7 +2544,10 @@ body {
 .app-header {
   display: flex;
   align-items: stretch;
-  height: 56px;
+  /* min-height rather than height: Query mode adds the query bar below the field, and the
+     header grows to hold it instead of the bar overlaying the first task row. The growth
+     happens once, at the mode switch -- a deliberate act -- and never while typing. */
+  min-height: 56px;
   padding: 0;
   margin-right: -32px;
   border-bottom: 1px solid var(--border-subtle);
@@ -2563,6 +2568,18 @@ body {
   align-items: center;
   padding: 0 32px 0 24px;
   background: var(--surface);
+}
+
+/* 86px = 56 + the query bar's 24px and its 6px offset from the field. Reserved on the header
+   rather than on .app-header-main so both numbers stay border-box: the row then centres in
+   exactly the 55px it has in Text mode, and the input, the mode switch and the ? do not move
+   by so much as a half-pixel when the mode changes. */
+.app-header.query-mode {
+  min-height: 86px;
+}
+
+.app-header.query-mode .app-header-main {
+  padding-bottom: 30px;
 }
 
 /* ---------- Narrow windows ----------

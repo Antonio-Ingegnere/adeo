@@ -8,9 +8,9 @@ import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
 
 /**
- * Derived, never stored. A smart list is running iff the search bar currently holds exactly its
- * query, so editing the query simply deselects it -- there is no flag to keep in sync and no
- * way for the sidebar highlight to disagree with what is on screen.
+ * Derived, never stored. A smart list is *running* iff the search bar currently holds exactly
+ * its query. Editing the query therefore stops it running on its own -- there is no flag to
+ * keep in sync and no way for this to disagree with what is on screen.
  */
 export const activeSmartList = (): SmartList | null => {
   if (state.searchMode !== 'advanced') return null;
@@ -19,87 +19,74 @@ export const activeSmartList = (): SmartList | null => {
   return state.smartLists.find((f) => f.query.trim() === current) ?? null;
 };
 
+export type SmartListAssociation = { smartList: SmartList; edited: boolean };
+
 /**
- * Called from applySearchQuery on every keystroke, so it repaints only when the *identity* of
- * the running smart list changes rather than rebuilding the sidebar for each character typed.
- * `undefined` means "not yet computed", which is distinct from null ("nothing running").
+ * Which smart list the bar is *working on*, which is not the same question as which one is
+ * running: refining a saved query is the normal way to edit one, and the refined text matches
+ * nothing. An exact match always wins and re-adopts the origin, so a query typed by hand that
+ * happens to equal a saved one is still recognised; state.smartListOrigin only carries the
+ * association across the edits that break the match.
  */
-let lastActiveId: number | null | undefined;
+export const associatedSmartList = (): SmartListAssociation | null => {
+  if (state.searchMode !== 'advanced') return null;
+  if (!state.searchQuery.trim()) return null;
+  const running = activeSmartList();
+  if (running) {
+    state.smartListOrigin = running.id;
+    return { smartList: running, edited: false };
+  }
+  if (state.smartListOrigin === null) return null;
+  const origin = state.smartLists.find((f) => f.id === state.smartListOrigin);
+  if (!origin) {
+    state.smartListOrigin = null;
+    return null;
+  }
+  return { smartList: origin, edited: true };
+};
+
+/** Drops the association without touching the query — see clearSearch and setSearchMode. */
+export const clearSmartListOrigin = () => {
+  state.smartListOrigin = null;
+};
+
+/**
+ * Called from applySearchQuery on every keystroke, so it repaints only when the association
+ * *changes* rather than rebuilding the sidebar for each character typed. The edited flag is
+ * part of the key: crossing from running to edited changes the pill's subtitle even though the
+ * id has not moved. `undefined` means "not yet computed", distinct from null ("none").
+ */
+let lastAssociationKey: string | null | undefined;
+
+const associationKey = (): string | null => {
+  const association = associatedSmartList();
+  if (!association) return null;
+  return `${association.smartList.id}:${association.edited}`;
+};
 
 export const syncSmartListUI = (repaint: () => void) => {
-  const id = activeSmartList()?.id ?? null;
-  if (id === lastActiveId) return;
-  lastActiveId = id;
+  const key = associationKey();
+  if (key === lastAssociationKey) return;
+  lastAssociationKey = key;
   repaint();
-  renderTemplateHints();
-  syncSmartListChip();
-  syncSaveButton();
 };
 
 /** Forces the next syncSmartListUI to repaint — after the smart-list collection itself changes. */
 export const invalidateSmartListUI = () => {
-  lastActiveId = undefined;
+  lastAssociationKey = undefined;
 };
 
 /**
- * The name chip that masks the raw query while a smart list is running. It is a *mask*, never a
- * value swap: the input still holds the query, so every downstream consumer (the predicate, the
- * suggest menu, activeSmartList itself) is untouched. Focusing the field lifts the mask, which
- * is what keeps hiding the query fair -- the user is always one click from what is running.
- *
- * Focus changes do not alter which smart list is running, so syncSmartListUI's memo cannot see
- * them; querySearch.ts calls this directly from the field's focus/blur handlers too.
+ * Derived from the query *in the bar*, not from any saved one: the hints describe what the
+ * user can see, so an edited query has to seed from the edit rather than from the version it
+ * was saved as. That it also covers unsaved queries is the point -- adding a task under an
+ * ad-hoc filter used to make it vanish from view with nothing said about why.
  */
-export const syncSmartListChip = () => {
-  const chip = refs.searchSmartListChip;
-  if (!chip) return;
-  const running = activeSmartList();
-  const focused = document.activeElement === refs.listsSearchInput;
-  const show = state.searchMode === 'advanced' && Boolean(running) && !focused;
-  chip.style.display = show ? 'flex' : 'none';
-  // the chip carries its own ✕, sitting right beside the name it removes; leaving the field's
-  // clear button up too would put two controls with identical behaviour in one field
-  if (refs.listsSearchClear) {
-    refs.listsSearchClear.style.visibility =
-      !show && state.searchQuery ? 'visible' : 'hidden';
-  }
-  if (!show || !running) return;
-  if (refs.searchSmartListChipName) {
-    refs.searchSmartListChipName.textContent = running.name;
-    refs.searchSmartListChipName.title = running.query;
-  }
-};
-
-/**
- * The in-field bookmark. Query mode only -- a text search is not a query, so there is nothing
- * to save. `pending` counts as showable on purpose: it only means the user is mid-token, and
- * blinking the button on and off through every keystroke would be worse than letting the modal
- * report a parse error it already checks for.
- *
- * Lives here rather than in querySearch.ts because its *appearance* is a function of which
- * smart list is running, so syncSmartListUI has to be able to reach it. Its *visibility* is a
- * function of the parse, which querySearch.ts drives -- hence the calls from both sides.
- */
-export const syncSaveButton = () => {
-  const button = refs.searchSaveSmartList;
-  if (!button) return;
-  const show =
-    state.searchMode === 'advanced' &&
-    state.searchQuery.trim() !== '' &&
-    state.queryStatus !== 'invalid';
-  button.style.display = show ? 'inline-flex' : 'none';
-  if (!show) return;
-  const running = activeSmartList();
-  button.classList.toggle('is-saved', Boolean(running));
-  const label = running ? `Edit smart list "${running.name}"` : 'Save as smart list';
-  button.title = label;
-  button.setAttribute('aria-label', label);
-};
-
 export const activeTemplate = (): SmartListTemplate | null => {
-  const smartList = activeSmartList();
-  if (!smartList) return null;
-  const parsed = parseQuery(smartList.query);
+  if (state.searchMode !== 'advanced') return null;
+  const query = state.searchQuery.trim();
+  if (!query) return null;
+  const parsed = parseQuery(query);
   if (!parsed.ok) return null;
   return deriveTemplate(parsed.ast);
 };
@@ -196,13 +183,22 @@ const chip = (label: string, className = ''): HTMLSpanElement => {
   return el;
 };
 
+/** The query these hints were last built from — they only change when it does. */
+let lastHintQuery: string | null | undefined;
+
 /**
- * Shows what the running smart list will apply to the next task, and what it cannot. Never
+ * Shows what the query on screen will apply to the next task, and what it cannot. Never
  * silent: the user should always be able to see why a new task came out the way it did.
+ *
+ * `force` is for changes the query cannot express -- creating a tag the query names turns an
+ * unapplied constraint into an applied one without a character of the query moving.
  */
-export const renderTemplateHints = () => {
+export const renderTemplateHints = (force = false) => {
   const container = refs.addTaskTemplate;
   if (!container) return;
+  const key = state.searchMode === 'advanced' ? state.searchQuery.trim() : null;
+  if (!force && key === lastHintQuery) return;
+  lastHintQuery = key;
   container.innerHTML = '';
 
   const template = activeTemplate();

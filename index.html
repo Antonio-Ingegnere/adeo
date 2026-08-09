@@ -21,38 +21,22 @@
             <input id="lists-search-input" class="lists-search-input" type="text" placeholder="Search"
               role="combobox" aria-autocomplete="list" aria-expanded="false"
               aria-controls="query-suggest-menu" />
-            <!-- Query mode only, and inside the field rather than in the row: the row's
-                 trailing group is pinned to 181px to align with the add-task row below, so a
-                 fourth element there would break both seams. Both icons ship; .is-saved swaps
-                 which one is drawn, so there is no runtime icon construction. -->
-            <button id="search-save-smart-list" class="search-save-smart-list" type="button"
-              style="display:none" aria-label="Save as smart list" title="Save as smart list">
-              <svg class="icon-bookmark-outline" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3.5 7 3.5V5a2 2 0 0 0-2-2zm0 15.1-5-2.5-5 2.5V5h10v13.1z" />
-              </svg>
-              <svg class="icon-bookmark-filled" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3.5 7 3.5V5a2 2 0 0 0-2-2z" />
-              </svg>
-            </button>
             <button id="lists-search-clear" class="lists-search-clear" type="button" aria-label="Clear search">
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                 <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
               </svg>
             </button>
-            <!-- Masks the raw query with the running smart list's name. Opaque and inset inside
-                 the input's border; lifted whenever the input has focus, so the query is always
-                 one click away. The input's value is never touched. -->
-            <div id="search-smart-list-chip" class="search-smart-list-chip" role="group"
-              aria-label="Running smart list" style="display:none">
-              <span id="search-smart-list-chip-name" class="search-smart-list-chip-name"></span>
-              <button id="search-smart-list-chip-clear" class="search-smart-list-chip-clear"
-                type="button" aria-label="Stop running this smart list">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
-                </svg>
-              </button>
+            <!-- Query mode only. Everything a query needs beyond its own text -- which smart
+                 list it belongs to, whether it has been edited, and what can be done about
+                 that -- lives here rather than inside the input, which holds the query and
+                 nothing else. Contents are built by renderQueryBar(). Last in the field so
+                 Tab goes input -> actions -> mode switch. -->
+            <div id="query-bar" class="query-bar" aria-label="Smart list" style="display:none">
+              <div id="query-bar-identity" class="query-bar-identity"></div>
+              <div id="query-bar-actions" class="query-bar-actions"></div>
             </div>
-            <!-- mutually exclusive with the suggest menu below: both sit just under the field -->
+            <!-- mutually exclusive with the suggest menu below: both sit just under the field,
+                 and both overlay the query bar while they are open -->
             <div id="search-status-line" class="search-status-line" style="display:none"></div>
             <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu" role="listbox"
               aria-label="Query suggestions"></div>

@@ -22,6 +22,13 @@ export type UIState = {
   editingTagId: number | null;
   /** null while the smart-list modal is creating rather than editing */
   editingSmartListId: number | null;
+  /**
+   * The smart list the search bar is working on, which survives editing its query -- that is
+   * the whole point of storing it. Which one is *running* is still derived (an exact query
+   * match, see activeSmartList); this only adds the "edited from X" state that no comparison
+   * can express, since an edited query matches nothing.
+   */
+  smartListOrigin: number | null;
   openSmartListMenuId: number | null;
   modalSelectedListId: number | null;
   modalTagIds: number[];
@@ -69,6 +76,7 @@ export const state: UIState = {
   editingListId: null,
   editingTagId: null,
   editingSmartListId: null,
+  smartListOrigin: null,
   openSmartListMenuId: null,
   modalSelectedListId: null,
   modalTagIds: [],

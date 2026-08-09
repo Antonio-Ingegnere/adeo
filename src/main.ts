@@ -25,10 +25,14 @@ type DateFormat =
   | 'DD MMM YYYY'
   | 'YYYY.MM.DD';
 
+// Mirrors Theme in src/types.ts by hand, as TimeFormat/DateFormat already do.
+type Theme = 'system' | 'light' | 'dark';
+
 type AppSettings = {
   showCompleted: boolean;
   timeFormat: TimeFormat;
   dateFormat: DateFormat;
+  theme: Theme;
 };
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -37,7 +41,11 @@ const defaultSettings: AppSettings = {
   showCompleted: true,
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
+  theme: 'system',
 };
+
+const normalizeTheme = (value: unknown): Theme =>
+  value === 'light' || value === 'dark' || value === 'system' ? value : defaultSettings.theme;
 
 const readSettings = (): AppSettings => {
   try {
@@ -50,6 +58,7 @@ const readSettings = (): AppSettings => {
         timeFormat: parsed.timeFormat === '24h' ? '24h' : '12h',
         dateFormat: parsed.dateFormat || defaultSettings.dateFormat,
         showCompleted: typeof parsed.showCompleted === 'boolean' ? parsed.showCompleted : true,
+        theme: normalizeTheme(parsed.theme),
       };
     }
   } catch {
@@ -660,16 +669,24 @@ const ensureBackgroundReminderService = () => {
   }
 };
 
+// Painted before the renderer's first frame, and again whenever the resolved scheme
+// changes. Without it every launch flashes white, which is invisible in the light scheme
+// and glaring in the dark one. Values match --bg in styles.css.
+const windowBackgroundColor = (): string => (nativeTheme.shouldUseDarkColors ? '#171717' : '#f5f5f5');
+
+// shouldUseDarkColors already accounts for themeSource, so this covers both the user
+// picking a theme and the OS flipping underneath us while the setting is 'system'.
+nativeTheme.on('updated', () => {
+  mainWindow?.setBackgroundColor(windowBackgroundColor());
+});
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     minWidth: 600,
     minHeight: 480,
-    // Painted before the renderer's first frame. Without it every launch flashes white,
-    // which is invisible in the light scheme and glaring in the dark one. Values match
-    // --bg in styles.css.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#171717' : '#f5f5f5',
+    backgroundColor: windowBackgroundColor(),
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -972,6 +989,16 @@ ipcMain.handle('update-date-format', async (_event, format: DateFormat) => {
   return { dateFormat: nextFormat };
 });
 
+// Setting themeSource is the whole of "apply the theme": it drives prefers-color-scheme in
+// the renderer (so styles.css needs no switch of its own) and the native window chrome.
+ipcMain.handle('update-theme', async (_event, theme: Theme) => {
+  const nextTheme = normalizeTheme(theme);
+  nativeTheme.themeSource = nextTheme;
+  appSettings = { ...appSettings, theme: nextTheme };
+  writeSettings(appSettings);
+  return { theme: nextTheme };
+});
+
 
 // //TODO: Only for debugging, remove later!!!
 // app.whenReady().then(() => {
@@ -981,6 +1008,11 @@ ipcMain.handle('update-date-format', async (_event, format: DateFormat) => {
 // });
 
 app.whenReady().then(async () => {
+  // Must precede createWindow(): the window's backgroundColor is read from
+  // shouldUseDarkColors, so applying the stored theme later would flash the wrong scheme
+  // on every launch for anyone not on 'system'.
+  nativeTheme.themeSource = appSettings.theme;
+
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
   if (process.platform === 'darwin' && app.dock) {
     const dockIcon = nativeImage.createFromPath(iconPath);

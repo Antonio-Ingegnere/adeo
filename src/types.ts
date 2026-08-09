@@ -14,10 +14,14 @@ export type Task = {
   tagIds?: number[];
 };
 
+/** 'system' follows the OS; the other two override it. Applied via nativeTheme.themeSource. */
+export type Theme = 'system' | 'light' | 'dark';
+
 export type Settings = {
   showCompleted: boolean;
   timeFormat: '12h' | '24h';
   dateFormat: string;
+  theme: Theme;
 };
 
 export type List = {
@@ -68,6 +72,7 @@ export type ElectronAPI = {
   confirmDeleteTag: (name: string) => Promise<boolean>;
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
+  updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;
   onOpenSettings: (callback: () => void) => () => void;
   onFocusSearch: (callback: () => void) => () => void;
   onOpenTaskEdit: (callback: (taskId: number) => void) => () => void;

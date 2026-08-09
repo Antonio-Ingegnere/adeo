@@ -107,6 +107,9 @@ export const loadSettings = async () => {
     state.showCompleted = settings.showCompleted;
     state.timeFormat = settings.timeFormat ?? '12h';
     state.dateFormat = settings.dateFormat ?? state.dateFormat;
+    // only used to seed the Settings radio; the theme itself is applied in the main
+    // process via nativeTheme.themeSource, which drives prefers-color-scheme here
+    state.theme = settings.theme ?? 'system';
     renderTasks();
   } catch (error) {
     console.error('Failed to load settings', error);

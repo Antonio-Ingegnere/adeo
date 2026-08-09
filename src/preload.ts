@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronAPI, List, Settings, Tag, Task } from './types';
+import type { ElectronAPI, List, Settings, Tag, Task, Theme } from './types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   addTask: (text: string, listId?: number | null, tagIds?: number[]) =>
@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
   updateDateFormat: (format: string) =>
     ipcRenderer.invoke('update-date-format', format) as Promise<{ dateFormat: string }>,
+  updateTheme: (theme: Theme) => ipcRenderer.invoke('update-theme', theme) as Promise<{ theme: Theme }>,
   onOpenSettings: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('open-settings', listener);

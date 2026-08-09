@@ -24,7 +24,7 @@ import {
   updateTagsUI,
 } from './modals.js';
 import { state } from './state.js';
-import type { Tag } from '../types.js';
+import type { Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
 import { installModalFocusTrap } from './focusTrap.js';
@@ -335,6 +335,24 @@ const buildTimeOptions = () => {
     option.label = prefers24Hour ? `${hours}:${minutes}` : formatter.format(dt);
     optionsHost.appendChild(option);
   }
+};
+
+// The theme radios are read on Save and seeded on open, like every other control in the
+// Settings modal. Nothing is applied until Save, which is why Cancel needs no revert.
+const readSelectedTheme = (): Theme => {
+  if (refs.settingsThemeLight?.checked) return 'light';
+  if (refs.settingsThemeDark?.checked) return 'dark';
+  return 'system';
+};
+
+const seedThemeRadio = () => {
+  const target =
+    state.theme === 'light'
+      ? refs.settingsThemeLight
+      : state.theme === 'dark'
+        ? refs.settingsThemeDark
+        : refs.settingsThemeSystem;
+  if (target) target.checked = true;
 };
 
 const setupEvents = () => {
@@ -927,18 +945,23 @@ const setupEvents = () => {
   refs.settingsSave?.addEventListener('click', async () => {
     const selected: '12h' | '24h' = refs.settingsRadio24?.checked ? '24h' : '12h';
     const selectedDateFormat = refs.dateFormatSelect?.value || state.dateFormat;
+    const selectedTheme = readSelectedTheme();
     try {
-      const [timeResult, dateResult] = await Promise.all([
+      const [timeResult, dateResult, themeResult] = await Promise.all([
         window.electronAPI.updateTimeFormat(selected),
         window.electronAPI.updateDateFormat(selectedDateFormat),
+        window.electronAPI.updateTheme(selectedTheme),
       ]);
       state.timeFormat = timeResult.timeFormat;
       state.dateFormat = dateResult.dateFormat;
+      // no re-render needed: the main process sets nativeTheme.themeSource, which flips
+      // prefers-color-scheme and repaints via CSS on its own
+      state.theme = themeResult.theme;
       buildTimeOptions();
       updateReminderUI(state.modalReminderDate, state.modalReminderTime);
       renderTasks();
     } catch (error) {
-      console.error('Failed to update time format', error);
+      console.error('Failed to save settings', error);
     }
     refs.settingsOverlay?.classList.remove('open');
   });
@@ -970,6 +993,7 @@ const setupEvents = () => {
       if (refs.dateFormatSelect) {
         refs.dateFormatSelect.value = state.dateFormat;
       }
+      seedThemeRadio();
       refs.settingsOverlay.classList.add('open');
     }
   });

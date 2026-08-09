@@ -1,4 +1,4 @@
-import type { List, Tag, Task } from '../types';
+import type { List, Tag, Task, Theme } from '../types';
 import type { CompiledPredicate, ParseError } from './query.js';
 
 export type UIState = {
@@ -41,6 +41,7 @@ export type UIState = {
   queryUsesDone: boolean;
   timeFormat: '12h' | '24h';
   dateFormat: string;
+  theme: Theme;
 };
 
 export const state: UIState = {
@@ -80,4 +81,5 @@ export const state: UIState = {
   queryUsesDone: false,
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
+  theme: 'system',
 };

@@ -1,16 +1,16 @@
-import type { List, SavedFilter, Tag, Task, Theme } from '../types';
+import type { List, SmartList, Tag, Task, Theme } from '../types';
 import type { CompiledPredicate, ParseError } from './query.js';
 
 export type UIState = {
   tasks: Task[];
   lists: List[];
   tags: Tag[];
-  filters: SavedFilter[];
+  smartLists: SmartList[];
   selectedListId: number | null;
   selectedTagId: number | null;
   listsExpanded: boolean;
   tagsExpanded: boolean;
-  filtersExpanded: boolean;
+  smartListsExpanded: boolean;
   showCompleted: boolean;
   expandedDetails: Set<number>;
   dragIndex: number | null;
@@ -20,9 +20,9 @@ export type UIState = {
   editingTaskId: number | null;
   editingListId: number | null;
   editingTagId: number | null;
-  /** null while the Save-filter modal is creating rather than editing */
-  editingFilterId: number | null;
-  openFilterMenuId: number | null;
+  /** null while the smart-list modal is creating rather than editing */
+  editingSmartListId: number | null;
+  openSmartListMenuId: number | null;
   modalSelectedListId: number | null;
   modalTagIds: number[];
   addTaskSelectedListId: number | null;
@@ -53,12 +53,12 @@ export const state: UIState = {
   tasks: [],
   lists: [],
   tags: [],
-  filters: [],
+  smartLists: [],
   selectedListId: null,
   selectedTagId: null,
   listsExpanded: true,
   tagsExpanded: true,
-  filtersExpanded: true,
+  smartListsExpanded: true,
   showCompleted: true,
   expandedDetails: new Set<number>(),
   dragIndex: null,
@@ -68,8 +68,8 @@ export const state: UIState = {
   editingTaskId: null,
   editingListId: null,
   editingTagId: null,
-  editingFilterId: null,
-  openFilterMenuId: null,
+  editingSmartListId: null,
+  openSmartListMenuId: null,
   modalSelectedListId: null,
   modalTagIds: [],
   addTaskSelectedListId: null,

@@ -236,6 +236,108 @@ body {
   fill: currentColor;
 }
 
+/* Query mode only, and inside the field on purpose: the row's trailing group is pinned to
+   181px so its seams line up with the add-task row, and a fourth element in the row would
+   break that. Sits just inboard of the clear button; .query-mode's padding-right reserves the
+   space, so Text mode is untouched. */
+.search-save-smart-list {
+  position: absolute;
+  right: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-hint);
+  padding: 4px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.search-save-smart-list:hover {
+  color: var(--text-body);
+}
+
+.search-save-smart-list svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* both icons ship in the markup; this picks which one is drawn, so saved vs unsaved costs no
+   DOM work on a state that changes with every keystroke */
+.search-save-smart-list .icon-bookmark-filled,
+.search-save-smart-list.is-saved .icon-bookmark-outline {
+  display: none;
+}
+
+.search-save-smart-list.is-saved .icon-bookmark-filled {
+  display: block;
+}
+
+.search-save-smart-list.is-saved {
+  color: var(--accent);
+}
+
+/* Masks the raw query with the running smart list's name. Opaque and inset inside the input's
+   border rather than layered over it: --surface-query is defined in both themes, and the input
+   has no focus-specific background, so one value covers every state. left:30px keeps the
+   magnifier glyph visible; right:60px clears both in-field buttons. */
+.search-smart-list-chip {
+  position: absolute;
+  left: 30px;
+  right: 60px;
+  top: 2px;
+  bottom: 2px;
+  align-items: center;
+  gap: 6px;
+  padding-right: 4px;
+  background: var(--surface-query);
+  border-radius: var(--radius-l);
+  cursor: text;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.search-smart-list-chip-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 3px 10px;
+  border-radius: var(--radius-l);
+  /* the same fill and ink the sidebar pill uses when selected, so the bar and the rail are
+     visibly showing the same thing */
+  background: var(--surface-selected);
+  color: var(--text-heading);
+  font-weight: 700;
+  font-size: var(--font-s);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-smart-list-chip-clear {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-hint);
+  padding: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-smart-list-chip-clear:hover {
+  color: var(--text-body);
+}
+
+.search-smart-list-chip-clear svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
 .headline {
   font-size: var(--font-2xl);
   margin: 0 0 8px;
@@ -1943,29 +2045,29 @@ body {
 /* ---------- Tags ---------- */
 
 .tags-panel,
-.filters-panel {
+.smart-lists-panel {
   margin-top: 12px;
 }
 
-/* ---------- Saved filters ----------
-   A saved filter is a named query. Its pill reuses .list-pill wholesale; only the query
+/* ---------- Smart lists ----------
+   A smart list is a named query. Its pill reuses .list-pill wholesale; only the query
    preview under the name is new. */
 
-.filter-pill .list-pill-label {
+.smart-list-pill .list-pill-label {
   font-size: var(--font-m);
 }
 
-.filter-query-label {
+.smart-list-query-label {
   margin: 12px 0 4px;
   padding: 0 16px;
 }
 
-.filter-query-input {
+.smart-list-query-input {
   font-family: var(--font-mono);
   font-size: var(--font-s);
 }
 
-.filter-modal-error {
+.smart-list-modal-error {
   margin: 8px 0 0;
   padding: 0 16px;
   color: var(--danger);
@@ -1973,7 +2075,7 @@ body {
   line-height: 1.5;
 }
 
-/* defaults the active filter will apply to the next task, shown so the result is never
+/* defaults the running smart list will apply to the next task, shown so the result is never
    a surprise */
 .add-task-template {
   display: none;
@@ -2295,6 +2397,9 @@ body {
 .lists-search-input.query-mode {
   font-family: var(--font-mono);
   font-size: var(--font-s);
+  /* reserves the bookmark's slot alongside the clear button. Kept here rather than toggled
+     from JS so the text never reflows as the button shows and hides. */
+  padding-right: 60px;
   background-color: var(--surface-query);
 }
 

@@ -1,6 +1,6 @@
-// Inverts a saved filter's query into defaults for a newly added task.
+// Inverts a smart list's query into defaults for a newly added task.
 //
-// A filter is a predicate, and "add a task to a predicate" is under-determined -- many
+// A smart list is a predicate, and "add a task to a predicate" is under-determined -- many
 // different tasks satisfy `tag:errands AND priority:high`. It is decidable for the subset of
 // queries that are a conjunction of equality terms: a `term` node using `:` that sits under
 // only `and` nodes is a straight assignment. Everything else (OR, NOT, ranges, contains) has
@@ -11,7 +11,7 @@
 import type { Task } from '../types.js';
 import type { QueryNode } from './query.js';
 
-export type FilterTemplate = {
+export type SmartListTemplate = {
   /** absent = unconstrained; null = `list:none`, i.e. explicitly no list */
   listName?: string | null;
   tagNames: string[];
@@ -55,7 +55,7 @@ const distinct = (values: string[]): string[] => {
   return [...seen.values()];
 };
 
-export const deriveTemplate = (ast: QueryNode | null): FilterTemplate => {
+export const deriveTemplate = (ast: QueryNode | null): SmartListTemplate => {
   const lists: (string | null)[] = [];
   const tags: string[] = [];
   const priorities: string[] = [];
@@ -115,7 +115,7 @@ export const deriveTemplate = (ast: QueryNode | null): FilterTemplate => {
         return;
       default:
         // text / details -- the user types the task's own text, so seeding it from the
-        // filter would put words in their mouth
+        // smart list would put words in their mouth
         skip(node);
     }
   };
@@ -142,7 +142,7 @@ export const deriveTemplate = (ast: QueryNode | null): FilterTemplate => {
 
   if (ast) visit(ast);
 
-  const template: FilterTemplate = { tagNames: [], skipped };
+  const template: SmartListTemplate = { tagNames: [], skipped };
 
   // A repeated field with differing values is a contradiction -- no task can satisfy it -- so
   // silently picking one would be a lie. Report it and assign nothing.

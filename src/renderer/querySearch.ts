@@ -1,9 +1,14 @@
 // Search-field wiring: simple/advanced mode toggle, live parse status, syntax
 // help popover, and context-aware autocomplete for the advanced query mode.
 // All listeners on the search input live here (single keydown owner).
-import { syncFilterUI } from './activeFilter.js';
+import {
+  activeSmartList,
+  syncSaveButton,
+  syncSmartListChip,
+  syncSmartListUI,
+} from './activeSmartList.js';
 import { refs } from './dom.js';
-import { renderFilters } from './filters.js';
+import { renderSmartLists } from './smartLists.js';
 import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { FIELDS, compilePredicate, parseQuery, queryUsesField, tokenize } from './query.js';
 import type { FieldSpec, ParseError, Token } from './query.js';
@@ -139,6 +144,9 @@ const renderSearchStatus = () => {
   // error they are still in the middle of typing, and leave the live region alone.
 
   syncStatusLine();
+  // here rather than earlier in applySearchQuery: the button's visibility keys off
+  // state.queryStatus, which is only settled by the time this runs
+  syncSaveButton();
 };
 
 /**
@@ -171,12 +179,12 @@ const isPendingTail = (value: string, error: ParseError): boolean => {
 
 export const applySearchQuery = (value: string, immediate = false) => {
   state.searchQuery = value;
-  if (refs.listsSearchClear) {
-    refs.listsSearchClear.style.visibility = value ? 'visible' : 'hidden';
-  }
-  // a saved filter is "running" iff the bar holds exactly its query, so this is where the
-  // sidebar highlight and the add-task hints are kept honest
-  syncFilterUI(renderFilters);
+  // a smart list is "running" iff the bar holds exactly its query, so this is where the
+  // sidebar highlight, the name chip and the add-task hints are kept honest
+  syncSmartListUI(renderSmartLists);
+  // unconditionally, not just via syncSmartListUI's memo: this also owns the clear button's
+  // visibility, which follows the *value* and so changes without the running smart list doing
+  syncSmartListChip();
   if (state.searchMode === 'advanced') {
     const trimmed = value.trim();
     const previousStatus = state.queryStatus;
@@ -252,6 +260,10 @@ const applyModeUI = () => {
   }
   refs.searchHelpPopover?.classList.toggle('simple', !advanced);
   refs.searchHelpBtn?.setAttribute('aria-label', advanced ? 'Query syntax help' : 'Search help');
+  syncSaveButton();
+  // both the bookmark and the name chip are query-mode affordances; syncSmartListChip reads
+  // state.searchMode itself, so leaving simple mode takes them both down
+  syncSmartListChip();
   if (!advanced) {
     closeQueryPopovers();
     // applySearchQuery's simple branch never reaches renderSearchStatus, so the last
@@ -585,9 +597,14 @@ export const setupQuerySearch = () => {
     }
   });
 
+  // focus lifts the name chip and blur restores it. syncSmartListUI memoizes on *which* smart
+  // list is running, which focus does not change, so these two have to call the chip directly.
+  input?.addEventListener('focus', () => syncSmartListChip());
+
   input?.addEventListener('blur', () => {
     // slight delay so a mousedown on a suggestion can complete first
     setTimeout(() => closeSuggest(), 100);
+    syncSmartListChip();
   });
 
   refs.listsSearchClear?.addEventListener('click', () => {
@@ -598,6 +615,35 @@ export const setupQuerySearch = () => {
   if (refs.listsSearchClear) {
     refs.listsSearchClear.style.visibility = state.searchQuery ? 'visible' : 'hidden';
   }
+
+  // index.ts owns the modal, so this goes through the same event the sidebar menu uses; with no
+  // id it means "save whatever is in the bar", with one it edits the smart list already running
+  refs.searchSaveSmartList?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    document.dispatchEvent(
+      new CustomEvent('open-smart-list-modal', { detail: { smartListId: activeSmartList()?.id } })
+    );
+  });
+
+  // mousedown, not click: preventDefault keeps the press from landing on the masked text at an
+  // arbitrary offset, and the caret goes to the end of the revealed query instead
+  refs.searchSmartListChip?.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+
+  refs.searchSmartListChipClear?.addEventListener('mousedown', (event) => {
+    // stop the mask's own handler above from revealing the query we are about to throw away
+    event.stopPropagation();
+    event.preventDefault();
+  });
+  refs.searchSmartListChipClear?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    clearSearch();
+    input?.focus();
+  });
 
   window.electronAPI.onFocusSearch?.(() => {
     input?.focus();

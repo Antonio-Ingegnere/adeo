@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronAPI, List, SavedFilter, Settings, Tag, Task, TaskSeed, Theme } from './types';
+import type { ElectronAPI, List, Settings, SmartList, Tag, Task, TaskSeed, Theme } from './types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   addTask: (text: string, listId?: number | null, tagIds?: number[], seed?: TaskSeed) =>
@@ -51,17 +51,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setTaskTags: (id: number, tagIds: number[]) =>
     ipcRenderer.invoke('set-task-tags', id, tagIds) as Promise<{ id: number; tagIds: number[] } | { error: string }>,
   confirmDeleteTag: (name: string) => ipcRenderer.invoke('confirm-delete-tag', name) as Promise<boolean>,
-  addFilter: (name: string, query: string) =>
-    ipcRenderer.invoke('add-filter', name, query) as Promise<SavedFilter | { error: string }>,
-  getFilters: () => ipcRenderer.invoke('get-filters') as Promise<SavedFilter[]>,
-  updateFilterName: (id: number, name: string) =>
-    ipcRenderer.invoke('update-filter-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
-  updateFilterQuery: (id: number, query: string) =>
-    ipcRenderer.invoke('update-filter-query', id, query) as Promise<{ id: number; query: string } | { error: string }>,
-  deleteFilter: (id: number) => ipcRenderer.invoke('delete-filter', id) as Promise<{ id: number }>,
-  updateFilterOrder: (orderedIds: number[]) =>
-    ipcRenderer.invoke('update-filter-order', orderedIds) as Promise<{ success: boolean }>,
-  confirmDeleteFilter: (name: string) => ipcRenderer.invoke('confirm-delete-filter', name) as Promise<boolean>,
+  addSmartList: (name: string, query: string) =>
+    ipcRenderer.invoke('add-smart-list', name, query) as Promise<SmartList | { error: string }>,
+  getSmartLists: () => ipcRenderer.invoke('get-smart-lists') as Promise<SmartList[]>,
+  updateSmartListName: (id: number, name: string) =>
+    ipcRenderer.invoke('update-smart-list-name', id, name) as Promise<{ id: number; name: string } | { error: string }>,
+  updateSmartListQuery: (id: number, query: string) =>
+    ipcRenderer.invoke('update-smart-list-query', id, query) as Promise<{ id: number; query: string } | { error: string }>,
+  deleteSmartList: (id: number) => ipcRenderer.invoke('delete-smart-list', id) as Promise<{ id: number }>,
+  updateSmartListOrder: (orderedIds: number[]) =>
+    ipcRenderer.invoke('update-smart-list-order', orderedIds) as Promise<{ success: boolean }>,
+  confirmDeleteSmartList: (name: string) =>
+    ipcRenderer.invoke('confirm-delete-smart-list', name) as Promise<boolean>,
+  confirmReplaceSmartList: (name: string) =>
+    ipcRenderer.invoke('confirm-replace-smart-list', name) as Promise<boolean>,
   updateTimeFormat: (format: '12h' | '24h') =>
     ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
   updateDateFormat: (format: string) =>

@@ -1,48 +1,105 @@
-// Ties a saved filter to the add-task row: which filter is running, what defaults it implies,
-// and how those defaults reach a newly created task.
-import type { SavedFilter, TaskSeed } from '../types';
+// Ties a smart list to the search field and the add-task row: which one is running, how it is
+// shown in the bar, what defaults it implies, and how those defaults reach a newly created task.
+import type { SmartList, TaskSeed } from '../types';
 import { refs } from './dom.js';
 import { parseQuery } from './query.js';
-import { deriveTemplate } from './filterTemplate.js';
-import type { FilterTemplate } from './filterTemplate.js';
+import { deriveTemplate } from './smartListTemplate.js';
+import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
 
 /**
- * Derived, never stored. A filter is running iff the search bar currently holds exactly its
+ * Derived, never stored. A smart list is running iff the search bar currently holds exactly its
  * query, so editing the query simply deselects it -- there is no flag to keep in sync and no
  * way for the sidebar highlight to disagree with what is on screen.
  */
-export const activeFilter = (): SavedFilter | null => {
+export const activeSmartList = (): SmartList | null => {
   if (state.searchMode !== 'advanced') return null;
   const current = state.searchQuery.trim();
   if (!current) return null;
-  return state.filters.find((f) => f.query.trim() === current) ?? null;
+  return state.smartLists.find((f) => f.query.trim() === current) ?? null;
 };
 
 /**
  * Called from applySearchQuery on every keystroke, so it repaints only when the *identity* of
- * the running filter changes rather than rebuilding the sidebar for each character typed.
- * `undefined` means "not yet computed", which is distinct from null ("no filter running").
+ * the running smart list changes rather than rebuilding the sidebar for each character typed.
+ * `undefined` means "not yet computed", which is distinct from null ("nothing running").
  */
 let lastActiveId: number | null | undefined;
 
-export const syncFilterUI = (repaint: () => void) => {
-  const id = activeFilter()?.id ?? null;
+export const syncSmartListUI = (repaint: () => void) => {
+  const id = activeSmartList()?.id ?? null;
   if (id === lastActiveId) return;
   lastActiveId = id;
   repaint();
   renderTemplateHints();
+  syncSmartListChip();
+  syncSaveButton();
 };
 
-/** Forces the next syncFilterUI to repaint — after the filter list itself changes. */
-export const invalidateFilterUI = () => {
+/** Forces the next syncSmartListUI to repaint — after the smart-list collection itself changes. */
+export const invalidateSmartListUI = () => {
   lastActiveId = undefined;
 };
 
-export const activeTemplate = (): FilterTemplate | null => {
-  const filter = activeFilter();
-  if (!filter) return null;
-  const parsed = parseQuery(filter.query);
+/**
+ * The name chip that masks the raw query while a smart list is running. It is a *mask*, never a
+ * value swap: the input still holds the query, so every downstream consumer (the predicate, the
+ * suggest menu, activeSmartList itself) is untouched. Focusing the field lifts the mask, which
+ * is what keeps hiding the query fair -- the user is always one click from what is running.
+ *
+ * Focus changes do not alter which smart list is running, so syncSmartListUI's memo cannot see
+ * them; querySearch.ts calls this directly from the field's focus/blur handlers too.
+ */
+export const syncSmartListChip = () => {
+  const chip = refs.searchSmartListChip;
+  if (!chip) return;
+  const running = activeSmartList();
+  const focused = document.activeElement === refs.listsSearchInput;
+  const show = state.searchMode === 'advanced' && Boolean(running) && !focused;
+  chip.style.display = show ? 'flex' : 'none';
+  // the chip carries its own ✕, sitting right beside the name it removes; leaving the field's
+  // clear button up too would put two controls with identical behaviour in one field
+  if (refs.listsSearchClear) {
+    refs.listsSearchClear.style.visibility =
+      !show && state.searchQuery ? 'visible' : 'hidden';
+  }
+  if (!show || !running) return;
+  if (refs.searchSmartListChipName) {
+    refs.searchSmartListChipName.textContent = running.name;
+    refs.searchSmartListChipName.title = running.query;
+  }
+};
+
+/**
+ * The in-field bookmark. Query mode only -- a text search is not a query, so there is nothing
+ * to save. `pending` counts as showable on purpose: it only means the user is mid-token, and
+ * blinking the button on and off through every keystroke would be worse than letting the modal
+ * report a parse error it already checks for.
+ *
+ * Lives here rather than in querySearch.ts because its *appearance* is a function of which
+ * smart list is running, so syncSmartListUI has to be able to reach it. Its *visibility* is a
+ * function of the parse, which querySearch.ts drives -- hence the calls from both sides.
+ */
+export const syncSaveButton = () => {
+  const button = refs.searchSaveSmartList;
+  if (!button) return;
+  const show =
+    state.searchMode === 'advanced' &&
+    state.searchQuery.trim() !== '' &&
+    state.queryStatus !== 'invalid';
+  button.style.display = show ? 'inline-flex' : 'none';
+  if (!show) return;
+  const running = activeSmartList();
+  button.classList.toggle('is-saved', Boolean(running));
+  const label = running ? `Edit smart list "${running.name}"` : 'Save as smart list';
+  button.title = label;
+  button.setAttribute('aria-label', label);
+};
+
+export const activeTemplate = (): SmartListTemplate | null => {
+  const smartList = activeSmartList();
+  if (!smartList) return null;
+  const parsed = parseQuery(smartList.query);
   if (!parsed.ok) return null;
   return deriveTemplate(parsed.ast);
 };
@@ -79,7 +136,7 @@ const RRULE_BY_FREQ: Record<string, string> = {
 };
 
 /** The parts of a template that POST /tasks takes directly (list and tags go separately). */
-export const templateSeed = (template: FilterTemplate | null): TaskSeed | undefined => {
+export const templateSeed = (template: SmartListTemplate | null): TaskSeed | undefined => {
   if (!template) return undefined;
   const seed: TaskSeed = {};
   if (template.priority) seed.priority = template.priority;
@@ -92,11 +149,11 @@ export const templateSeed = (template: FilterTemplate | null): TaskSeed | undefi
 };
 
 /**
- * Names in a query are resolved against what actually exists. A list named in the filter but
+ * Names in a query are resolved against what actually exists. A list named in the query but
  * since deleted cannot be assigned, so it is reported rather than silently dropped.
  */
 export const resolveTemplateNames = (
-  template: FilterTemplate
+  template: SmartListTemplate
 ): { listId: number | null | undefined; tagIds: number[]; missing: string[] } => {
   const missing: string[] = [];
   let listId: number | null | undefined;
@@ -124,8 +181,8 @@ export const resolveTemplateNames = (
   return { listId, tagIds, missing };
 };
 
-/** Tag names the filter asks for that do not exist yet, so addTask can create them. */
-export const missingTemplateTagNames = (template: FilterTemplate | null): string[] => {
+/** Tag names the smart list asks for that do not exist yet, so addTask can create them. */
+export const missingTemplateTagNames = (template: SmartListTemplate | null): string[] => {
   if (!template) return [];
   return template.tagNames.filter(
     (name) => !state.tags.some((t) => t.name.toLowerCase() === name.toLowerCase())
@@ -140,8 +197,8 @@ const chip = (label: string, className = ''): HTMLSpanElement => {
 };
 
 /**
- * Shows what the active filter will apply to the next task, and what it cannot. Never silent:
- * the user should always be able to see why a new task came out the way it did.
+ * Shows what the running smart list will apply to the next task, and what it cannot. Never
+ * silent: the user should always be able to see why a new task came out the way it did.
  */
 export const renderTemplateHints = () => {
   const container = refs.addTaskTemplate;
@@ -162,7 +219,7 @@ export const renderTemplateHints = () => {
   } else if (template.listName !== undefined && !missing.length) {
     container.appendChild(chip(template.listName));
   }
-  // every tag the filter names, whether it exists yet or not — addTask creates missing ones,
+  // every tag the query names, whether it exists yet or not — addTask creates missing ones,
   // so leaving them out would understate what the new task is about to get
   template.tagNames.forEach((name) => {
     const known = state.tags.find((t) => t.name.toLowerCase() === name.toLowerCase());

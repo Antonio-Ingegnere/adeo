@@ -21,11 +21,37 @@
             <input id="lists-search-input" class="lists-search-input" type="text" placeholder="Search"
               role="combobox" aria-autocomplete="list" aria-expanded="false"
               aria-controls="query-suggest-menu" />
+            <!-- Query mode only, and inside the field rather than in the row: the row's
+                 trailing group is pinned to 181px to align with the add-task row below, so a
+                 fourth element there would break both seams. Both icons ship; .is-saved swaps
+                 which one is drawn, so there is no runtime icon construction. -->
+            <button id="search-save-smart-list" class="search-save-smart-list" type="button"
+              style="display:none" aria-label="Save as smart list" title="Save as smart list">
+              <svg class="icon-bookmark-outline" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3.5 7 3.5V5a2 2 0 0 0-2-2zm0 15.1-5-2.5-5 2.5V5h10v13.1z" />
+              </svg>
+              <svg class="icon-bookmark-filled" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3.5 7 3.5V5a2 2 0 0 0-2-2z" />
+              </svg>
+            </button>
             <button id="lists-search-clear" class="lists-search-clear" type="button" aria-label="Clear search">
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                 <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
               </svg>
             </button>
+            <!-- Masks the raw query with the running smart list's name. Opaque and inset inside
+                 the input's border; lifted whenever the input has focus, so the query is always
+                 one click away. The input's value is never touched. -->
+            <div id="search-smart-list-chip" class="search-smart-list-chip" role="group"
+              aria-label="Running smart list" style="display:none">
+              <span id="search-smart-list-chip-name" class="search-smart-list-chip-name"></span>
+              <button id="search-smart-list-chip-clear" class="search-smart-list-chip-clear"
+                type="button" aria-label="Stop running this smart list">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
+                </svg>
+              </button>
+            </div>
             <!-- mutually exclusive with the suggest menu below: both sit just under the field -->
             <div id="search-status-line" class="search-status-line" style="display:none"></div>
             <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu" role="listbox"
@@ -143,7 +169,7 @@
             <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
           </div>
         </div>
-        <div class="lists-panel filters-panel">
+        <div class="lists-panel smart-lists-panel">
           <div class="lists-header">
             <div class="lists-title-wrap">
               <span class="lists-title-icon" aria-hidden="true">
@@ -151,11 +177,12 @@
                   <path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" />
                 </svg>
               </span>
-              <p class="lists-title">Filters</p>
+              <p class="lists-title">Smart lists</p>
             </div>
             <div class="lists-actions">
-              <button id="add-filter-button" class="icon-button" aria-label="Save current search as a filter">+</button>
-              <button id="filters-toggle" class="icon-button" aria-label="Toggle filters">
+              <button id="add-smart-list-button" class="icon-button"
+                aria-label="Save current search as a smart list">+</button>
+              <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists">
                 <span class="expand-chevrons" aria-hidden="true">
                   <svg viewBox="0 0 14 14" focusable="false">
                     <path d="M2 3 L7 8 L12 3" />
@@ -165,8 +192,9 @@
               </button>
             </div>
           </div>
-          <div id="filters-list" class="lists-list">
-            <div id="filters-empty" class="empty-state">No saved filters. Run a query search, then click +.</div>
+          <div id="smart-lists-list" class="lists-list">
+            <div id="smart-lists-empty" class="empty-state">No smart lists yet. Run a query
+              search, then save it from the bookmark in the search bar.</div>
           </div>
         </div>
       </div>
@@ -194,7 +222,7 @@
             </button>
           </div>
           <div id="add-task-tags" class="add-task-tags"></div>
-          <!-- non-tag defaults derived from the active saved filter, plus the note listing
+          <!-- non-tag defaults derived from the running smart list, plus the note listing
                constraints that could not be turned into an assignment -->
           <div id="add-task-template" class="add-task-template"></div>
           <div id="tasks" class="tasks-section">
@@ -337,17 +365,17 @@
         </div>
       </div>
     </div>
-    <div id="filter-overlay" class="overlay" role="dialog" aria-modal="true">
+    <div id="smart-list-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2 id="filter-modal-title">Save filter</h2>
-        <input id="filter-name-input" type="text" class="text-input modal-input" placeholder="Filter name" />
-        <p class="modal-label filter-query-label">Query</p>
-        <textarea id="filter-query-input" class="details-textarea filter-query-input" rows="2"
+        <h2 id="smart-list-modal-title">Save smart list</h2>
+        <input id="smart-list-name-input" type="text" class="text-input modal-input" placeholder="Smart list name" />
+        <p class="modal-label smart-list-query-label">Query</p>
+        <textarea id="smart-list-query-input" class="details-textarea smart-list-query-input" rows="2"
           placeholder="list:Home AND due&lt;=today"></textarea>
-        <p id="filter-modal-error" class="filter-modal-error" style="display:none"></p>
+        <p id="smart-list-modal-error" class="smart-list-modal-error" style="display:none"></p>
         <div class="modal-actions">
-          <button id="cancel-filter" class="btn icon-btn" aria-label="Cancel filter" title="Cancel">✕</button>
-          <button id="save-filter" class="btn primary icon-btn" aria-label="Save filter" title="Save">
+          <button id="cancel-smart-list" class="btn icon-btn" aria-label="Cancel" title="Cancel">✕</button>
+          <button id="save-smart-list" class="btn primary icon-btn" aria-label="Save smart list" title="Save">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />

@@ -958,17 +958,24 @@ ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
   });
 });
 
-const confirmDelete = async (message: string, detail: string): Promise<boolean> => {
+const confirmAction = async (
+  message: string,
+  detail: string,
+  verb: string
+): Promise<boolean> => {
   const result = await dialog.showMessageBox({
     type: 'warning',
     message,
     detail,
-    buttons: ['Cancel', 'Delete'],
+    buttons: ['Cancel', verb],
     defaultId: 0,
     cancelId: 0,
   });
   return result.response === 1;
 };
+
+const confirmDelete = async (message: string, detail: string): Promise<boolean> =>
+  confirmAction(message, detail, 'Delete');
 
 ipcMain.handle('confirm-delete-list', async (_event, name: string) => {
   return confirmDelete(`Delete list "${name}"?`, 'The list and all of its tasks will be removed.');
@@ -978,57 +985,65 @@ ipcMain.handle('confirm-delete-tag', async (_event, name: string) => {
   return confirmDelete(`Delete tag "${name}"?`, 'The tag will be removed from all tasks. Tasks are kept.');
 });
 
-ipcMain.handle('confirm-delete-filter', async (_event, name: string) => {
-  return confirmDelete(`Delete filter "${name}"?`, 'Only the saved search is removed. Tasks are kept.');
+ipcMain.handle('confirm-delete-smart-list', async (_event, name: string) => {
+  return confirmDelete(`Delete smart list "${name}"?`, 'Only the saved query is removed. Tasks are kept.');
 });
 
-ipcMain.handle('add-filter', async (_event, name: string, query: string) => {
+ipcMain.handle('confirm-replace-smart-list', async (_event, name: string) => {
+  return confirmAction(
+    `A smart list named "${name}" already exists.`,
+    'Replacing it keeps the name and swaps in the query you just wrote. Tasks are kept.',
+    'Replace'
+  );
+});
+
+ipcMain.handle('add-smart-list', async (_event, name: string, query: string) => {
   const trimmedName = name?.trim();
   const trimmedQuery = query?.trim();
   if (!trimmedName) {
-    return { error: 'Filter name is empty' };
+    return { error: 'Smart list name is empty' };
   }
   if (!trimmedQuery) {
-    return { error: 'Filter query is empty' };
+    return { error: 'Smart list query is empty' };
   }
-  return apiRequest('/filters', {
+  return apiRequest('/smart-lists', {
     method: 'POST',
     body: JSON.stringify({ name: trimmedName, query: trimmedQuery }),
   });
 });
 
-ipcMain.handle('get-filters', async () => {
-  return apiRequest('/filters');
+ipcMain.handle('get-smart-lists', async () => {
+  return apiRequest('/smart-lists');
 });
 
-ipcMain.handle('update-filter-name', async (_event, id: number, name: string) => {
+ipcMain.handle('update-smart-list-name', async (_event, id: number, name: string) => {
   const trimmed = name?.trim();
   if (!trimmed) {
-    return { error: 'Filter name is empty' };
+    return { error: 'Smart list name is empty' };
   }
-  return apiRequest(`/filters/${id}/name`, {
+  return apiRequest(`/smart-lists/${id}/name`, {
     method: 'PATCH',
     body: JSON.stringify({ name: trimmed }),
   });
 });
 
-ipcMain.handle('update-filter-query', async (_event, id: number, query: string) => {
+ipcMain.handle('update-smart-list-query', async (_event, id: number, query: string) => {
   const trimmed = query?.trim();
   if (!trimmed) {
-    return { error: 'Filter query is empty' };
+    return { error: 'Smart list query is empty' };
   }
-  return apiRequest(`/filters/${id}/query`, {
+  return apiRequest(`/smart-lists/${id}/query`, {
     method: 'PATCH',
     body: JSON.stringify({ query: trimmed }),
   });
 });
 
-ipcMain.handle('delete-filter', async (_event, id: number) => {
-  return apiRequest(`/filters/${id}`, { method: 'DELETE' });
+ipcMain.handle('delete-smart-list', async (_event, id: number) => {
+  return apiRequest(`/smart-lists/${id}`, { method: 'DELETE' });
 });
 
-ipcMain.handle('update-filter-order', async (_event, orderedIds: number[]) => {
-  return apiRequest('/filters/order', {
+ipcMain.handle('update-smart-list-order', async (_event, orderedIds: number[]) => {
+  return apiRequest('/smart-lists/order', {
     method: 'POST',
     body: JSON.stringify({ orderedIds }),
   });

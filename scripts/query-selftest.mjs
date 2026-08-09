@@ -1,7 +1,7 @@
 // Manual self-test for the advanced-search query engine.
 // Run after `npm run build`:  node scripts/query-selftest.mjs
 import { parseQuery, compilePredicate, queryUsesField } from '../dist/renderer/query.js';
-import { deriveTemplate } from '../dist/renderer/filterTemplate.js';
+import { deriveTemplate } from '../dist/renderer/smartListTemplate.js';
 
 const ctx = {
   listNameById: new Map([
@@ -170,7 +170,7 @@ for (const [query, expected] of usesDoneCases) {
   }
 }
 
-// deriveTemplate: inverting a saved filter into defaults for a new task.
+// deriveTemplate: inverting a smart list into defaults for a new task.
 // Each case is [query, expected-subset]; `skipped` is compared as an exact array.
 const templateCases = [
   // fully assignable conjunctions -- the case that beats Reminders' one-list limit

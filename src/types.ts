@@ -38,14 +38,14 @@ export type Tag = {
 };
 
 /** A named advanced-search query. The server never parses `query`; the renderer does. */
-export type SavedFilter = {
+export type SmartList = {
   id: number;
   name: string;
   query: string;
   position: number;
 };
 
-/** Fields a saved filter's derived template can seed on a newly added task. */
+/** Fields a smart list's derived template can seed on a newly added task. */
 export type TaskSeed = {
   priority?: Task['priority'];
   reminderDate?: string | null;
@@ -92,13 +92,14 @@ export type ElectronAPI = {
   deleteTag: (id: number) => Promise<{ id: number }>;
   setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
   confirmDeleteTag: (name: string) => Promise<boolean>;
-  addFilter: (name: string, query: string) => Promise<SavedFilter | { error: string }>;
-  getFilters: () => Promise<SavedFilter[]>;
-  updateFilterName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
-  updateFilterQuery: (id: number, query: string) => Promise<{ id: number; query: string } | { error: string }>;
-  deleteFilter: (id: number) => Promise<{ id: number }>;
-  updateFilterOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
-  confirmDeleteFilter: (name: string) => Promise<boolean>;
+  addSmartList: (name: string, query: string) => Promise<SmartList | { error: string }>;
+  getSmartLists: () => Promise<SmartList[]>;
+  updateSmartListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
+  updateSmartListQuery: (id: number, query: string) => Promise<{ id: number; query: string } | { error: string }>;
+  deleteSmartList: (id: number) => Promise<{ id: number }>;
+  updateSmartListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+  confirmDeleteSmartList: (name: string) => Promise<boolean>;
+  confirmReplaceSmartList: (name: string) => Promise<boolean>;
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;

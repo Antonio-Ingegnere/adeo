@@ -28,6 +28,13 @@ def has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
   return any(row["name"] == column for row in rows)
 
 
+def has_table(conn: sqlite3.Connection, table: str) -> bool:
+  row = conn.execute(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+  ).fetchone()
+  return row is not None
+
+
 def initialize_db() -> None:
   conn = get_conn()
   try:
@@ -100,9 +107,14 @@ def initialize_db() -> None:
       )
       """
     )
+    # "saved filter" was renamed to "smart list" before the feature ever shipped. The rename has
+    # to happen *before* the CREATE below: creating the new table first would leave this a no-op
+    # and strand the existing rows in the old one.
+    if has_table(conn, "saved_filters") and not has_table(conn, "smart_lists"):
+      conn.execute("ALTER TABLE saved_filters RENAME TO smart_lists")
     conn.execute(
       """
-      CREATE TABLE IF NOT EXISTS saved_filters (
+      CREATE TABLE IF NOT EXISTS smart_lists (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE COLLATE NOCASE,
         query TEXT NOT NULL,
@@ -135,7 +147,7 @@ class TaskCreate(BaseModel):
   text: str
   listId: Optional[int] = None
   tagIds: Optional[List[int]] = None
-  # seeded from a saved filter's derived template; all optional so existing callers are unaffected
+  # seeded from a smart list's derived template; all optional so existing callers are unaffected
   priority: Optional[str] = None
   reminderDate: Optional[str] = None
   reminderTime: Optional[str] = None
@@ -201,16 +213,16 @@ class TaskTags(BaseModel):
   tagIds: List[int]
 
 
-class FilterCreate(BaseModel):
+class SmartListCreate(BaseModel):
   name: str
   query: str
 
 
-class FilterName(BaseModel):
+class SmartListName(BaseModel):
   name: str
 
 
-class FilterQuery(BaseModel):
+class SmartListQuery(BaseModel):
   query: str
 
 
@@ -640,100 +652,100 @@ def set_task_tags(task_id: int, payload: TaskTags) -> Dict[str, Any]:
     conn.close()
 
 
-# ---------- Saved filters ----------
-# A saved filter is nothing but a named query string; it is parsed and evaluated entirely in
+# ---------- Smart lists ----------
+# A smart list is nothing but a named query string; it is parsed and evaluated entirely in
 # the renderer (src/renderer/query.ts), so the server never inspects `query`.
 
 
-def filter_row(row: sqlite3.Row) -> Dict[str, Any]:
+def smart_list_row(row: sqlite3.Row) -> Dict[str, Any]:
   return {"id": row["id"], "name": row["name"], "query": row["query"], "position": row["position"]}
 
 
-@app.post("/filters")
-def add_filter(payload: FilterCreate) -> Dict[str, Any]:
+@app.post("/smart-lists")
+def add_smart_list(payload: SmartListCreate) -> Dict[str, Any]:
   name = payload.name.strip()
   query = payload.query.strip()
   if not name:
-    raise HTTPException(status_code=400, detail="Filter name is empty")
+    raise HTTPException(status_code=400, detail="Smart list name is empty")
   if not query:
-    raise HTTPException(status_code=400, detail="Filter query is empty")
+    raise HTTPException(status_code=400, detail="Smart list query is empty")
   conn = get_conn()
   try:
-    row = conn.execute("SELECT MAX(position) as maxPos FROM saved_filters").fetchone()
+    row = conn.execute("SELECT MAX(position) as maxPos FROM smart_lists").fetchone()
     next_pos = (row["maxPos"] if row and row["maxPos"] is not None else -1) + 1
     try:
       cursor = conn.execute(
-        "INSERT INTO saved_filters (name, query, position) VALUES (?, ?, ?)",
+        "INSERT INTO smart_lists (name, query, position) VALUES (?, ?, ?)",
         (name, query, next_pos),
       )
       conn.commit()
     except sqlite3.IntegrityError:
-      raise HTTPException(status_code=400, detail="Filter name already exists")
+      raise HTTPException(status_code=400, detail="Smart list name already exists")
     return {"id": cursor.lastrowid, "name": name, "query": query, "position": next_pos}
   finally:
     conn.close()
 
 
-@app.get("/filters")
-def get_filters() -> List[Dict[str, Any]]:
+@app.get("/smart-lists")
+def get_smart_lists() -> List[Dict[str, Any]]:
   conn = get_conn()
   try:
     rows = conn.execute(
-      "SELECT id, name, query, position FROM saved_filters ORDER BY position ASC, id ASC"
+      "SELECT id, name, query, position FROM smart_lists ORDER BY position ASC, id ASC"
     ).fetchall()
-    return [filter_row(row) for row in rows]
+    return [smart_list_row(row) for row in rows]
   finally:
     conn.close()
 
 
-@app.patch("/filters/{filter_id}/name")
-def update_filter_name(filter_id: int, payload: FilterName) -> Dict[str, Any]:
+@app.patch("/smart-lists/{smart_list_id}/name")
+def update_smart_list_name(smart_list_id: int, payload: SmartListName) -> Dict[str, Any]:
   name = payload.name.strip()
   if not name:
-    raise HTTPException(status_code=400, detail="Filter name is empty")
+    raise HTTPException(status_code=400, detail="Smart list name is empty")
   conn = get_conn()
   try:
     try:
-      conn.execute("UPDATE saved_filters SET name = ? WHERE id = ?", (name, filter_id))
+      conn.execute("UPDATE smart_lists SET name = ? WHERE id = ?", (name, smart_list_id))
       conn.commit()
     except sqlite3.IntegrityError:
-      raise HTTPException(status_code=400, detail="Filter name already exists")
-    return {"id": filter_id, "name": name}
+      raise HTTPException(status_code=400, detail="Smart list name already exists")
+    return {"id": smart_list_id, "name": name}
   finally:
     conn.close()
 
 
-@app.patch("/filters/{filter_id}/query")
-def update_filter_query(filter_id: int, payload: FilterQuery) -> Dict[str, Any]:
+@app.patch("/smart-lists/{smart_list_id}/query")
+def update_smart_list_query(smart_list_id: int, payload: SmartListQuery) -> Dict[str, Any]:
   query = payload.query.strip()
   if not query:
-    raise HTTPException(status_code=400, detail="Filter query is empty")
+    raise HTTPException(status_code=400, detail="Smart list query is empty")
   conn = get_conn()
   try:
-    conn.execute("UPDATE saved_filters SET query = ? WHERE id = ?", (query, filter_id))
+    conn.execute("UPDATE smart_lists SET query = ? WHERE id = ?", (query, smart_list_id))
     conn.commit()
-    return {"id": filter_id, "query": query}
+    return {"id": smart_list_id, "query": query}
   finally:
     conn.close()
 
 
-@app.delete("/filters/{filter_id}")
-def delete_filter(filter_id: int) -> Dict[str, Any]:
+@app.delete("/smart-lists/{smart_list_id}")
+def delete_smart_list(smart_list_id: int) -> Dict[str, Any]:
   conn = get_conn()
   try:
-    conn.execute("DELETE FROM saved_filters WHERE id = ?", (filter_id,))
+    conn.execute("DELETE FROM smart_lists WHERE id = ?", (smart_list_id,))
     conn.commit()
-    return {"id": filter_id}
+    return {"id": smart_list_id}
   finally:
     conn.close()
 
 
-@app.post("/filters/order")
-def update_filter_order(payload: ListOrder) -> Dict[str, Any]:
+@app.post("/smart-lists/order")
+def update_smart_list_order(payload: ListOrder) -> Dict[str, Any]:
   conn = get_conn()
   try:
-    for index, filter_id in enumerate(payload.orderedIds):
-      conn.execute("UPDATE saved_filters SET position = ? WHERE id = ?", (index, filter_id))
+    for index, smart_list_id in enumerate(payload.orderedIds):
+      conn.execute("UPDATE smart_lists SET position = ? WHERE id = ?", (index, smart_list_id))
     conn.commit()
     return {"success": True}
   finally:

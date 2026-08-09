@@ -2,8 +2,8 @@ import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions
 import { refs } from './dom.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
-import { loadFilters, renderFilters, toggleFiltersExpanded } from './filters.js';
-import { activeFilter, invalidateFilterUI, syncFilterUI } from './activeFilter.js';
+import { loadSmartLists, renderSmartLists, toggleSmartListsExpanded } from './smartLists.js';
+import { activeSmartList, invalidateSmartListUI, syncSmartListUI } from './activeSmartList.js';
 import { parseQuery } from './query.js';
 import { applySearchQuery, closeQueryPopovers, setSearchMode, setupQuerySearch } from './querySearch.js';
 import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
@@ -27,118 +27,165 @@ import {
   updateTagsUI,
 } from './modals.js';
 import { state } from './state.js';
-import type { SavedFilter, Tag, Theme } from '../types.js';
+import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
 import { installModalFocusTrap } from './focusTrap.js';
 
-// ---------- Saved filters ----------
+// ---------- Smart lists ----------
 
-const showFilterError = (message: string | null) => {
-  if (!refs.filterModalError) return;
-  refs.filterModalError.textContent = message ?? '';
-  refs.filterModalError.style.display = message ? 'block' : 'none';
+const showSmartListError = (message: string | null) => {
+  if (!refs.smartListModalError) return;
+  refs.smartListModalError.textContent = message ?? '';
+  refs.smartListModalError.style.display = message ? 'block' : 'none';
 };
 
-const closeFilterModal = () => {
-  refs.filterOverlay?.classList.remove('open');
-  state.editingFilterId = null;
-  showFilterError(null);
+const closeSmartListModal = () => {
+  refs.smartListOverlay?.classList.remove('open');
+  state.editingSmartListId = null;
+  showSmartListError(null);
 };
 
 /** With no id, saves whatever query is currently in the search bar. */
-const openFilterModal = (filterId?: number) => {
-  const existing = filterId !== undefined ? state.filters.find((f) => f.id === filterId) : undefined;
-  state.editingFilterId = existing?.id ?? null;
-  showFilterError(null);
+const openSmartListModal = (smartListId?: number) => {
+  const existing =
+    smartListId !== undefined ? state.smartLists.find((f) => f.id === smartListId) : undefined;
+  state.editingSmartListId = existing?.id ?? null;
+  showSmartListError(null);
 
-  if (refs.filterModalTitle) {
-    refs.filterModalTitle.textContent = existing ? 'Edit filter' : 'Save filter';
+  if (refs.smartListModalTitle) {
+    refs.smartListModalTitle.textContent = existing ? 'Edit smart list' : 'Save smart list';
   }
-  if (refs.filterNameInput) {
-    refs.filterNameInput.value = existing?.name ?? '';
+  if (refs.smartListNameInput) {
+    refs.smartListNameInput.value = existing?.name ?? '';
   }
-  if (refs.filterQueryInput) {
-    refs.filterQueryInput.value = existing?.query ?? state.searchQuery.trim();
+  if (refs.smartListQueryInput) {
+    refs.smartListQueryInput.value = existing?.query ?? state.searchQuery.trim();
   }
 
-  if (!existing && !refs.filterQueryInput?.value) {
+  if (!existing && !refs.smartListQueryInput?.value) {
     // nothing to save: tell the user how to get a query rather than opening an empty dialog
-    showFilterError('Type a query in the search bar first, then save it here.');
+    showSmartListError('Type a query in the search bar first, then save it here.');
   }
 
-  refs.filterOverlay?.classList.add('open');
-  refs.filterNameInput?.focus();
-  refs.filterNameInput?.select();
+  refs.smartListOverlay?.classList.add('open');
+  refs.smartListNameInput?.focus();
+  refs.smartListNameInput?.select();
 };
 
-const saveFilter = async () => {
-  const name = refs.filterNameInput?.value.trim() ?? '';
-  const query = refs.filterQueryInput?.value.trim() ?? '';
+/** The smart list already holding this name, if any — matched case-insensitively, as the DB does. */
+const smartListNamed = (name: string, exceptId: number | null) =>
+  state.smartLists.find(
+    (f) => f.id !== exceptId && f.name.toLowerCase() === name.toLowerCase()
+  ) ?? null;
+
+const saveSmartList = async () => {
+  const name = refs.smartListNameInput?.value.trim() ?? '';
+  const query = refs.smartListQueryInput?.value.trim() ?? '';
   if (!name) {
-    showFilterError('Give the filter a name.');
-    refs.filterNameInput?.focus();
+    showSmartListError('Give the smart list a name.');
+    refs.smartListNameInput?.focus();
     return;
   }
   if (!query) {
-    showFilterError('A filter needs a query.');
-    refs.filterQueryInput?.focus();
+    showSmartListError('A smart list needs a query.');
+    refs.smartListQueryInput?.focus();
     return;
   }
   // refuse to save something that will never run; the error is the parser's own wording
   const parsed = parseQuery(query);
   if (!parsed.ok) {
-    showFilterError(`${parsed.error.message} (column ${parsed.error.position + 1})`);
-    refs.filterQueryInput?.focus();
+    showSmartListError(`${parsed.error.message} (column ${parsed.error.position + 1})`);
+    refs.smartListQueryInput?.focus();
     return;
   }
 
-  try {
-    if (state.editingFilterId !== null) {
-      const id = state.editingFilterId;
-      const renamed = await window.electronAPI.updateFilterName(id, name);
-      if ((renamed as { error?: string }).error) {
-        showFilterError((renamed as { error: string }).error);
-        return;
-      }
-      const requeried = await window.electronAPI.updateFilterQuery(id, query);
-      if ((requeried as { error?: string }).error) {
-        showFilterError((requeried as { error: string }).error);
-        return;
-      }
-      state.filters = state.filters.map((f) => (f.id === id ? { ...f, name, query } : f));
-    } else {
-      const created = await window.electronAPI.addFilter(name, query);
-      if ((created as { error?: string }).error) {
-        showFilterError((created as { error: string }).error);
-        return;
-      }
-      state.filters.push(created as SavedFilter);
+  // The name is unique, but reusing one is a normal thing to want -- you refine a query and
+  // save it under the name you already think of it by. Caught here rather than left to the
+  // server's 400 so it can be offered as a choice instead of reported as a dead end.
+  const clash = smartListNamed(name, state.editingSmartListId);
+  if (clash) {
+    const replace = await window.electronAPI.confirmReplaceSmartList(clash.name);
+    if (!replace) {
+      refs.smartListNameInput?.focus();
+      refs.smartListNameInput?.select();
+      return;
     }
-    closeFilterModal();
-    invalidateFilterUI();
-    syncFilterUI(renderFilters);
-    renderFilters();
+    if (state.editingSmartListId === null) {
+      // creating under a taken name *is* an edit of the one that has it: keeping its id means
+      // its sidebar position survives, and anyone with it running keeps it running
+      state.editingSmartListId = clash.id;
+    } else {
+      // renaming one onto another's name: the other has to go, or the name stays taken. The
+      // one being edited keeps its identity, which is the one the user has in front of them.
+      await window.electronAPI.deleteSmartList(clash.id);
+      state.smartLists = state.smartLists.filter((f) => f.id !== clash.id);
+    }
+  }
+
+  try {
+    if (state.editingSmartListId !== null) {
+      const id = state.editingSmartListId;
+      // whether this one was running has to be read *before* the edit lands, since
+      // activeSmartList compares against the stored query the edit is about to replace
+      const wasRunning = activeSmartList()?.id === id;
+      const renamed = await window.electronAPI.updateSmartListName(id, name);
+      if ((renamed as { error?: string }).error) {
+        showSmartListError((renamed as { error: string }).error);
+        return;
+      }
+      const requeried = await window.electronAPI.updateSmartListQuery(id, query);
+      if ((requeried as { error?: string }).error) {
+        showSmartListError((requeried as { error: string }).error);
+        return;
+      }
+      state.smartLists = state.smartLists.map((f) => (f.id === id ? { ...f, name, query } : f));
+      // editing the query of the one on screen would otherwise leave the *old* query running
+      // and, because "running" is derived by comparing the two, silently deselect it
+      if (wasRunning && refs.listsSearchInput) {
+        refs.listsSearchInput.value = query;
+        applySearchQuery(query, true);
+      }
+    } else {
+      const created = await window.electronAPI.addSmartList(name, query);
+      if ((created as { error?: string }).error) {
+        showSmartListError((created as { error: string }).error);
+        return;
+      }
+      state.smartLists.push(created as SmartList);
+    }
+    closeSmartListModal();
+    invalidateSmartListUI();
+    syncSmartListUI(renderSmartLists);
+    renderSmartLists();
   } catch (error) {
-    console.error('Failed to save filter', error);
-    showFilterError('Could not save the filter.');
+    console.error('Failed to save smart list', error);
+    showSmartListError('Could not save the smart list.');
   }
 };
 
-/** Selecting a saved filter is just running its query — no separate filtering path. */
-const runSavedFilter = (filterId: number) => {
-  const filter = state.filters.find((f) => f.id === filterId);
-  if (!filter || !refs.listsSearchInput) return;
-  const alreadyRunning = activeFilter()?.id === filter.id;
-  // clicking the running filter clears it, matching how list and tag pills toggle
-  const nextQuery = alreadyRunning ? '' : filter.query;
+/** Selecting a smart list is just running its query — no separate filtering path. */
+const runSmartList = (smartListId: number) => {
+  const smartList = state.smartLists.find((f) => f.id === smartListId);
+  if (!smartList || !refs.listsSearchInput) return;
+  const alreadyRunning = activeSmartList()?.id === smartList.id;
+  // clicking the running smart list clears it, matching how list and tag pills toggle
+  const nextQuery = alreadyRunning ? '' : smartList.query;
   setSearchMode('advanced');
   refs.listsSearchInput.value = nextQuery;
   applySearchQuery(nextQuery, true);
-  invalidateFilterUI();
-  syncFilterUI(renderFilters);
-  renderFilters();
-  refs.listsSearchInput.focus();
+  // deliberately asymmetric, and settled *before* the sync below because the chip's visibility
+  // depends on it: running one leaves the field unfocused so the name chip is what the user
+  // sees, which is the point of picking it by name. Clearing one puts the caret back in an
+  // empty field, ready to type.
+  if (alreadyRunning) {
+    refs.listsSearchInput.focus();
+  } else {
+    refs.listsSearchInput.blur();
+  }
+  invalidateSmartListUI();
+  syncSmartListUI(renderSmartLists);
+  renderSmartLists();
 };
 
 const toDateInputValue = (date: Date) => {
@@ -504,16 +551,16 @@ const setupEvents = () => {
     toggleTagsExpanded();
   });
 
-  refs.filtersToggle?.addEventListener('click', () => {
-    toggleFiltersExpanded();
+  refs.smartListsToggle?.addEventListener('click', () => {
+    toggleSmartListsExpanded();
   });
 
-  refs.addFilterBtn?.addEventListener('click', () => openFilterModal());
-  refs.saveFilterBtn?.addEventListener('click', () => saveFilter());
-  refs.cancelFilterBtn?.addEventListener('click', () => closeFilterModal());
-  refs.filterNameInput?.addEventListener('keypress', (event) => {
+  refs.addSmartListBtn?.addEventListener('click', () => openSmartListModal());
+  refs.saveSmartListBtn?.addEventListener('click', () => saveSmartList());
+  refs.cancelSmartListBtn?.addEventListener('click', () => closeSmartListModal());
+  refs.smartListNameInput?.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
-      saveFilter();
+      saveSmartList();
     }
   });
 
@@ -1144,17 +1191,16 @@ const setupEvents = () => {
     }
   });
 
-  document.addEventListener('open-edit-filter-modal', (event) => {
-    const detail = (event as CustomEvent<{ filterId: number }>).detail;
-    if (detail?.filterId !== undefined) {
-      openFilterModal(detail.filterId);
-    }
+  // no id means "save what is in the search bar", which is how the in-field bookmark creates one
+  document.addEventListener('open-smart-list-modal', (event) => {
+    const detail = (event as CustomEvent<{ smartListId?: number }>).detail;
+    openSmartListModal(detail?.smartListId);
   });
 
-  document.addEventListener('run-saved-filter', (event) => {
-    const detail = (event as CustomEvent<{ filterId: number }>).detail;
-    if (detail?.filterId !== undefined) {
-      runSavedFilter(detail.filterId);
+  document.addEventListener('run-smart-list', (event) => {
+    const detail = (event as CustomEvent<{ smartListId: number }>).detail;
+    if (detail?.smartListId !== undefined) {
+      runSmartList(detail.smartListId);
     }
   });
 
@@ -1166,8 +1212,8 @@ const setupEvents = () => {
     if (refs.repeatOverlay?.classList.contains('open')) {
       refs.repeatOverlay.classList.remove('open');
     }
-    if (refs.filterOverlay?.classList.contains('open')) {
-      closeFilterModal();
+    if (refs.smartListOverlay?.classList.contains('open')) {
+      closeSmartListModal();
     }
   });
 
@@ -1180,9 +1226,9 @@ const setupEvents = () => {
       state.openTagMenuId = null;
       renderTags();
     }
-    if (state.openFilterMenuId !== null) {
-      state.openFilterMenuId = null;
-      renderFilters();
+    if (state.openSmartListMenuId !== null) {
+      state.openSmartListMenuId = null;
+      renderSmartLists();
     }
     if (refs.priorityMenu) {
       refs.priorityMenu.style.display = 'none';
@@ -1223,8 +1269,8 @@ const init = async () => {
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.tagsToggle?.dispatchEvent(new Event('click'));
   refs.tagsToggle?.dispatchEvent(new Event('click'));
-  refs.filtersToggle?.dispatchEvent(new Event('click'));
-  refs.filtersToggle?.dispatchEvent(new Event('click'));
+  refs.smartListsToggle?.dispatchEvent(new Event('click'));
+  refs.smartListsToggle?.dispatchEvent(new Event('click'));
   updateTasksTitle();
   updatePriorityUI(state.modalPriority);
   await loadSettings();
@@ -1234,7 +1280,7 @@ const init = async () => {
   await loadTags();
   await loadTasks();
   await loadLists();
-  await loadFilters();
+  await loadSmartLists();
   window.electronAPI.notifyRendererReady();
 };
 

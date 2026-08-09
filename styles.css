@@ -166,7 +166,8 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  /* the same gap .input-row uses, so the two rows' seams fall in the same places */
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
@@ -175,13 +176,12 @@ body {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  /* S1's original 680px cap was the only thing bounding the field, which left its right edge
-     landing at an arbitrary point. The field is now bounded by the content column on the left
-     and the mode switch on the right, so at ordinary window sizes it simply fills the gap
-     between two aligned edges. The cap survives only so a very wide window does not produce a
-     1400px field -- keep it high enough not to bind at common sizes, where stopping just short
-     of the add-task input below reads as a failed alignment rather than a deliberate one. */
-  max-width: 860px;
+  /* No max-width. S1's 680px cap was the only thing bounding the field, which is why its right
+     edge landed at an arbitrary point. The field is now bounded by the content column on the
+     left and the fixed-width trailing group on the right, which makes it exactly as wide as
+     the add-task input below -- at every window size. Reintroducing a cap would break that at
+     the width where it binds, and any line length too long to scan here is equally too long in
+     the add-task input, so it is a problem to fix in both rows or neither. */
 }
 
 /* the field's own validity signal — no layout shift, unlike a status line that appears and
@@ -2158,12 +2158,23 @@ body {
 
 /* ---------- Search: mode switch, status, query help & autocomplete ---------- */
 
-/* pinned to the content column's right edge by margin-left:auto, so both ends of the header
-   toolbar line up with the task rows below it */
+/* Pinned to the content column's right edge by margin-left:auto, so both ends of the header
+   toolbar line up with the task rows below it.
+   The 147px is not arbitrary: 147 + 8 gap + 26 (?) = 181, which is exactly the add-task row's
+   trailing group (.add-task-select-wrap's 140px min-width + 8 gap + the 33px + button). That
+   puts this switch's left edge on the list picker's and the search field's right edge on the
+   add-task input's. Change it only together with those three numbers.
+   It does drift: the picker grows past 140px for long list names (measured: "Groceries and
+   household supplies" moves that seam 109px), so the add-task row's seam shifts while such a
+   list is selected. Capping the picker instead would truncate list names, which is a real
+   cost for a cosmetic gain -- being right in the common case is the better trade. */
 .search-mode-switch {
   margin-left: auto;
   display: flex;
-  flex-shrink: 0;
+  align-items: stretch;
+  flex: 0 0 147px;
+  height: 34px;
+  box-sizing: border-box;
   gap: 2px;
   padding: 2px;
   background: var(--surface-sunken);
@@ -2173,10 +2184,15 @@ body {
 
 .segmented-option {
   display: flex;
+  flex: 1;
 }
 
 .segmented-option span {
-  padding: 4px 12px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: var(--radius-m);
   font-size: var(--font-s);
   color: var(--text-hint);
@@ -2225,14 +2241,17 @@ body {
   z-index: 20;
 }
 
+/* deliberately smaller than the add-task row's + button (33px): that is the app's primary
+   verb and this is tertiary help, so matching them would promote help to the same weight.
+   26px clears the 24px minimum target size that the previous 22px did not. */
 .search-help-btn {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-hint);
-  width: 22px;
-  height: 22px;
+  flex: 0 0 26px;
+  height: 26px;
   border-radius: 50%;
-  font-size: var(--font-xs);
+  font-size: var(--font-s);
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -2376,10 +2395,6 @@ body {
 
   .app-header-rail {
     flex-basis: 240px;
-  }
-
-  .segmented-option span {
-    padding: 4px 8px;
   }
 }
 

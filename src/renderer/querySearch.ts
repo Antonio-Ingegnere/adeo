@@ -53,6 +53,7 @@ const closeSuggest = () => {
     refs.querySuggestMenu.style.display = 'none';
   }
   syncComboboxAria(refs.listsSearchInput, false, null);
+  syncStatusLine();
 };
 
 export const closeQueryPopovers = () => {
@@ -60,6 +61,7 @@ export const closeQueryPopovers = () => {
   if (refs.searchHelpPopover) {
     refs.searchHelpPopover.style.display = 'none';
   }
+  syncStatusLine();
 };
 
 const flushRender = () => {
@@ -90,34 +92,51 @@ const announce = (message: string | null) => {
   }
 };
 
+const searchField = () => refs.listsSearchInput?.closest('.lists-search-field') ?? null;
+
+/**
+ * The error line shares the strip just under the field with the suggest menu and, at wider
+ * sizes, overlaps the help popover. It yields to both: whenever either is open the user is
+ * mid-interaction and the red border alone carries the "this does not parse" signal.
+ */
+const syncStatusLine = () => {
+  if (!refs.searchStatusLine) return;
+  const helpOpen = refs.searchHelpPopover?.style.display === 'block';
+  const show =
+    state.queryStatus === 'invalid' && Boolean(state.queryError) && !suggestOpen && !helpOpen;
+  refs.searchStatusLine.style.display = show ? 'block' : 'none';
+};
+
+/** Drops every query-validity signal. Simple mode has no parse, so it has no verdict either. */
+const clearSearchStatus = () => {
+  searchField()?.classList.remove('is-valid', 'is-invalid');
+  if (refs.searchStatusLine) {
+    refs.searchStatusLine.style.display = 'none';
+  }
+};
+
 const renderSearchStatus = () => {
-  if (!refs.searchStatusText) return;
-  const el = refs.searchStatusText;
-  el.classList.remove('ok', 'err');
-  if (state.queryStatus === 'empty') {
-    el.textContent = 'field:value · AND OR NOT · ( ) — ? for help';
-    el.title = '';
-    announce('');
-    return;
-  }
-  if (state.queryStatus === 'pending') {
-    // mid-token: say nothing rather than accuse the user of a syntax error they are
-    // still in the middle of typing (the suggest dropdown is usually open here)
-    el.textContent = '…';
-    el.title = '';
-    return;
-  }
+  const field = searchField();
+  field?.classList.remove('is-valid', 'is-invalid');
+
   if (state.queryStatus === 'invalid' && state.queryError) {
-    el.classList.add('err');
-    el.textContent = `⚠ ${state.queryError.message}`;
-    el.title = `${state.queryError.message} (at column ${state.queryError.position + 1})`;
+    field?.classList.add('is-invalid');
+    if (refs.searchStatusLine) {
+      refs.searchStatusLine.textContent =
+        `⚠ ${state.queryError.message} (column ${state.queryError.position + 1})`;
+    }
     announce(`Invalid query: ${state.queryError.message}`);
-    return;
+  } else if (state.queryStatus === 'valid') {
+    // no prose: the border tint plus the "Search results · N" count already confirm the parse
+    field?.classList.add('is-valid');
+    announce('Valid query');
+  } else if (state.queryStatus === 'empty') {
+    announce('');
   }
-  el.classList.add('ok');
-  el.textContent = '✓ Valid query';
-  el.title = '';
-  announce('Valid query');
+  // 'pending' means mid-token: show nothing at all rather than accuse the user of a syntax
+  // error they are still in the middle of typing, and leave the live region alone.
+
+  syncStatusLine();
 };
 
 /**
@@ -216,15 +235,19 @@ const applyModeUI = () => {
       ? 'Query… e.g. list:Home AND due<=today'
       : `Search (${SEARCH_SHORTCUT})`;
   }
-  if (refs.searchModeToggle) {
-    refs.searchModeToggle.classList.toggle('active', advanced);
-    refs.searchModeToggle.setAttribute('aria-pressed', advanced ? 'true' : 'false');
+  if (refs.searchModeSimple && refs.searchModeAdvanced) {
+    refs.searchModeSimple.checked = !advanced;
+    refs.searchModeAdvanced.checked = advanced;
   }
-  if (refs.searchStatus) {
-    refs.searchStatus.style.display = advanced ? 'flex' : 'none';
+  // the query language is the only thing the help documents
+  if (refs.searchHelpBtn) {
+    refs.searchHelpBtn.style.display = advanced ? 'inline-flex' : 'none';
   }
   if (!advanced) {
     closeQueryPopovers();
+    // applySearchQuery's simple branch never reaches renderSearchStatus, so the last
+    // verdict would otherwise stay painted on the field after leaving query mode
+    clearSearchStatus();
   }
 };
 
@@ -452,6 +475,8 @@ const updateSuggestions = () => {
   activeIndex = 0;
   suggestOpen = true;
   renderSuggestMenu();
+  // renderSearchStatus() already ran (via applySearchQuery) before the menu opened
+  syncStatusLine();
 };
 
 const selectSuggestion = (index: number) => {
@@ -475,17 +500,36 @@ export const setupQuerySearch = () => {
   applyModeUI();
   renderSearchStatus();
 
-  refs.searchModeToggle?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    setMode(state.searchMode === 'advanced' ? 'simple' : 'advanced');
-    input?.focus();
-  });
+  // 'change' rather than 'click': it also fires for the arrow-key navigation the native radio
+  // group gives us for free.
+  const onModeChange =
+    (mode: 'simple' | 'advanced', radio: HTMLInputElement) => (event: Event) => {
+      event.stopPropagation();
+      if (state.searchMode === mode) return;
+      setMode(mode);
+      // Clicking the switch means "now let me type"; arrowing across it does not -- stealing
+      // focus there would strand the user, since they could no longer arrow back. A radio
+      // matches :focus-visible only when it was reached by keyboard, which is the distinction.
+      if (!radio.matches(':focus-visible')) {
+        input?.focus();
+      }
+    };
+  if (refs.searchModeSimple) {
+    refs.searchModeSimple.addEventListener('change', onModeChange('simple', refs.searchModeSimple));
+  }
+  if (refs.searchModeAdvanced) {
+    refs.searchModeAdvanced.addEventListener(
+      'change',
+      onModeChange('advanced', refs.searchModeAdvanced)
+    );
+  }
 
   refs.searchHelpBtn?.addEventListener('click', (event) => {
     event.stopPropagation();
     if (refs.searchHelpPopover) {
       const open = refs.searchHelpPopover.style.display === 'block';
       refs.searchHelpPopover.style.display = open ? 'none' : 'block';
+      syncStatusLine();
     }
   });
   refs.searchHelpPopover?.addEventListener('click', (event) => event.stopPropagation());

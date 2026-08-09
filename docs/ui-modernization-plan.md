@@ -22,6 +22,22 @@ Every phase below is done and verified against a running instance. Deviations fr
 
 Known gaps, deliberately not addressed: drag handles are still pointer-only (keyboard reordering is a feature, not a polish item), and the background behind an open modal is not `aria-hidden`.
 
+## Follow-up pass — search bar layout (2026-08-09)
+
+A second hands-on review, prompted by the search bar still reading as "wrong", found problems this plan's Phase 2 did not cover because they are about *placement*, not the field itself. Measured at 1280×800.
+
+| # | Finding | Resolution |
+|---|---|---|
+| S9 | **The field aligned to nothing.** The rail is `0–288` and `.main-column` is `312–1248`, but the field ran `16–696` — its right edge landing mid-column, its left edge matching neither the rail's edge nor its 12px inner padding. The single largest cause of the "off" impression. | `.app-header` split into `.app-header-rail` (exactly the grid rail width) and `.app-header-main` (padding-left = the grid gap), so the field's left edge sits on `.main-column` and the mode switch's right edge sits on the task rows. |
+| S10 | **The two in-field buttons overlapped by 2px.** `.search-mode-toggle` was `right:28px`×22px → `646–668`; `.lists-search-clear` `right:8px`×22px → `666–688`. Visible in advanced mode, where the toggle's active fill ran into the `×`. Both were also under the 24px target floor. | Mode switch moved out of the field entirely; only the `×` remains inside. |
+| S11 | **The `pending` state rendered `…`.** Directly contradicted the S3/S4 design, whose whole point is that a mid-token parse failure is silent. | Deleted. `pending` now shows nothing at all. |
+| S12 | **Parse errors were truncated.** The status block was capped at `max-width: 45%` and ellipsized, while ~330px of header sat empty beside it; the column number was buried in a `title` tooltip. | `.search-status-line`, anchored under the field, full field width, wrapping, with the column number inline. |
+| S13 | **Both popovers spilled over the sidebar** — left-anchored under a field starting at `x=16`. | Fixed by S9; the help popover additionally re-anchored to `right:0` so it hangs off its own `?` trigger. |
+| S14 | **No width media queries existed at all**, with a `minWidth: 600` window floor. | Added the file's first, at 860px: the grid rail and the header rail block drop to 240px *together*, so S9's alignment survives at the narrow end. |
+| — | S7 (advanced-mode discoverability) was only partly addressed by Phase 2's tooltip. | The `<>` glyph is replaced by a labelled `Text | Query` segmented control — native radios, so arrow-key navigation and single-tab-stop semantics come for free. The mode is now visible at rest. |
+
+**S1 superseded.** The 680px cap was the only thing bounding the field, which is why its right edge landed arbitrarily. The field is now bounded by the content column on the left and the mode switch on the right; a `max-width` survives (860px) purely so a very wide window does not produce a 1400px field, and it is deliberately set high enough not to bind at common sizes — stopping just short of the add-task input below reads as a failed alignment rather than a deliberate one.
+
 ## Findings
 
 ### Search bar (priority area)

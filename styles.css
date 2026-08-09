@@ -166,7 +166,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
 }
@@ -174,9 +174,24 @@ body {
 .lists-search-field {
   position: relative;
   flex: 1 1 auto;
-  min-width: 180px;
-  /* S1: stays fluid, but a full-width field on a wide window is unscannable */
-  max-width: 680px;
+  min-width: 0;
+  /* S1's original 680px cap was the only thing bounding the field, which left its right edge
+     landing at an arbitrary point. The field is now bounded by the content column on the left
+     and the mode switch on the right, so at ordinary window sizes it simply fills the gap
+     between two aligned edges. The cap survives only so a very wide window does not produce a
+     1400px field -- keep it high enough not to bind at common sizes, where stopping just short
+     of the add-task input below reads as a failed alignment rather than a deliberate one. */
+  max-width: 860px;
+}
+
+/* the field's own validity signal — no layout shift, unlike a status line that appears and
+   disappears. Only 'invalid' additionally gets prose (see .search-status-line). */
+.lists-search-field.is-valid .lists-search-input {
+  border-color: var(--success);
+}
+
+.lists-search-field.is-invalid .lists-search-input {
+  border-color: var(--danger);
 }
 
 .lists-search-input {
@@ -184,8 +199,8 @@ body {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-body);
-  /* right padding clears both the mode toggle and the clear button */
-  padding: 8px 52px 8px 32px;
+  /* right padding clears the clear button */
+  padding: 8px 34px 8px 32px;
   border-radius: var(--radius-l);
   font-size: var(--font-m);
   box-sizing: border-box;
@@ -2141,38 +2156,48 @@ body {
   margin-top: 4px;
 }
 
-/* ---------- Search: mode toggle, status, query help & autocomplete ---------- */
+/* ---------- Search: mode switch, status, query help & autocomplete ---------- */
 
-.search-mode-toggle {
-  position: absolute;
-  right: 28px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  background: transparent;
+/* pinned to the content column's right edge by margin-left:auto, so both ends of the header
+   toolbar line up with the task rows below it */
+.search-mode-switch {
+  margin-left: auto;
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.segmented-option {
+  display: flex;
+}
+
+.segmented-option span {
+  padding: 4px 12px;
+  border-radius: var(--radius-m);
+  font-size: var(--font-s);
   color: var(--text-hint);
-  padding: 4px;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  border-radius: var(--radius-s);
+  white-space: nowrap;
+  user-select: none;
 }
 
-.search-mode-toggle:hover {
+.segmented-option:hover span {
   color: var(--text-body);
 }
 
-.search-mode-toggle.active {
-  color: var(--text-body);
-  background: var(--surface-active-alt);
+.segmented-option input:checked + span {
+  background: var(--surface);
+  color: var(--text);
 }
 
-.search-mode-toggle svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
+/* the radio itself is clipped by .visually-hidden, so the ring has to be drawn on the label */
+.segmented-option input:focus-visible + span {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
 }
 
 .lists-search-input.query-mode {
@@ -2181,42 +2206,31 @@ body {
   background-color: var(--surface-query);
 }
 
-.search-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 0;
-  padding: 0;
-  font-size: var(--font-xs);
-  min-height: 16px;
-  color: var(--text-hint);
-  flex: 0 1 auto;
-  max-width: 45%;
-  min-width: 0;
-}
-
-.search-status-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.search-status-text.ok {
-  color: var(--success);
-}
-
-.search-status-text.err {
+/* parse errors only. Anchored to the field rather than floating in the header, full field
+   width, and wrapping -- the old status text was capped at 45% and ellipsized the message. */
+.search-status-line {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-popover);
   color: var(--danger);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+  z-index: 20;
 }
 
 .search-help-btn {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-hint);
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   font-size: var(--font-xs);
   line-height: 1;
@@ -2233,13 +2247,14 @@ body {
   border-color: var(--border-strong);
 }
 
+/* hangs off its own trigger (the ? at the row's right end) rather than the far left */
 .search-help-popover {
   position: absolute;
-  left: 0;
-  right: auto;
+  left: auto;
+  right: 0;
   top: calc(100% + 6px);
   width: 520px;
-  max-width: calc(100vw - 48px);
+  max-width: 100%;
   box-sizing: border-box;
   margin-top: 0;
   background: var(--surface);
@@ -2289,8 +2304,8 @@ body {
 }
 
 .query-suggest-menu {
-  min-width: 220px;
-  max-width: 100%;
+  min-width: 280px;
+  max-width: min(420px, 100%);
 }
 
 .query-suggest-item {
@@ -2304,19 +2319,57 @@ body {
   padding-left: 10px;
 }
 
-/* ---------- App header ---------- */
+/* ---------- App header ----------
+   Split so the toolbar lines up with the body's two columns instead of cutting across them.
+   .card contributes only padding-right:32px, so its content box ends at 100vw - 32; the
+   header's margin-right:-32px reclaims that so the band still bleeds to the window edge.
+   .app-header-rail is then exactly the .content-grid rail width, and .app-header-main's
+   padding-left is exactly the grid gap -- which puts the search field's left edge on
+   .main-column and its right edge on the task rows. Change the 288px/24px/32px triple here
+   only together with .content-grid and .card. */
 
 .app-header {
   display: flex;
-  align-items: center;
-  height: 48px;
-  padding: 0 16px;
+  align-items: stretch;
+  height: 56px;
+  padding: 0;
   margin-right: -32px;
-  background: var(--surface);
   border-bottom: 1px solid var(--border-subtle);
   box-sizing: border-box;
   flex-shrink: 0;
   min-width: 0;
+}
+
+.app-header-rail {
+  flex: 0 0 288px;
+  background: var(--surface-sunken);
+}
+
+.app-header-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 32px 0 24px;
+  background: var(--surface);
+}
+
+/* ---------- Narrow windows ----------
+   The window floor is minWidth:600 (src/main.ts). At that size a 288px rail leaves the
+   content column too narrow for the search field plus the mode switch. Both rail widths move
+   together so the header/sidebar alignment survives rather than being abandoned here. */
+@media (max-width: 860px) {
+  .content-grid {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .app-header-rail {
+    flex-basis: 240px;
+  }
+
+  .segmented-option span {
+    padding: 4px 8px;
+  }
 }
 
 /* ---------- Motion ----------

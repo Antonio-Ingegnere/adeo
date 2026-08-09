@@ -76,7 +76,10 @@ export const renderSmartLists = () => {
 
     const menu = document.createElement('div');
     menu.className = 'list-menu';
-    menu.style.display = state.openSmartListMenuId === smartList.id ? 'flex' : 'none';
+    const menuOpen = state.openSmartListMenuId === smartList.id;
+    menu.style.display = menuOpen ? 'flex' : 'none';
+    // see the note in lists.ts: the panel below would otherwise paint over this menu
+    menu.classList.toggle('open', menuOpen);
     menu.addEventListener('click', (event) => event.stopPropagation());
 
     const editItem = document.createElement('button');

@@ -737,6 +737,15 @@ body {
   top: 16px;
 }
 
+/* position:sticky makes every panel its own stacking context, so .list-menu's z-index is
+   confined to the panel it lives in and the *next* panel paints over any menu that hangs past
+   the bottom edge -- which is every menu on a panel's last pill. Raising the whole panel while
+   one of its menus is open is the fix; the class is set beside the display toggle in
+   lists.ts / smartLists.ts / tags.ts. */
+.lists-panel:has(.list-menu.open) {
+  z-index: 6;
+}
+
 .main-column {
   display: flex;
   flex-direction: column;

@@ -166,7 +166,11 @@ export const renderLists = () => {
 
     const menu = document.createElement('div');
     menu.className = 'list-menu';
-    menu.style.display = state.openListMenuId === list.id ? 'flex' : 'none';
+    const menuOpen = state.openListMenuId === list.id;
+    menu.style.display = menuOpen ? 'flex' : 'none';
+    // each .lists-panel is position:sticky and so its own stacking context: without this the
+    // panel below paints over a menu that hangs past this one's bottom edge
+    menu.classList.toggle('open', menuOpen);
     menu.addEventListener('click', (event) => event.stopPropagation());
 
     const renameItem = document.createElement('button');

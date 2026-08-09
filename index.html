@@ -127,6 +127,42 @@
             <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
           </div>
         </div>
+        <!-- directly under Lists, because that is what it is: a list whose membership is a
+             query rather than a choice. Tags follow, being a property of a task rather than a
+             place to put one. -->
+        <div class="lists-panel smart-lists-panel">
+          <div class="lists-header">
+            <div class="lists-title-wrap">
+              <span class="lists-title-icon" aria-hidden="true">
+                <!-- list lines with a sparkle: the Lists icon's idea plus the thing that makes
+                     this one different. A funnel used to sit here, from when these were called
+                     filters -- it said "subtract", when the point of a smart list is that you
+                     can add to it. -->
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path
+                    d="M3 6h12v2H3V6zm0 5h8v2H3v-2zm0 5h6v2H3v-2zm14.5-5.5 1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4 1.4-3.6z" />
+                </svg>
+              </span>
+              <p class="lists-title">Smart lists</p>
+            </div>
+            <div class="lists-actions">
+              <button id="add-smart-list-button" class="icon-button"
+                aria-label="Save current search as a smart list">+</button>
+              <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists">
+                <span class="expand-chevrons" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" focusable="false">
+                    <path d="M2 3 L7 8 L12 3" />
+                    <path d="M2 8 L7 13 L12 8" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div id="smart-lists-list" class="lists-list">
+            <div id="smart-lists-empty" class="empty-state">No smart lists yet. Run a query
+              search, then save it from the strip under the search bar.</div>
+          </div>
+        </div>
         <div class="lists-panel tags-panel">
           <div class="lists-header">
             <div class="lists-title-wrap">
@@ -151,34 +187,6 @@
           </div>
           <div id="tags-list" class="lists-list">
             <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
-          </div>
-        </div>
-        <div class="lists-panel smart-lists-panel">
-          <div class="lists-header">
-            <div class="lists-title-wrap">
-              <span class="lists-title-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" />
-                </svg>
-              </span>
-              <p class="lists-title">Smart lists</p>
-            </div>
-            <div class="lists-actions">
-              <button id="add-smart-list-button" class="icon-button"
-                aria-label="Save current search as a smart list">+</button>
-              <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists">
-                <span class="expand-chevrons" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" focusable="false">
-                    <path d="M2 3 L7 8 L12 3" />
-                    <path d="M2 8 L7 13 L12 8" />
-                  </svg>
-                </span>
-              </button>
-            </div>
-          </div>
-          <div id="smart-lists-list" class="lists-list">
-            <div id="smart-lists-empty" class="empty-state">No smart lists yet. Run a query
-              search, then save it from the bookmark in the search bar.</div>
           </div>
         </div>
       </div>

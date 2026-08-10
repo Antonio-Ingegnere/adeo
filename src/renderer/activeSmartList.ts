@@ -127,6 +127,7 @@ export const templateSeed = (template: SmartListTemplate | null): TaskSeed | und
   if (!template) return undefined;
   const seed: TaskSeed = {};
   if (template.priority) seed.priority = template.priority;
+  if (template.done) seed.done = true;
   if (template.due) seed.reminderDate = resolveDue(template.due);
   if (template.repeat && RRULE_BY_FREQ[template.repeat]) {
     seed.repeatRule = RRULE_BY_FREQ[template.repeat];
@@ -196,25 +197,33 @@ let lastHintQuery: string | null | undefined;
 export const renderTemplateHints = (force = false) => {
   const container = refs.addTaskTemplate;
   if (!container) return;
-  const key = state.searchMode === 'advanced' ? state.searchQuery.trim() : null;
+  const searching = Boolean(state.searchQuery.trim());
+  const key = `${state.searchMode}|${searching ? state.searchQuery.trim() : ''}|${state.selectedListId}`;
   if (!force && key === lastHintQuery) return;
   lastHintQuery = key;
   container.innerHTML = '';
 
   const template = activeTemplate();
-  if (!template) {
+  if (!template && !searching) {
+    // the view is a plain list, and the picker above already names it
     container.style.display = 'none';
     return;
   }
   container.style.display = 'flex';
 
-  const { missing } = resolveTemplateNames(template);
+  const { missing } = template ? resolveTemplateNames(template) : { missing: [] as string[] };
 
-  if (template.listName === null) {
+  // While a search is up the picker names the search, not a list, so this is the only place
+  // left that can say where the next task will land -- and it always says it.
+  if (template?.listName === null) {
     container.appendChild(chip('No list'));
-  } else if (template.listName !== undefined && !missing.length) {
+  } else if (template?.listName !== undefined && !missing.length) {
     container.appendChild(chip(template.listName));
+  } else {
+    const fallback = state.lists.find((l) => l.id === state.selectedListId);
+    container.appendChild(chip(fallback ? fallback.name : 'No list'));
   }
+  if (!template) return;
   // every tag the query names, whether it exists yet or not — addTask creates missing ones,
   // so leaving them out would understate what the new task is about to get
   template.tagNames.forEach((name) => {
@@ -232,6 +241,9 @@ export const renderTemplateHints = (force = false) => {
   }
   if (template.due) container.appendChild(chip(`Due ${resolveDue(template.due)}`));
   if (template.repeat) container.appendChild(chip(`Repeats ${template.repeat}`));
+  // a task created already complete vanishes on the spot while Show completed is off, so this
+  // is the one chip that has to be there before the fact rather than explaining it after
+  if (template.done) container.appendChild(chip('Done'));
 
   const notApplied = [...template.skipped, ...missing];
   if (notApplied.length) {

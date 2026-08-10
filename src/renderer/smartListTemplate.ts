@@ -20,6 +20,8 @@ export type SmartListTemplate = {
   due?: string;
   /** an RRULE frequency: daily | weekly | monthly | yearly */
   repeat?: string;
+  /** only ever true: `done:false` is a new task's default and needs no assignment */
+  done?: boolean;
   /** human-readable constraints that could not be turned into an assignment */
   skipped: string[];
 };
@@ -61,6 +63,7 @@ export const deriveTemplate = (ast: QueryNode | null): SmartListTemplate => {
   const priorities: string[] = [];
   const dues: string[] = [];
   const repeats: string[] = [];
+  const dones: string[] = [];
   const skipped: string[] = [];
   let tagNone = false;
 
@@ -109,9 +112,9 @@ export const deriveTemplate = (ast: QueryNode | null): SmartListTemplate => {
         repeats.push(node.value.toLowerCase());
         return;
       case 'done':
-        // a new task is never done, so done:false is already satisfied and needs no note;
-        // done:true would mean creating an already-completed task, which is not a default
-        if (!isSpecial(node, 'false')) skip(node);
+        // both values are assignable: false is a new task's default, and true is a task the
+        // user means to record as already finished
+        dones.push(node.value.toLowerCase());
         return;
       default:
         // text / details -- the user types the task's own text, so seeding it from the
@@ -178,6 +181,10 @@ export const deriveTemplate = (ast: QueryNode | null): SmartListTemplate => {
 
   const repeat = single(repeats, 'repeat');
   if (repeat !== undefined && repeat !== 'none') template.repeat = repeat;
+
+  // only `true` is carried: `false` is what a new task already is
+  const done = single(dones, 'done');
+  if (done === 'true') template.done = true;
 
   const tagNames = distinct(tags);
   if (tagNone && tagNames.length > 0) {

@@ -1,6 +1,7 @@
 import type { Task } from '../types.js';
-import type { EvalContext } from './query.js';
 import { createDetailsElement, formatDate } from './helpers.js';
+import { getSearchMatches, isSearching, isStale } from './searchMatches.js';
+import { renderViewBar } from './viewBar.js';
 import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
 import { repeatSummaryFromRule } from './repeat.js';
@@ -14,24 +15,6 @@ const removeDropIndicator = () => {
 
 const defaultEmptyText = refs.emptyState?.textContent ?? '';
 
-export const isSearching = (): boolean => {
-  if (!state.searchQuery.trim()) return false;
-  if (state.searchMode === 'advanced') return state.queryPredicate !== null;
-  return true;
-};
-
-const buildEvalContext = (): EvalContext => {
-  const now = new Date();
-  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate()
-  ).padStart(2, '0')}`;
-  return {
-    listNameById: new Map(state.lists.map((l) => [l.id, l.name.toLowerCase()])),
-    tagNameById: new Map(state.tags.map((t) => [t.id, t.name.toLowerCase()])),
-    todayISO,
-  };
-};
-
 export const getVisibleTasks = (): Task[] => {
   let base = state.showCompleted ? state.tasks : state.tasks.filter((t) => !t.done);
   if (state.selectedListId !== null) {
@@ -41,72 +24,6 @@ export const getVisibleTasks = (): Task[] => {
     base = base.filter((t) => (t.tagIds ?? []).includes(state.selectedTagId!));
   }
   return base;
-};
-
-const updateTagFilterChip = (searching: boolean) => {
-  if (!refs.tagFilterChip) return;
-  const tag = state.selectedTagId !== null ? state.tags.find((t) => t.id === state.selectedTagId) : undefined;
-  if (!tag || searching) {
-    refs.tagFilterChip.style.display = 'none';
-    return;
-  }
-  refs.tagFilterChip.textContent = `#${tag.name} ✕`;
-  refs.tagFilterChip.style.background = tag.color;
-  refs.tagFilterChip.style.display = 'inline-block';
-};
-
-/**
- * The task set a search currently resolves to. Shared by the renderer and the title so the
- * count in "Search results · N" can never disagree with the rows underneath it.
- */
-export const getSearchMatches = (): Task[] => {
-  let matches: Task[];
-  if (state.searchMode === 'advanced' && state.queryPredicate) {
-    const ctx = buildEvalContext();
-    const predicate = state.queryPredicate;
-    matches = state.tasks.filter((task) => predicate(task, ctx));
-  } else {
-    const searchQuery = state.searchQuery.trim().toLowerCase();
-    matches = state.tasks.filter((task) => {
-      const text = task.text.toLowerCase();
-      const details = task.details?.toLowerCase() ?? '';
-      return text.includes(searchQuery) || details.includes(searchQuery);
-    });
-  }
-  // respect the View > Show completed setting; an advanced query that
-  // explicitly filters on `done` states the user's intent and wins
-  const doneOverride = state.searchMode === 'advanced' && state.queryUsesDone;
-  if (!state.showCompleted && !doneOverride) {
-    matches = matches.filter((task) => !task.done);
-  }
-  return matches;
-};
-
-const isStale = () => state.searchMode === 'advanced' && state.queryStatus === 'invalid';
-
-/**
- * Only the search state: which list is on screen is the title picker's job now, and it reads
- * that straight from state.selectedListId. This annotates it -- the picker keeps saying where a
- * new task lands while this says why the rows below are something else.
- */
-export const updateTasksTitle = () => {
-  const searching = isSearching();
-  updateTagFilterChip(searching);
-  if (refs.searchStaleNote) {
-    refs.searchStaleNote.style.display = searching && isStale() ? 'inline' : 'none';
-  }
-  if (!refs.tasksTitleEl) return;
-  refs.tasksTitleEl.style.display = searching ? 'block' : 'none';
-  if (!searching) {
-    refs.tasksTitleEl.textContent = '';
-    return;
-  }
-  // a count while the query is unparseable would be a count of the *previous* query --
-  // exactly the pair of conflicting signals this phase set out to remove, so drop it
-  // and let the "showing last valid results" note carry the meaning instead
-  refs.tasksTitleEl.textContent = isStale()
-    ? 'Search results'
-    : `Search results · ${getSearchMatches().length}`;
 };
 
 export const saveTaskOrder = async () => {
@@ -156,7 +73,7 @@ const refreshTasksFromApi = async () => {
         (t as any).tagIds = [];
       }
     });
-    updateTasksTitle();
+    renderViewBar();
     renderTasks();
   } catch (error) {
     console.error('Failed to refresh tasks', error);

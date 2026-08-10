@@ -1,7 +1,8 @@
 import type { List } from '../types.js';
-import { renderListOptions, renderLists, syncListPicker } from './lists.js';
+import { renderListOptions, renderLists } from './lists.js';
 import { renderTags, sortTags } from './tags.js';
-import { renderTasks, updateTasksTitle } from './tasks.js';
+import { renderTasks } from './tasks.js';
+import { renderViewBar } from './viewBar.js';
 import { refs } from './dom.js';
 import { state } from './state.js';
 import { formatDate } from './helpers.js';
@@ -320,7 +321,7 @@ export const saveTag = () => {
         sortTags();
       }
       closeTagModal();
-      updateTasksTitle();
+      renderViewBar();
       renderTags();
       renderTasks();
       renderTagsMenu();
@@ -373,12 +374,10 @@ export const saveList = () => {
         if (idx !== -1) {
           state.lists[idx].name = (updated as { name: string }).name;
         }
-        if (state.selectedListId === state.editingListId) {
-          updateTasksTitle();
-        }
         closeListModal();
         renderLists();
-        syncListPicker();
+        // unconditionally: the picker menu names every list, not just the selected one
+        renderViewBar();
         renderModalLists();
       })
       .catch((error) => console.error('Failed to update list', error));
@@ -395,7 +394,7 @@ export const saveList = () => {
         state.lists.push(newList);
         closeListModal();
         renderLists();
-        syncListPicker();
+        renderViewBar();
         renderModalLists();
       })
       .catch((error) => console.error('Failed to add list', error));

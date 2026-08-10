@@ -7,12 +7,14 @@ import {
   syncSmartListUI,
 } from './activeSmartList.js';
 import { refs } from './dom.js';
-import { renderQueryBar } from './queryBar.js';
+import { renderViewBar } from './viewBar.js';
+import { currentView } from './currentView.js';
+import { renderLists } from './lists.js';
 import { renderSmartLists } from './smartLists.js';
 import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { FIELDS, compilePredicate, parseQuery, queryUsesField, tokenize } from './query.js';
 import type { FieldSpec, ParseError, Token } from './query.js';
-import { renderTasks, updateTasksTitle } from './tasks.js';
+import { renderTasks } from './tasks.js';
 import { state } from './state.js';
 
 const RENDER_DEBOUNCE_MS = 150;
@@ -76,7 +78,7 @@ const flushRender = () => {
     window.clearTimeout(renderTimer);
     renderTimer = null;
   }
-  updateTasksTitle();
+  renderViewBar();
   renderTasks();
 };
 
@@ -86,7 +88,7 @@ const scheduleRender = () => {
   }
   renderTimer = window.setTimeout(() => {
     renderTimer = null;
-    updateTasksTitle();
+    renderViewBar();
     renderTasks();
   }, RENDER_DEBOUNCE_MS);
 };
@@ -146,7 +148,7 @@ const renderSearchStatus = () => {
   syncStatusLine();
   // here rather than earlier in applySearchQuery: the bar's actions key off state.queryStatus,
   // which is only settled by the time this runs
-  renderQueryBar();
+  renderViewBar();
 };
 
 /**
@@ -183,6 +185,19 @@ const syncClearButton = () => {
   refs.listsSearchClear.style.visibility = state.searchQuery ? 'visible' : 'hidden';
 };
 
+/**
+ * The list pills are lit by the *view*, so starting a search puts them all out and clearing one
+ * gives the highlight back to the list that was selected before. Only that transition matters,
+ * so the sidebar is not rebuilt on every keystroke.
+ */
+let lastInAList: boolean | undefined;
+const syncListPills = () => {
+  const inAList = currentView().kind === 'list';
+  if (inAList === lastInAList) return;
+  lastInAList = inAList;
+  renderLists();
+};
+
 export const applySearchQuery = (value: string, immediate = false) => {
   state.searchQuery = value;
   syncClearButton();
@@ -191,6 +206,7 @@ export const applySearchQuery = (value: string, immediate = false) => {
   if (!value.trim()) clearSmartListOrigin();
   // the sidebar highlight follows the association, which changes as the query does
   syncSmartListUI(renderSmartLists);
+  syncListPills();
   // the hints describe the query on screen, so they follow it rather than the association
   renderTemplateHints();
   if (state.searchMode === 'advanced') {
@@ -230,11 +246,18 @@ export const applySearchQuery = (value: string, immediate = false) => {
       scheduleRender();
     }
   } else {
+    // Text mode never reaches renderSearchStatus, and the bar still has to switch between the
+    // list's name and "Search results · N"
+    renderViewBar();
     flushRender();
   }
 };
 
-const clearSearch = () => {
+/**
+ * Exported because selecting a list is a view change and has to drop whatever search is
+ * running: one view at a time.
+ */
+export const clearSearch = () => {
   closeSuggest();
   if (refs.listsSearchInput) {
     refs.listsSearchInput.value = '';
@@ -271,10 +294,7 @@ const applyModeUI = () => {
   }
   refs.searchHelpPopover?.classList.toggle('simple', !advanced);
   refs.searchHelpBtn?.setAttribute('aria-label', advanced ? 'Query syntax help' : 'Search help');
-  // the bar is a query-mode affordance, and the header reserves its height only while it is
-  // up -- the two have to move together or the header keeps a gap with nothing in it
-  refs.listsSearchInput?.closest('.app-header')?.classList.toggle('query-mode', advanced);
-  renderQueryBar();
+  renderViewBar();
   if (!advanced) {
     closeQueryPopovers();
     // applySearchQuery's simple branch never reaches renderSearchStatus, so the last
@@ -490,10 +510,7 @@ const renderSuggestMenu = () => {
     });
     menu.appendChild(el);
   });
-  // 34px = the query bar's 6px offset, its 24px, and the usual 4px gap: the menu opens under
-  // the bar rather than over it, so the smart list the query belongs to stays readable while
-  // the suggestions are up
-  positionDropdown(menu, input, 34);
+  positionDropdown(menu, input);
   syncComboboxAria(input, true, `query-suggest-option-${activeIndex}`);
 };
 

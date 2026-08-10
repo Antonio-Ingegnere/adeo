@@ -27,13 +27,7 @@ export const formatDate = (date: string | null): string => {
   return map[state.dateFormat] ?? `${y}-${m}-${d}`;
 };
 
-/**
- * `belowGap` is the distance from the trigger when the menu opens downwards. It exists for the
- * search field, which has the query bar parked directly under it: a menu at the default 4px
- * would cover the name of the smart list the query belongs to. Opening upwards is unaffected --
- * nothing is above the field.
- */
-export const positionDropdown = (menu: HTMLElement, trigger: HTMLElement, belowGap = 4) => {
+export const positionDropdown = (menu: HTMLElement, trigger: HTMLElement) => {
   menu.style.top = '';
   menu.style.bottom = '';
   menu.style.maxHeight = '';
@@ -55,7 +49,7 @@ export const positionDropdown = (menu: HTMLElement, trigger: HTMLElement, belowG
       menu.style.overflowY = 'auto';
     }
   } else {
-    menu.style.top = `calc(100% + ${belowGap}px)`;
+    menu.style.top = 'calc(100% + 4px)';
     menu.style.bottom = 'auto';
     if (spaceBelow < menuRect.height) {
       menu.style.maxHeight = `${Math.max(spaceBelow - 8, 80)}px`;

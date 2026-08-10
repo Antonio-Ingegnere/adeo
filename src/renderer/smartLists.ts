@@ -4,12 +4,12 @@
 import { refs } from './dom.js';
 import { makePillActivatable } from './helpers.js';
 import {
-  associatedSmartList,
   clearSmartListOrigin,
   invalidateSmartListUI,
   syncSmartListUI,
 } from './activeSmartList.js';
-import { renderQueryBar } from './queryBar.js';
+import { isSmartListInView } from './currentView.js';
+import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 
 export const toggleSmartListsExpanded = () => {
@@ -43,13 +43,11 @@ export const renderSmartLists = () => {
     return;
   }
 
-  // the association, not the exact match: editing a saved query is how you edit a smart list,
-  // and dropping the highlight mid-edit would say the user had left it
-  const associated = associatedSmartList();
-
   state.smartLists.forEach((smartList) => {
     const item = document.createElement('div');
-    const isSelected = associated?.smartList.id === smartList.id;
+    // the view, so this pill and the list pills can never be lit at the same time; it stays
+    // lit through an edit of the query, because editing one is not leaving it
+    const isSelected = isSmartListInView(smartList.id);
     item.className = `list-pill smart-list-pill${isSelected ? ' selected' : ''}`;
     makePillActivatable(item, isSelected);
 
@@ -117,7 +115,7 @@ export const renderSmartLists = () => {
         if (state.smartListOrigin === smartList.id) clearSmartListOrigin();
         invalidateSmartListUI();
         syncSmartListUI(renderSmartLists);
-        renderQueryBar();
+        renderViewBar();
       } catch (error) {
         console.error('Failed to delete smart list', error);
       }
@@ -140,6 +138,8 @@ export const loadSmartLists = async () => {
     const smartLists = await window.electronAPI.getSmartLists();
     state.smartLists = smartLists ?? [];
     renderSmartLists();
+    // the view picker names every smart list, and at startup it is built before this resolves
+    renderViewBar();
   } catch (error) {
     console.error('Failed to load smart lists', error);
   }

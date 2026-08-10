@@ -236,56 +236,147 @@ body {
   fill: currentColor;
 }
 
-/* ---------- Query bar ----------
-   The strip under the search field in Query mode: which smart list the query belongs to on
-   the left, what can be done about it on the right. Absolutely positioned, so the header row
-   above it -- and with it the 147/8/26 = 181px trailing group and both cross-row seams -- is
-   untouched by construction. The space it occupies is reserved by .app-header-main.query-mode's
-   padding-bottom, not by this element.
-
-   It keeps its height while the query is empty rather than collapsing: appearing and
-   disappearing on the first keystroke would move the whole page under the user's hands. */
-.query-bar {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  height: 24px;
+/* ---------- View bar ----------
+   The line above the add-task input: the view picker, what it resolves to, and what can be
+   done about it. Lists and smart lists are two answers to one question, so they share a
+   picker; a *task* still belongs to a list or to nothing, and the edit modal's picker
+   (.modal-list-menu) never offers a smart list. */
+.view-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.query-bar-identity {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+/* The cap lives here, not on the button: a percentage max-width on the button makes its own
+   parent's intrinsic width resolve to zero in Chromium, which ellipsised even a name as short
+   as "Work" down to "W...". */
+.view-picker-wrap {
+  position: relative;
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
 }
 
-/* the fill and ink the sidebar pill uses when selected, so the rail and the bar are visibly
-   showing the same thing */
-.query-bar-name {
-  padding: 2px 10px;
+/* plain text until pointed at: no border, no fill, the type the tasks title used to carry.
+   The -6px pulls its own padding back so the label still starts on the content column's left
+   edge, in line with the task rows. */
+.view-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -6px;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-m);
+  color: var(--text-body);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.view-picker > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* always in the layout, only sometimes drawn: revealing it must not move the name */
+.view-picker-caret {
+  flex: 0 0 auto;
+  font-size: var(--font-xs);
+  color: var(--text-hint);
+  opacity: 0;
+}
+
+.view-picker:hover,
+.view-picker:focus-visible,
+.view-picker[aria-expanded='true'] {
+  background: var(--surface-hover);
+}
+
+.view-picker:hover .view-picker-caret,
+.view-picker:focus-visible .view-picker-caret,
+.view-picker[aria-expanded='true'] .view-picker-caret {
+  opacity: 1;
+}
+
+/* sized to its own content rather than to the trigger, which is as wide as a list name */
+.view-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: max-content;
+  min-width: 180px;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-l);
-  background: var(--surface-selected);
-  color: var(--text-heading);
-  font-weight: 700;
-  font-size: var(--font-s);
+  box-shadow: var(--shadow-popover);
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  gap: 2px;
+  z-index: 10;
+}
+
+.view-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-m);
+  font-size: var(--font-m);
+  color: var(--text-body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.query-bar-edited {
+.view-menu-item:hover,
+.view-menu-item.selected {
+  background: var(--surface-hover);
+}
+
+.view-menu-item.selected {
+  font-weight: 600;
+}
+
+/* the only thing separating the two kinds, and the only place they appear together */
+.view-menu-group {
+  padding: 8px 10px 2px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.view-count {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--font-s);
+}
+
+.view-edited {
   flex: 0 0 auto;
   color: var(--text-hint);
   font-size: var(--font-xs);
 }
 
-.query-bar-actions {
+.view-bar-naming {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.view-bar-actions {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -295,7 +386,7 @@ body {
 
 /* text buttons, not icons: this is the one place in the app where the label has to carry a
    distinction between actions ("Update" vs "Save as new") that no glyph pair can */
-.query-bar-action {
+.view-bar-action {
   border: none;
   background: transparent;
   color: var(--text-hint);
@@ -306,24 +397,24 @@ body {
   white-space: nowrap;
 }
 
-.query-bar-action:hover {
+.view-bar-action:hover {
   color: var(--text-body);
   background: var(--surface-sunken);
 }
 
 /* only Update is promoted: with unsaved edits on screen it is the one thing the user came
    here to do, and "Save as new" beside it is the escape hatch */
-.query-bar-action.primary {
+.view-bar-action.primary {
   color: var(--accent);
   font-weight: 600;
 }
 
-.query-bar-action.primary:hover {
+.view-bar-action.primary:hover {
   color: var(--accent);
   background: var(--surface-selected);
 }
 
-.query-bar-name-input {
+.view-bar-name-input {
   flex: 0 1 220px;
   min-width: 0;
   padding: 2px 8px;
@@ -334,7 +425,7 @@ body {
   font-size: var(--font-s);
 }
 
-.query-bar-error {
+.view-bar-error {
   color: var(--danger);
   font-size: var(--font-xs);
   white-space: nowrap;
@@ -439,16 +530,6 @@ body {
   margin-top: 4px;
   text-align: left;
   width: 100%;
-}
-
-/* The search annotation, not the heading -- the list picker beside it is the heading now, so
-   this is deliberately quieter than the thing it used to be. */
-.tasks-title {
-  margin: 0;
-  color: var(--text-muted);
-  font-weight: 400;
-  font-size: var(--font-s);
-  white-space: nowrap;
 }
 
 /* list-name headers inside search results: subordinate to the page title, not a peer */
@@ -1363,7 +1444,6 @@ body {
   width: 100%;
 }
 
-.list-picker-menu,
 .modal-list-menu,
 .repeat-menu {
   position: absolute;
@@ -1382,7 +1462,6 @@ body {
   z-index: 10;
 }
 
-.list-picker-item,
 .modal-list-item,
 .repeat-menu-item {
   width: 100%;
@@ -1395,8 +1474,6 @@ body {
   font-size: var(--font-m);
 }
 
-.list-picker-item:hover,
-.list-picker-item.selected,
 .modal-list-item:hover,
 .modal-list-item.selected,
 .repeat-menu-item:hover,
@@ -2189,79 +2266,6 @@ body {
   filter: brightness(0.95);
 }
 
-/* Sits above the add-task row now, so the margins that used to space it off the task list
-   below are gone -- .main-body's own 16px gap does that job. */
-.tasks-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-/* ---------- List picker ----------
-   The heading and the list selector are one control. It is plain text until pointed at: no
-   border, no fill, the type .tasks-title used to carry. The -6px pulls its own padding back so
-   the label still starts on the content column's left edge, in line with the task rows. */
-/* The cap lives here, not on the button: a percentage max-width on the button makes its own
-   parent's intrinsic width resolve to zero in Chromium, which ellipsised even a name as short
-   as "Work" down to "W...". */
-.list-picker-wrap {
-  position: relative;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.list-picker {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: -6px;
-  padding: 2px 6px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-m);
-  color: var(--text-body);
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: 600;
-  line-height: 1.4;
-  cursor: pointer;
-}
-
-.list-picker > span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* always in the layout, only sometimes drawn: revealing it must not move the name */
-.list-picker-caret {
-  flex: 0 0 auto;
-  font-size: var(--font-xs);
-  color: var(--text-hint);
-  opacity: 0;
-}
-
-.list-picker:hover,
-.list-picker:focus-visible,
-.list-picker[aria-expanded='true'] {
-  background: var(--surface-hover);
-}
-
-.list-picker:hover .list-picker-caret,
-.list-picker:focus-visible .list-picker-caret,
-.list-picker[aria-expanded='true'] .list-picker-caret {
-  opacity: 1;
-}
-
-/* sized to its own content rather than to the trigger, which is now as wide as a list name */
-.list-picker-menu {
-  width: max-content;
-  min-width: 180px;
-  max-width: 320px;
-}
-
 .tag-filter-chip {
   border: 1px solid var(--border-chip);
   cursor: pointer;
@@ -2482,8 +2486,7 @@ body {
    width, and wrapping -- the old status text was capped at 45% and ellipsized the message. */
 .search-status-line {
   position: absolute;
-  /* clears the query bar, same 34px the suggest menu uses */
-  top: calc(100% + 34px);
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   box-sizing: border-box;
@@ -2618,10 +2621,7 @@ body {
 .app-header {
   display: flex;
   align-items: stretch;
-  /* min-height rather than height: Query mode adds the query bar below the field, and the
-     header grows to hold it instead of the bar overlaying the first task row. The growth
-     happens once, at the mode switch -- a deliberate act -- and never while typing. */
-  min-height: 56px;
+  height: 56px;
   padding: 0;
   margin-right: -32px;
   border-bottom: 1px solid var(--border-subtle);
@@ -2642,18 +2642,6 @@ body {
   align-items: center;
   padding: 0 32px 0 24px;
   background: var(--surface);
-}
-
-/* 86px = 56 + the query bar's 24px and its 6px offset from the field. Reserved on the header
-   rather than on .app-header-main so both numbers stay border-box: the row then centres in
-   exactly the 55px it has in Text mode, and the input, the mode switch and the ? do not move
-   by so much as a half-pixel when the mode changes. */
-.app-header.query-mode {
-  min-height: 86px;
-}
-
-.app-header.query-mode .app-header-main {
-  padding-bottom: 30px;
 }
 
 /* ---------- Narrow windows ----------
@@ -2680,7 +2668,7 @@ body {
   .list-menu,
   .priority-menu,
   .reminder-menu,
-  .list-picker-menu,
+  .view-menu,
   .modal-list-menu,
   .repeat-menu,
   .tag-suggest-menu,

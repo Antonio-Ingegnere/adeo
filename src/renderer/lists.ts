@@ -1,6 +1,17 @@
 import type { List } from '../types.js';
 import { listDropIndicator, refs } from './dom.js';
-import { renderTasks, updateTasksTitle } from './tasks.js';
+import { renderTasks } from './tasks.js';
+import { isListInView } from './currentView.js';
+import { renderViewBar } from './viewBar.js';
+
+/**
+ * Selecting a list is a view change, and index.ts owns those -- it is the only module that can
+ * reach the search field, the smart-list panel and the task list at once. Dispatching rather
+ * than calling is what keeps this module free of those imports.
+ */
+const selectView = (listId: number | null) => {
+  document.dispatchEvent(new CustomEvent('select-list', { detail: { listId } }));
+};
 import { state } from './state.js';
 import { makePillActivatable } from './helpers.js';
 
@@ -39,20 +50,19 @@ const saveListOrder = async () => {
 };
 
 /**
- * `emptyLabel` is what the null entry is called. It is "All lists" in the title picker, which is
- * a view, and "No list" in the edit modal, which is a field -- the same value, but the user is
- * being asked two different questions about it.
+ * The edit modal's list field: "No list" plus the lists, and never a smart list -- a task
+ * belongs to a list or to nothing. The *view* picker is a different menu, built in viewBar.ts,
+ * because it answers a different question.
  */
 export const renderListOptions = (
   target: HTMLSelectElement | HTMLDivElement | null,
   selectedId: number | null,
-  labelEl: HTMLSpanElement | null = null,
-  emptyLabel = 'No list'
+  labelEl: HTMLSpanElement | null = null
 ) => {
   if (!target) return;
   const selectedValue = selectedId !== null ? String(selectedId) : '';
   const entries = [
-    { value: '', label: emptyLabel, title: '' },
+    { value: '', label: 'No list', title: '' },
     ...state.lists.map((list) => {
       const { label, title } = truncateListName(list.name);
       return { value: String(list.id), label, title: title || list.name };
@@ -76,12 +86,10 @@ export const renderListOptions = (
   }
 
   target.innerHTML = '';
-  const isModalMenu = target.classList.contains('modal-list-menu');
-  const itemClass = isModalMenu ? 'modal-list-item' : 'list-picker-item';
   entries.forEach((entry) => {
     const item = document.createElement('button');
     item.type = 'button';
-    item.className = itemClass;
+    item.className = 'modal-list-item';
     item.dataset.value = entry.value;
     item.textContent = entry.label;
     if (entry.title && entry.title !== entry.label) {
@@ -93,29 +101,11 @@ export const renderListOptions = (
     target.appendChild(item);
   });
   const selectedEntry = entries.find((entry) => entry.value === activeValue) ?? entries[0];
-  const labelTarget = labelEl || (target === refs.listPickerMenu ? refs.listPickerLabel : null) || refs.modalListLabel;
+  const labelTarget = labelEl || refs.modalListLabel;
   if (labelTarget) {
     labelTarget.textContent = selectedEntry.label;
     labelTarget.title = selectedEntry.title || '';
   }
-};
-
-/** Repaints the title picker from state. Its null entry is a view, so it reads "All lists". */
-export const syncListPicker = () => {
-  renderListOptions(refs.listPickerMenu, state.selectedListId, refs.listPickerLabel, 'All lists');
-};
-
-/**
- * The single way to change which list is selected. The sidebar pills and the title picker are
- * two views of one piece of state, so they both go through here rather than each remembering
- * the four things that have to be repainted afterwards.
- */
-export const selectList = (id: number | null) => {
-  state.selectedListId = id;
-  updateTasksTitle();
-  renderLists();
-  syncListPicker();
-  renderTasks();
 };
 
 export const renderLists = () => {
@@ -128,10 +118,13 @@ export const renderLists = () => {
   }
   container.style.display = 'flex';
   const allItem = document.createElement('div');
-  allItem.className = `list-pill${state.selectedListId === null ? ' selected' : ''}`;
-  makePillActivatable(allItem, state.selectedListId === null);
+  // the *view*, not the raw selection: while a search is running nothing here is lit, because
+  // what is on screen is the search rather than any list
+  const allSelected = isListInView(null);
+  allItem.className = `list-pill${allSelected ? ' selected' : ''}`;
+  makePillActivatable(allItem, allSelected);
   allItem.appendChild(makeLabel('All lists'));
-  allItem.addEventListener('click', () => selectList(null));
+  allItem.addEventListener('click', () => selectView(null));
   container.appendChild(allItem);
 
   if (state.lists.length === 0) {
@@ -143,7 +136,7 @@ export const renderLists = () => {
 
   state.lists.forEach((list) => {
     const item = document.createElement('div');
-    const isSelected = state.selectedListId === list.id;
+    const isSelected = isListInView(list.id);
     item.className = `list-pill${isSelected ? ' selected' : ''}`;
     makePillActivatable(item, isSelected);
     item.dataset.index = String(state.lists.findIndex((l) => l.id === list.id));
@@ -226,8 +219,7 @@ export const renderLists = () => {
         state.openListMenuId = null;
         renderLists();
         renderTasks();
-        syncListPicker();
-        updateTasksTitle();
+        renderViewBar();
       } catch (error) {
         console.error('Failed to delete list', error);
       }
@@ -236,7 +228,7 @@ export const renderLists = () => {
 
     item.appendChild(menuBtn);
     item.appendChild(menu);
-    item.addEventListener('click', () => selectList(list.id));
+    item.addEventListener('click', () => selectView(list.id));
     item.addEventListener('dragstart', (event) => {
       state.listDragIndex = Number(item.dataset.index);
       item.classList.add('dragging');
@@ -363,6 +355,5 @@ export const toggleListsExpanded = () => {
 export const setLists = (lists: List[]) => {
   state.lists = lists ?? [];
   renderLists();
-  updateTasksTitle();
-  syncListPicker();
+  renderViewBar();
 };

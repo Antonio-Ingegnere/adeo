@@ -48,6 +48,8 @@ export type SmartList = {
 /** Fields a smart list's derived template can seed on a newly added task. */
 export type TaskSeed = {
   priority?: Task['priority'];
+  /** only ever true — a smart list's `done:true` records a task that is already finished */
+  done?: boolean;
   reminderDate?: string | null;
   reminderTime?: string | null;
   repeatRule?: string | null;

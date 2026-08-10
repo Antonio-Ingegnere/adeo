@@ -7,10 +7,11 @@ import {
   templateSeed,
 } from './activeSmartList.js';
 import { refs } from './dom.js';
-import { renderLists, syncListPicker } from './lists.js';
+import { renderLists } from './lists.js';
 import { mergeTag, renderTags, sortTags } from './tags.js';
 import { renderPendingTags } from './tagInput.js';
-import { renderTasks, updateTasksTitle } from './tasks.js';
+import { renderTasks } from './tasks.js';
+import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 
 const INLINE_TAG_RE = /(^|\s)#([A-Za-z0-9_-]+)/g;
@@ -95,7 +96,7 @@ export const addTask = async () => {
     input.value = '';
     input.focus();
     // the title carries the search result count, which is now one out of date
-    updateTasksTitle();
+    renderViewBar();
     renderTasks();
   } catch (error) {
     console.error('Failed to add task', error);
@@ -170,8 +171,8 @@ export const loadLists = async () => {
     }));
     state.lists.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id);
     renderLists();
-    updateTasksTitle();
-    syncListPicker();
+    renderViewBar();
+    renderViewBar();
   } catch (error) {
     console.error('Failed to load lists', error);
   }

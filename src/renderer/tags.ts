@@ -1,6 +1,7 @@
 import type { Tag } from '../types.js';
 import { refs } from './dom.js';
-import { renderTasks, updateTasksTitle } from './tasks.js';
+import { renderTasks } from './tasks.js';
+import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { makePillActivatable } from './helpers.js';
 
@@ -149,7 +150,7 @@ export const renderTags = () => {
         await window.electronAPI.deleteTag(tag.id);
         detachDeletedTag(tag.id);
         state.openTagMenuId = null;
-        updateTasksTitle();
+        renderViewBar();
         renderTags();
         renderTasks();
       } catch (error) {
@@ -162,7 +163,7 @@ export const renderTags = () => {
     item.appendChild(menu);
     item.addEventListener('click', () => {
       state.selectedTagId = state.selectedTagId === tag.id ? null : tag.id;
-      updateTasksTitle();
+      renderViewBar();
       renderTags();
       renderTasks();
     });

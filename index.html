@@ -26,17 +26,7 @@
                 <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
               </svg>
             </button>
-            <!-- Query mode only. Everything a query needs beyond its own text -- which smart
-                 list it belongs to, whether it has been edited, and what can be done about
-                 that -- lives here rather than inside the input, which holds the query and
-                 nothing else. Contents are built by renderQueryBar(). Last in the field so
-                 Tab goes input -> actions -> mode switch. -->
-            <div id="query-bar" class="query-bar" aria-label="Smart list" style="display:none">
-              <div id="query-bar-identity" class="query-bar-identity"></div>
-              <div id="query-bar-actions" class="query-bar-actions"></div>
-            </div>
-            <!-- mutually exclusive with the suggest menu below: both sit just under the field,
-                 and both overlay the query bar while they are open -->
+            <!-- mutually exclusive with the suggest menu below: both sit just under the field -->
             <div id="search-status-line" class="search-status-line" style="display:none"></div>
             <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu" role="listbox"
               aria-label="Query suggestions"></div>
@@ -195,24 +185,25 @@
           <!-- Heading and its input are one unit, so they get their own tighter gap rather
                than .main-body's 16px. -->
           <div class="compose-block">
-            <!-- The heading *is* the list selector: one control for "what am I looking at" and
-                 "where does a new task go", which used to be two. Plain text until pointed at.
-                 Above the add-task row, so it reads as the answer before the question. -->
-            <div class="tasks-title-row">
-              <div class="list-picker-wrap">
-                <button id="list-picker" class="list-picker" type="button" aria-haspopup="listbox"
+            <!-- The heading *is* the view: a list, a smart list or a search, picked from one
+                 menu, with whatever can be done about it on the right. Plain text until
+                 pointed at. Built by renderViewBar(). -->
+            <div class="view-bar">
+              <div class="view-picker-wrap">
+                <button id="view-picker" class="view-picker" type="button" aria-haspopup="listbox"
                   aria-expanded="false">
-                  <span id="list-picker-label">All lists</span>
-                  <span class="list-picker-caret" aria-hidden="true">▾</span>
+                  <span id="view-label">All lists</span>
+                  <span class="view-picker-caret" aria-hidden="true">▾</span>
                 </button>
-                <div id="list-picker-menu" class="list-picker-menu" role="listbox"
-                  aria-label="Choose a list"></div>
+                <div id="view-menu" class="view-menu" role="listbox"
+                  aria-label="Choose a list or smart list"></div>
               </div>
-              <!-- the search state annotates the heading rather than replacing it: the picker
-                   still says where a new task lands, this says why the rows below are not it -->
-              <p class="tasks-title" style="display:none"></p>
+              <span id="view-count" class="view-count" style="display:none"></span>
+              <span id="view-edited" class="view-edited" style="display:none">edited</span>
               <span id="search-stale-note" class="search-stale-note" style="display:none">Showing last valid results</span>
               <button id="tag-filter-chip" class="tag-filter-chip" type="button" style="display:none"></button>
+              <div id="view-bar-naming" class="view-bar-naming" style="display:none"></div>
+              <div id="view-bar-actions" class="view-bar-actions"></div>
             </div>
             <div class="input-row">
               <div class="add-task-input-wrap">

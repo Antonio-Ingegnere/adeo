@@ -1,12 +1,6 @@
 import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions.js';
 import { refs } from './dom.js';
-import {
-  renderListOptions,
-  renderLists,
-  selectList,
-  syncListPicker,
-  toggleListsExpanded,
-} from './lists.js';
+import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
 import { loadSmartLists, renderSmartLists, toggleSmartListsExpanded } from './smartLists.js';
 import {
@@ -15,11 +9,17 @@ import {
   invalidateSmartListUI,
   syncSmartListUI,
 } from './activeSmartList.js';
-import { exitQueryBarNaming, renderQueryBar, showQueryBarError } from './queryBar.js';
+import { exitViewBarNaming, renderViewBar, showViewBarError } from './viewBar.js';
 import { parseQuery } from './query.js';
-import { applySearchQuery, closeQueryPopovers, setSearchMode, setupQuerySearch } from './querySearch.js';
+import {
+  applySearchQuery,
+  clearSearch,
+  closeQueryPopovers,
+  setSearchMode,
+  setupQuerySearch,
+} from './querySearch.js';
 import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
-import { attachTaskListDnD, renderTasks, updateTasksTitle } from './tasks.js';
+import { attachTaskListDnD, renderTasks } from './tasks.js';
 import {
   closeEditModal,
   closeListModal,
@@ -45,11 +45,27 @@ import { attachDatePicker } from './datepicker.js';
 import { installModalFocusTrap } from './focusTrap.js';
 
 /** Menu down and the button's aria-expanded back to false; the two must never disagree. */
-const closeListPickerMenu = () => {
-  if (refs.listPickerMenu) {
-    refs.listPickerMenu.style.display = 'none';
+const closeViewMenu = () => {
+  if (refs.viewMenu) {
+    refs.viewMenu.style.display = 'none';
   }
-  refs.listPicker?.setAttribute('aria-expanded', 'false');
+  refs.viewPicker?.setAttribute('aria-expanded', 'false');
+};
+
+/**
+ * Selecting a list is a view change: it clears whatever search is running, because the view is
+ * one thing at a time and a picker that says "Work" over a screen of query results is the
+ * incoherence this whole arrangement exists to remove.
+ */
+const selectList = (listId: number | null) => {
+  state.selectedListId = listId;
+  exitViewBarNaming();
+  clearSearch();
+  closeViewMenu();
+  renderViewBar();
+  renderLists();
+  renderSmartLists();
+  renderTasks();
 };
 
 // ---------- Smart lists ----------
@@ -182,7 +198,7 @@ const saveSmartList = async () => {
     invalidateSmartListUI();
     syncSmartListUI(renderSmartLists);
     renderSmartLists();
-    renderQueryBar();
+    renderViewBar();
   } catch (error) {
     console.error('Failed to save smart list', error);
     showSmartListError('Could not save the smart list.');
@@ -199,7 +215,7 @@ const runSmartList = (smartListId: number) => {
   const alreadyRunning = current?.smartList.id === smartList.id && !current.edited;
   // clicking the running smart list clears it, matching how list and tag pills toggle
   const nextQuery = alreadyRunning ? '' : smartList.query;
-  exitQueryBarNaming();
+  exitViewBarNaming();
   setSearchMode('advanced');
   state.smartListOrigin = alreadyRunning ? null : smartList.id;
   refs.listsSearchInput.value = nextQuery;
@@ -207,10 +223,14 @@ const runSmartList = (smartListId: number) => {
   // clearing one puts the caret back in an empty field, ready to type; running one leaves
   // focus alone, since the query it just loaded is the thing to read
   if (alreadyRunning) refs.listsSearchInput.focus();
+  closeViewMenu();
   invalidateSmartListUI();
   syncSmartListUI(renderSmartLists);
   renderSmartLists();
-  renderQueryBar();
+  // the list pills have to give up the highlight this smart list just took, and take it back
+  // when the query is cleared: both directions run through the view, so both need the repaint
+  renderLists();
+  renderViewBar();
 };
 
 /**
@@ -226,13 +246,13 @@ const updateSmartListFromBar = async () => {
   try {
     const result = await window.electronAPI.updateSmartListQuery(id, query);
     if ((result as { error?: string }).error) {
-      showQueryBarError((result as { error: string }).error);
+      showViewBarError((result as { error: string }).error);
       return;
     }
     state.smartLists = state.smartLists.map((f) => (f.id === id ? { ...f, query } : f));
   } catch (error) {
     console.error('Failed to update smart list', error);
-    showQueryBarError('Could not update the smart list.');
+    showViewBarError('Could not update the smart list.');
     return;
   }
   // the query now equals the stored one, so the association goes back to a plain match and
@@ -240,7 +260,7 @@ const updateSmartListFromBar = async () => {
   invalidateSmartListUI();
   syncSmartListUI(renderSmartLists);
   renderSmartLists();
-  renderQueryBar();
+  renderViewBar();
 };
 
 /** "Save as smart list" / "Save as new": named in the bar, so there is no modal in the way. */
@@ -249,7 +269,7 @@ const createSmartListFromBar = async (name: string) => {
   if (!query) return;
   const parsed = parseQuery(query);
   if (!parsed.ok) {
-    showQueryBarError(`${parsed.error.message} (column ${parsed.error.position + 1})`);
+    showViewBarError(`${parsed.error.message} (column ${parsed.error.position + 1})`);
     return;
   }
   try {
@@ -257,14 +277,14 @@ const createSmartListFromBar = async (name: string) => {
     if (clash) {
       const replace = await window.electronAPI.confirmReplaceSmartList(clash.name);
       if (!replace) {
-        showQueryBarError('That name is taken.');
+        showViewBarError('That name is taken.');
         return;
       }
       // replacing keeps the clashing record's id, so its sidebar position survives and anyone
       // running it keeps running it -- only the query changes, and the name is already right
       const result = await window.electronAPI.updateSmartListQuery(clash.id, query);
       if ((result as { error?: string }).error) {
-        showQueryBarError((result as { error: string }).error);
+        showViewBarError((result as { error: string }).error);
         return;
       }
       state.smartLists = state.smartLists.map((f) => (f.id === clash.id ? { ...f, query } : f));
@@ -272,7 +292,7 @@ const createSmartListFromBar = async (name: string) => {
     } else {
       const created = await window.electronAPI.addSmartList(name, query);
       if ((created as { error?: string }).error) {
-        showQueryBarError((created as { error: string }).error);
+        showViewBarError((created as { error: string }).error);
         return;
       }
       state.smartLists.push(created as SmartList);
@@ -280,14 +300,14 @@ const createSmartListFromBar = async (name: string) => {
     }
   } catch (error) {
     console.error('Failed to save smart list', error);
-    showQueryBarError('Could not save the smart list.');
+    showViewBarError('Could not save the smart list.');
     return;
   }
-  exitQueryBarNaming();
+  exitViewBarNaming();
   invalidateSmartListUI();
   syncSmartListUI(renderSmartLists);
   renderSmartLists();
-  renderQueryBar();
+  renderViewBar();
   refs.listsSearchInput?.focus();
 };
 
@@ -741,39 +761,31 @@ const setupEvents = () => {
     const detail = (event as CustomEvent<{ tagId: number }>).detail;
     if (detail?.tagId === undefined) return;
     state.selectedTagId = detail.tagId;
-    updateTasksTitle();
+    renderViewBar();
     renderTags();
     renderTasks();
   });
 
   refs.tagFilterChip?.addEventListener('click', () => {
     state.selectedTagId = null;
-    updateTasksTitle();
+    renderViewBar();
     renderTags();
     renderTasks();
   });
 
-  refs.listPicker?.addEventListener('click', (event) => {
+  refs.viewPicker?.addEventListener('click', (event) => {
     event.stopPropagation();
-    if (!refs.listPickerMenu) return;
-    const open = refs.listPickerMenu.style.display !== 'flex';
-    refs.listPickerMenu.style.display = open ? 'flex' : 'none';
+    if (!refs.viewMenu) return;
+    const open = refs.viewMenu.style.display !== 'flex';
+    refs.viewMenu.style.display = open ? 'flex' : 'none';
     // aria-expanded is also what keeps the caret up while the menu is open: it is otherwise
     // only drawn on hover, so the control would look shut with its own menu hanging off it
-    refs.listPicker?.setAttribute('aria-expanded', String(open));
+    refs.viewPicker?.setAttribute('aria-expanded', String(open));
   });
 
-  refs.listPickerMenu?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const target = event.target as HTMLElement;
-    const item = target.closest('.list-picker-item') as HTMLElement | null;
-    if (!item) return;
-    const val = item.dataset.value ?? '';
-    // the same call the sidebar pills make: one selection drives the rows below *and* where
-    // the next task goes, which is the whole point of the picker being the title
-    selectList(val ? Number(val) : null);
-    closeListPickerMenu();
-  });
+  // the items themselves dispatch select-list / run-smart-list (see viewBar.ts); this only has
+  // to keep a stray click inside the menu from reaching the document's close-everything handler
+  refs.viewMenu?.addEventListener('click', (event) => event.stopPropagation());
 
   refs.modalListPicker?.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1302,6 +1314,11 @@ const setupEvents = () => {
     openSmartListModal(detail?.smartListId);
   });
 
+  document.addEventListener('select-list', (event) => {
+    const detail = (event as CustomEvent<{ listId: number | null }>).detail;
+    selectList(detail?.listId ?? null);
+  });
+
   document.addEventListener('run-smart-list', (event) => {
     const detail = (event as CustomEvent<{ smartListId: number }>).detail;
     if (detail?.smartListId !== undefined) {
@@ -1310,7 +1327,7 @@ const setupEvents = () => {
   });
 
   // the query bar owns its own presentation but nothing else: the API calls, the sidebar
-  // repaint and the association all live here, which is what keeps queryBar.ts out of the
+  // repaint and the association all live here, which is what keeps viewBar.ts out of the
   // smartLists.ts import graph it would otherwise cycle with
   document.addEventListener('smart-list-create', (event) => {
     const detail = (event as CustomEvent<{ name: string }>).detail;
@@ -1323,7 +1340,7 @@ const setupEvents = () => {
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    closeListPickerMenu();
+    closeViewMenu();
     if (refs.overlay?.classList.contains('open')) {
       closeEditModal();
     }
@@ -1354,7 +1371,7 @@ const setupEvents = () => {
     if (refs.reminderMenu) {
       refs.reminderMenu.style.display = 'none';
     }
-    closeListPickerMenu();
+    closeViewMenu();
     if (refs.repeatMenu) {
       refs.repeatMenu.style.display = 'none';
     }
@@ -1379,7 +1396,7 @@ const init = async () => {
   attachDatePicker(refs.repeatEndDate);
   renderLists();
   renderModalLists();
-  syncListPicker();
+  renderViewBar();
   // Initialize lists chevrons orientation
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));
@@ -1387,7 +1404,7 @@ const init = async () => {
   refs.tagsToggle?.dispatchEvent(new Event('click'));
   refs.smartListsToggle?.dispatchEvent(new Event('click'));
   refs.smartListsToggle?.dispatchEvent(new Event('click'));
-  updateTasksTitle();
+  renderViewBar();
   updatePriorityUI(state.modalPriority);
   await loadSettings();
   buildTimeOptions();

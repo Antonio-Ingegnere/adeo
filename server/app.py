@@ -153,6 +153,9 @@ class TaskCreate(BaseModel):
   reminderTime: Optional[str] = None
   repeatRule: Optional[str] = None
   repeatStart: Optional[str] = None
+  # `done:true` in a smart list means "record something already finished", so a task can be
+  # created complete; every other caller leaves this alone and gets the usual incomplete task
+  done: bool = False
 
 
 class TaskOrder(BaseModel):
@@ -282,13 +285,15 @@ def add_task(payload: TaskCreate) -> Dict[str, Any]:
     row = conn.execute("SELECT MAX(position) as maxPos FROM tasks").fetchone()
     next_pos = (row["maxPos"] if row and row["maxPos"] is not None else -1) + 1
     priority = payload.priority if payload.priority in PRIORITIES else "none"
+    done = 1 if payload.done else 0
     cursor = conn.execute(
       """
       INSERT INTO tasks (text, details, done, position, list_id, priority, reminder_date, reminder_time, repeat_rule, repeat_start)
-      VALUES (?, '', 0, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?)
       """,
       (
         trimmed,
+        done,
         next_pos,
         payload.listId,
         priority,
@@ -312,7 +317,7 @@ def add_task(payload: TaskCreate) -> Dict[str, Any]:
       "id": task_id,
       "text": trimmed,
       "details": "",
-      "done": False,
+      "done": bool(done),
       "position": next_pos,
       "listId": payload.listId,
       "priority": priority,

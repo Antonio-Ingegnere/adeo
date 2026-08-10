@@ -90,93 +90,98 @@
     </header>
     <div class="content-grid">
       <div class="lists-rail">
-        <div class="lists-panel">
-          <div class="lists-header">
-            <div class="lists-title-wrap">
-              <span class="lists-title-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path
-                    d="M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM10.47 2.5 6.5 6.5 4.5 4.5 3.09 5.91 6.5 9.32 11.89 3.94 10.47 2.5zm0 8L6.5 14.5 4.5 12.5 3.09 13.91 6.5 17.32 11.89 11.94 10.47 10.5z" />
-                </svg>
-              </span>
-              <p class="lists-title">Lists</p>
-            </div>
-            <div class="lists-actions">
-              <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
-              <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
-                <span class="expand-chevrons" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" focusable="false">
-                    <path d="M2 3 L7 8 L12 3" />
-                    <path d="M2 8 L7 13 L12 8" />
+        <!-- One sticky block, not three: each panel used to stick on its own, so
+             scrolling piled Smart lists and Tags onto the same 16px line and over
+             Lists. The rail itself stays in flow so its band keeps the full height. -->
+        <div class="lists-rail-inner">
+          <div class="lists-panel">
+            <div class="lists-header">
+              <div class="lists-title-wrap">
+                <span class="lists-title-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path
+                      d="M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM10.47 2.5 6.5 6.5 4.5 4.5 3.09 5.91 6.5 9.32 11.89 3.94 10.47 2.5zm0 8L6.5 14.5 4.5 12.5 3.09 13.91 6.5 17.32 11.89 11.94 10.47 10.5z" />
                   </svg>
                 </span>
-              </button>
+                <p class="lists-title">Lists</p>
+              </div>
+              <div class="lists-actions">
+                <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
+                <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
+                  <span class="expand-chevrons" aria-hidden="true">
+                    <svg viewBox="0 0 14 14" focusable="false">
+                      <path d="M2 3 L7 8 L12 3" />
+                      <path d="M2 8 L7 13 L12 8" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div id="lists-list" class="lists-list">
+              <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
             </div>
           </div>
-          <div id="lists-list" class="lists-list">
-            <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
-          </div>
-        </div>
-        <!-- directly under Lists, because that is what it is: a list whose membership is a
-             query rather than a choice. Tags follow, being a property of a task rather than a
-             place to put one. -->
-        <div class="lists-panel smart-lists-panel">
-          <div class="lists-header">
-            <div class="lists-title-wrap">
-              <span class="lists-title-icon" aria-hidden="true">
-                <!-- list lines with a sparkle: the Lists icon's idea plus the thing that makes
-                     this one different. A funnel used to sit here, from when these were called
-                     filters -- it said "subtract", when the point of a smart list is that you
-                     can add to it. -->
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path
-                    d="M3 6h12v2H3V6zm0 5h8v2H3v-2zm0 5h6v2H3v-2zm14.5-5.5 1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4 1.4-3.6z" />
-                </svg>
-              </span>
-              <p class="lists-title">Smart lists</p>
-            </div>
-            <div class="lists-actions">
-              <button id="add-smart-list-button" class="icon-button"
-                aria-label="Save current search as a smart list">+</button>
-              <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists">
-                <span class="expand-chevrons" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" focusable="false">
-                    <path d="M2 3 L7 8 L12 3" />
-                    <path d="M2 8 L7 13 L12 8" />
+          <!-- directly under Lists, because that is what it is: a list whose membership is a
+               query rather than a choice. Tags follow, being a property of a task rather than a
+               place to put one. -->
+          <div class="lists-panel smart-lists-panel">
+            <div class="lists-header">
+              <div class="lists-title-wrap">
+                <span class="lists-title-icon" aria-hidden="true">
+                  <!-- list lines with a sparkle: the Lists icon's idea plus the thing that makes
+                       this one different. A funnel used to sit here, from when these were called
+                       filters -- it said "subtract", when the point of a smart list is that you
+                       can add to it. -->
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path
+                      d="M3 6h12v2H3V6zm0 5h8v2H3v-2zm0 5h6v2H3v-2zm14.5-5.5 1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4 1.4-3.6z" />
                   </svg>
                 </span>
-              </button>
+                <p class="lists-title">Smart lists</p>
+              </div>
+              <div class="lists-actions">
+                <button id="add-smart-list-button" class="icon-button"
+                  aria-label="Save current search as a smart list">+</button>
+                <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists">
+                  <span class="expand-chevrons" aria-hidden="true">
+                    <svg viewBox="0 0 14 14" focusable="false">
+                      <path d="M2 3 L7 8 L12 3" />
+                      <path d="M2 8 L7 13 L12 8" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div id="smart-lists-list" class="lists-list">
+              <div id="smart-lists-empty" class="empty-state">No smart lists yet. Run a query
+                search, then save it from the strip under the search bar.</div>
             </div>
           </div>
-          <div id="smart-lists-list" class="lists-list">
-            <div id="smart-lists-empty" class="empty-state">No smart lists yet. Run a query
-              search, then save it from the strip under the search bar.</div>
-          </div>
-        </div>
-        <div class="lists-panel tags-panel">
-          <div class="lists-header">
-            <div class="lists-title-wrap">
-              <span class="lists-title-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path
-                    d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
-                </svg>
-              </span>
-              <p class="lists-title">Tags</p>
-            </div>
-            <div class="lists-actions">
-              <button id="tags-toggle" class="icon-button" aria-label="Toggle tags">
-                <span class="expand-chevrons" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" focusable="false">
-                    <path d="M2 3 L7 8 L12 3" />
-                    <path d="M2 8 L7 13 L12 8" />
+          <div class="lists-panel tags-panel">
+            <div class="lists-header">
+              <div class="lists-title-wrap">
+                <span class="lists-title-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path
+                      d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
                   </svg>
                 </span>
-              </button>
+                <p class="lists-title">Tags</p>
+              </div>
+              <div class="lists-actions">
+                <button id="tags-toggle" class="icon-button" aria-label="Toggle tags">
+                  <span class="expand-chevrons" aria-hidden="true">
+                    <svg viewBox="0 0 14 14" focusable="false">
+                      <path d="M2 3 L7 8 L12 3" />
+                      <path d="M2 8 L7 13 L12 8" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
             </div>
-          </div>
-          <div id="tags-list" class="lists-list">
-            <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
+            <div id="tags-list" class="lists-list">
+              <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
+            </div>
           </div>
         </div>
       </div>

@@ -27,6 +27,49 @@ export const formatDate = (date: string | null): string => {
   return map[state.dateFormat] ?? `${y}-${m}-${d}`;
 };
 
+const scrollParent = (el: HTMLElement): HTMLElement | null => {
+  let node = el.parentElement;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+};
+
+/**
+ * Brings a just-opened menu fully into view. The sidebar is its own scroller, so a menu on the
+ * last pill hangs past the rail's bottom edge and would otherwise sit there clipped until the
+ * user thought to scroll.
+ *
+ * The arithmetic is done by hand rather than with scrollIntoView({block:'nearest'}), which left
+ * the menu 4px short: an absolutely positioned descendant's contribution to scrollable overflow
+ * ignores the container's bottom padding, so the two disagree about where the end is. Pushing
+ * scrollTop past the end just clamps.
+ */
+const REVEAL_GAP = 8;
+export const revealInScroller = (el: HTMLElement) => {
+  const nudge = () => {
+    const scroller = scrollParent(el);
+    if (!scroller) return;
+    const box = el.getBoundingClientRect();
+    const view = scroller.getBoundingClientRect();
+    if (box.bottom + REVEAL_GAP > view.bottom) {
+      scroller.scrollTop += box.bottom + REVEAL_GAP - view.bottom;
+    } else if (box.top - REVEAL_GAP < view.top) {
+      scroller.scrollTop -= view.top - box.top + REVEAL_GAP;
+    }
+  };
+  // twice: the first pass is clamped by a scrollHeight that does not yet account for the menu
+  // it is trying to reveal, so it can land a few pixels short
+  requestAnimationFrame(() => {
+    nudge();
+    requestAnimationFrame(nudge);
+  });
+};
+
 export const positionDropdown = (menu: HTMLElement, trigger: HTMLElement) => {
   menu.style.top = '';
   menu.style.bottom = '';

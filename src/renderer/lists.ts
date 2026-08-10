@@ -13,7 +13,7 @@ const selectView = (listId: number | null) => {
   document.dispatchEvent(new CustomEvent('select-list', { detail: { listId } }));
 };
 import { state } from './state.js';
-import { makePillActivatable } from './helpers.js';
+import { makePillActivatable, revealInScroller } from './helpers.js';
 
 const truncateListName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -180,9 +180,10 @@ export const renderLists = () => {
     menu.className = 'list-menu';
     const menuOpen = state.openListMenuId === list.id;
     menu.style.display = menuOpen ? 'flex' : 'none';
-    // each .lists-panel is position:sticky and so its own stacking context: without this the
-    // panel below paints over a menu that hangs past this one's bottom edge
+    // the panel below would otherwise paint over a menu that hangs past this one's bottom
+    // edge, and the rail's own scroller would clip it there
     menu.classList.toggle('open', menuOpen);
+    if (menuOpen) revealInScroller(menu);
     menu.addEventListener('click', (event) => event.stopPropagation());
 
     const renameItem = document.createElement('button');

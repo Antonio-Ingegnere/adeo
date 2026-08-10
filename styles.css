@@ -116,12 +116,17 @@
   border: 0;
 }
 
+/* The window is the app frame, not a document: it never scrolls itself. Each column below
+   scrolls on its own, so a wheel over the sidebar moves the sidebar and a wheel over the tasks
+   moves the tasks -- which is what every desktop mail/todo app does, and what a single page
+   scroll could not do however the sidebar was pinned. */
 body {
   margin: 0;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   font-family: var(--font-sans);
   background: var(--bg);
 }
@@ -139,7 +144,7 @@ body {
   max-width: 100vw;
   box-sizing: border-box;
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -151,6 +156,9 @@ body {
   align-items: stretch;
   width: 100%;
   flex: 1;
+  /* without this a grid item's content floor keeps the row from shrinking, and the columns
+     below would grow the page instead of scrolling inside it */
+  min-height: 0;
 }
 
 .lists-rail {
@@ -160,6 +168,18 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Groups the panels so they scroll as one block and keep their spacing. They used to be
+   sticky individually, which piled them onto the same top offset and over each other; now the
+   rail scrolls on its own and nothing needs pinning. */
+.lists-rail-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .lists-search {
@@ -824,18 +844,13 @@ body {
   gap: 12px;
   width: 100%;
   min-width: 0;
-  align-self: flex-start;
-  position: sticky;
-  left: 0;
-  top: 16px;
 }
 
-/* position:sticky makes every panel its own stacking context, so .list-menu's z-index is
-   confined to the panel it lives in and the *next* panel paints over any menu that hangs past
-   the bottom edge -- which is every menu on a panel's last pill. Raising the whole panel while
-   one of its menus is open is the fix; the class is set beside the display toggle in
-   lists.ts / smartLists.ts / tags.ts. */
+/* A kebab menu on a panel's last pill hangs past that panel's bottom edge, into the next one.
+   Raising the panel while one of its menus is open keeps the menu clickable; the class is set
+   beside the display toggle in lists.ts / smartLists.ts / tags.ts. */
 .lists-panel:has(.list-menu.open) {
+  position: relative;
   z-index: 6;
 }
 
@@ -844,6 +859,11 @@ body {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  /* the column is its own scroller now, so the breathing room at the end of the list has to
+     live inside it rather than on .card */
+  padding-bottom: 24px;
 }
 
 .main-body {

@@ -2,7 +2,7 @@
 // it into the search field in Query mode, so there is no separate filtering path -- the normal
 // advanced-search machinery does all the work.
 import { refs } from './dom.js';
-import { makePillActivatable } from './helpers.js';
+import { makePillActivatable, revealInScroller } from './helpers.js';
 import {
   clearSmartListOrigin,
   invalidateSmartListUI,
@@ -76,8 +76,10 @@ export const renderSmartLists = () => {
     menu.className = 'list-menu';
     const menuOpen = state.openSmartListMenuId === smartList.id;
     menu.style.display = menuOpen ? 'flex' : 'none';
-    // see the note in lists.ts: the panel below would otherwise paint over this menu
+    // the panel below would otherwise paint over a menu that hangs past this one's bottom
+    // edge, and the rail's own scroller would clip it there
     menu.classList.toggle('open', menuOpen);
+    if (menuOpen) revealInScroller(menu);
     menu.addEventListener('click', (event) => event.stopPropagation());
 
     const editItem = document.createElement('button');

@@ -3,7 +3,7 @@ import { refs } from './dom.js';
 import { renderTasks } from './tasks.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
-import { makePillActivatable } from './helpers.js';
+import { makePillActivatable, revealInScroller } from './helpers.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -119,8 +119,10 @@ export const renderTags = () => {
     menu.className = 'list-menu';
     const menuOpen = state.openTagMenuId === tag.id;
     menu.style.display = menuOpen ? 'flex' : 'none';
-    // see the note in lists.ts: the panel below would otherwise paint over this menu
+    // the panel below would otherwise paint over a menu that hangs past this one's bottom
+    // edge, and the rail's own scroller would clip it there
     menu.classList.toggle('open', menuOpen);
+    if (menuOpen) revealInScroller(menu);
     menu.addEventListener('click', (event) => event.stopPropagation());
 
     const renameItem = document.createElement('button');

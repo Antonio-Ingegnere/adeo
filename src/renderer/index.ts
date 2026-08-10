@@ -1,6 +1,12 @@
 import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions.js';
 import { refs } from './dom.js';
-import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
+import {
+  renderListOptions,
+  renderLists,
+  selectList,
+  syncListPicker,
+  toggleListsExpanded,
+} from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
 import { loadSmartLists, renderSmartLists, toggleSmartListsExpanded } from './smartLists.js';
 import {
@@ -37,6 +43,14 @@ import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
 import { installModalFocusTrap } from './focusTrap.js';
+
+/** Menu down and the button's aria-expanded back to false; the two must never disagree. */
+const closeListPickerMenu = () => {
+  if (refs.listPickerMenu) {
+    refs.listPickerMenu.style.display = 'none';
+  }
+  refs.listPicker?.setAttribute('aria-expanded', 'false');
+};
 
 // ---------- Smart lists ----------
 
@@ -739,24 +753,26 @@ const setupEvents = () => {
     renderTasks();
   });
 
-  refs.addTaskListPicker?.addEventListener('click', (event) => {
+  refs.listPicker?.addEventListener('click', (event) => {
     event.stopPropagation();
-    if (refs.addTaskListMenu) {
-      refs.addTaskListMenu.style.display = refs.addTaskListMenu.style.display === 'flex' ? 'none' : 'flex';
-    }
+    if (!refs.listPickerMenu) return;
+    const open = refs.listPickerMenu.style.display !== 'flex';
+    refs.listPickerMenu.style.display = open ? 'flex' : 'none';
+    // aria-expanded is also what keeps the caret up while the menu is open: it is otherwise
+    // only drawn on hover, so the control would look shut with its own menu hanging off it
+    refs.listPicker?.setAttribute('aria-expanded', String(open));
   });
 
-  refs.addTaskListMenu?.addEventListener('click', (event) => {
+  refs.listPickerMenu?.addEventListener('click', (event) => {
     event.stopPropagation();
     const target = event.target as HTMLElement;
-    const item = target.closest('.add-task-list-item') as HTMLElement | null;
+    const item = target.closest('.list-picker-item') as HTMLElement | null;
     if (!item) return;
     const val = item.dataset.value ?? '';
-    state.addTaskSelectedListId = val ? Number(val) : null;
-    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
-    if (refs.addTaskListMenu) {
-      refs.addTaskListMenu.style.display = 'none';
-    }
+    // the same call the sidebar pills make: one selection drives the rows below *and* where
+    // the next task goes, which is the whole point of the picker being the title
+    selectList(val ? Number(val) : null);
+    closeListPickerMenu();
   });
 
   refs.modalListPicker?.addEventListener('click', (event) => {
@@ -1307,6 +1323,7 @@ const setupEvents = () => {
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
+    closeListPickerMenu();
     if (refs.overlay?.classList.contains('open')) {
       closeEditModal();
     }
@@ -1337,9 +1354,7 @@ const setupEvents = () => {
     if (refs.reminderMenu) {
       refs.reminderMenu.style.display = 'none';
     }
-    if (refs.addTaskListMenu) {
-      refs.addTaskListMenu.style.display = 'none';
-    }
+    closeListPickerMenu();
     if (refs.repeatMenu) {
       refs.repeatMenu.style.display = 'none';
     }
@@ -1364,7 +1379,7 @@ const init = async () => {
   attachDatePicker(refs.repeatEndDate);
   renderLists();
   renderModalLists();
-  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
+  syncListPicker();
   // Initialize lists chevrons orientation
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));

@@ -1,5 +1,5 @@
 import type { List } from '../types.js';
-import { renderListOptions, renderLists } from './lists.js';
+import { renderListOptions, renderLists, syncListPicker } from './lists.js';
 import { renderTags, sortTags } from './tags.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
 import { refs } from './dom.js';
@@ -378,7 +378,7 @@ export const saveList = () => {
         }
         closeListModal();
         renderLists();
-        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
+        syncListPicker();
         renderModalLists();
       })
       .catch((error) => console.error('Failed to update list', error));
@@ -395,7 +395,7 @@ export const saveList = () => {
         state.lists.push(newList);
         closeListModal();
         renderLists();
-        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
+        syncListPicker();
         renderModalLists();
       })
       .catch((error) => console.error('Failed to add list', error));

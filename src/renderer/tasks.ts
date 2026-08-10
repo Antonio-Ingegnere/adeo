@@ -84,28 +84,29 @@ export const getSearchMatches = (): Task[] => {
 
 const isStale = () => state.searchMode === 'advanced' && state.queryStatus === 'invalid';
 
+/**
+ * Only the search state: which list is on screen is the title picker's job now, and it reads
+ * that straight from state.selectedListId. This annotates it -- the picker keeps saying where a
+ * new task lands while this says why the rows below are something else.
+ */
 export const updateTasksTitle = () => {
-  if (!refs.tasksTitleEl) return;
   const searching = isSearching();
   updateTagFilterChip(searching);
   if (refs.searchStaleNote) {
     refs.searchStaleNote.style.display = searching && isStale() ? 'inline' : 'none';
   }
-  if (searching) {
-    // a count while the query is unparseable would be a count of the *previous* query --
-    // exactly the pair of conflicting signals this phase set out to remove, so drop it
-    // and let the "showing last valid results" note carry the meaning instead
-    refs.tasksTitleEl.textContent = isStale()
-      ? 'Search results'
-      : `Search results · ${getSearchMatches().length}`;
+  if (!refs.tasksTitleEl) return;
+  refs.tasksTitleEl.style.display = searching ? 'block' : 'none';
+  if (!searching) {
+    refs.tasksTitleEl.textContent = '';
     return;
   }
-  if (state.selectedListId === null) {
-    refs.tasksTitleEl.textContent = 'All tasks';
-    return;
-  }
-  const list = state.lists.find((l) => l.id === state.selectedListId);
-  refs.tasksTitleEl.textContent = list ? list.name : 'Tasks';
+  // a count while the query is unparseable would be a count of the *previous* query --
+  // exactly the pair of conflicting signals this phase set out to remove, so drop it
+  // and let the "showing last valid results" note carry the meaning instead
+  refs.tasksTitleEl.textContent = isStale()
+    ? 'Search results'
+    : `Search results · ${getSearchMatches().length}`;
 };
 
 export const saveTaskOrder = async () => {

@@ -192,37 +192,48 @@
       </div>
       <div class="main-column">
         <div class="main-body">
-          <div class="input-row">
-            <div class="add-task-input-wrap">
-              <input id="message-input" type="text" placeholder="Add a new task" class="text-input"
-                role="combobox" aria-autocomplete="list" aria-expanded="false"
-                aria-controls="tag-suggest-menu" />
-              <div id="tag-suggest-menu" class="tag-suggest-menu" role="listbox"
-                aria-label="Tag suggestions"></div>
+          <!-- Heading and its input are one unit, so they get their own tighter gap rather
+               than .main-body's 16px. -->
+          <div class="compose-block">
+            <!-- The heading *is* the list selector: one control for "what am I looking at" and
+                 "where does a new task go", which used to be two. Plain text until pointed at.
+                 Above the add-task row, so it reads as the answer before the question. -->
+            <div class="tasks-title-row">
+              <div class="list-picker-wrap">
+                <button id="list-picker" class="list-picker" type="button" aria-haspopup="listbox"
+                  aria-expanded="false">
+                  <span id="list-picker-label">All lists</span>
+                  <span class="list-picker-caret" aria-hidden="true">▾</span>
+                </button>
+                <div id="list-picker-menu" class="list-picker-menu" role="listbox"
+                  aria-label="Choose a list"></div>
+              </div>
+              <!-- the search state annotates the heading rather than replacing it: the picker
+                   still says where a new task lands, this says why the rows below are not it -->
+              <p class="tasks-title" style="display:none"></p>
+              <span id="search-stale-note" class="search-stale-note" style="display:none">Showing last valid results</span>
+              <button id="tag-filter-chip" class="tag-filter-chip" type="button" style="display:none"></button>
             </div>
-            <div class="add-task-select-wrap reminder-select-wrap">
-              <button id="add-task-list-picker" class="add-task-picker reminder-picker" type="button">
-                <span id="add-task-list-label">No list</span>
-                <span class="priority-caret">▾</span>
+            <div class="input-row">
+              <div class="add-task-input-wrap">
+                <input id="message-input" type="text" placeholder="Add a new task" class="text-input"
+                  role="combobox" aria-autocomplete="list" aria-expanded="false"
+                  aria-controls="tag-suggest-menu" />
+                <div id="tag-suggest-menu" class="tag-suggest-menu" role="listbox"
+                  aria-label="Tag suggestions"></div>
+              </div>
+              <button id="add-button" class="primary-button icon-btn" aria-label="Add task">
+                <svg class="icon-add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" fill="currentColor" />
+                </svg>
               </button>
-              <div id="add-task-list-menu" class="add-task-list-menu"></div>
             </div>
-            <button id="add-button" class="primary-button icon-btn" aria-label="Add task">
-              <svg class="icon-add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" fill="currentColor" />
-              </svg>
-            </button>
           </div>
           <div id="add-task-tags" class="add-task-tags"></div>
           <!-- non-tag defaults derived from the running smart list, plus the note listing
                constraints that could not be turned into an assignment -->
           <div id="add-task-template" class="add-task-template"></div>
           <div id="tasks" class="tasks-section">
-            <div class="tasks-title-row">
-              <p class="tasks-title">All tasks</p>
-              <span id="search-stale-note" class="search-stale-note" style="display:none">Showing last valid results</span>
-              <button id="tag-filter-chip" class="tag-filter-chip" type="button" style="display:none"></button>
-            </div>
             <div id="tasks-list" class="tasks-list">
               <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
             </div>

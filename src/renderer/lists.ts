@@ -38,15 +38,21 @@ const saveListOrder = async () => {
   }
 };
 
+/**
+ * `emptyLabel` is what the null entry is called. It is "All lists" in the title picker, which is
+ * a view, and "No list" in the edit modal, which is a field -- the same value, but the user is
+ * being asked two different questions about it.
+ */
 export const renderListOptions = (
   target: HTMLSelectElement | HTMLDivElement | null,
   selectedId: number | null,
-  labelEl: HTMLSpanElement | null = null
+  labelEl: HTMLSpanElement | null = null,
+  emptyLabel = 'No list'
 ) => {
   if (!target) return;
   const selectedValue = selectedId !== null ? String(selectedId) : '';
   const entries = [
-    { value: '', label: 'No list', title: '' },
+    { value: '', label: emptyLabel, title: '' },
     ...state.lists.map((list) => {
       const { label, title } = truncateListName(list.name);
       return { value: String(list.id), label, title: title || list.name };
@@ -71,7 +77,7 @@ export const renderListOptions = (
 
   target.innerHTML = '';
   const isModalMenu = target.classList.contains('modal-list-menu');
-  const itemClass = isModalMenu ? 'modal-list-item' : 'add-task-list-item';
+  const itemClass = isModalMenu ? 'modal-list-item' : 'list-picker-item';
   entries.forEach((entry) => {
     const item = document.createElement('button');
     item.type = 'button';
@@ -87,11 +93,29 @@ export const renderListOptions = (
     target.appendChild(item);
   });
   const selectedEntry = entries.find((entry) => entry.value === activeValue) ?? entries[0];
-  const labelTarget = labelEl || (target === refs.addTaskListMenu ? refs.addTaskListLabel : null) || refs.modalListLabel;
+  const labelTarget = labelEl || (target === refs.listPickerMenu ? refs.listPickerLabel : null) || refs.modalListLabel;
   if (labelTarget) {
     labelTarget.textContent = selectedEntry.label;
     labelTarget.title = selectedEntry.title || '';
   }
+};
+
+/** Repaints the title picker from state. Its null entry is a view, so it reads "All lists". */
+export const syncListPicker = () => {
+  renderListOptions(refs.listPickerMenu, state.selectedListId, refs.listPickerLabel, 'All lists');
+};
+
+/**
+ * The single way to change which list is selected. The sidebar pills and the title picker are
+ * two views of one piece of state, so they both go through here rather than each remembering
+ * the four things that have to be repainted afterwards.
+ */
+export const selectList = (id: number | null) => {
+  state.selectedListId = id;
+  updateTasksTitle();
+  renderLists();
+  syncListPicker();
+  renderTasks();
 };
 
 export const renderLists = () => {
@@ -107,12 +131,7 @@ export const renderLists = () => {
   allItem.className = `list-pill${state.selectedListId === null ? ' selected' : ''}`;
   makePillActivatable(allItem, state.selectedListId === null);
   allItem.appendChild(makeLabel('All lists'));
-  allItem.addEventListener('click', () => {
-    state.selectedListId = null;
-    updateTasksTitle();
-    renderLists();
-    renderTasks();
-  });
+  allItem.addEventListener('click', () => selectList(null));
   container.appendChild(allItem);
 
   if (state.lists.length === 0) {
@@ -200,16 +219,14 @@ export const renderLists = () => {
         await window.electronAPI.deleteList(list.id);
         state.lists = state.lists.filter((l) => l.id !== list.id);
         state.tasks = state.tasks.filter((t) => t.listId !== list.id);
+        // the deleted list cannot stay selected, and the title picker has to say so
         if (state.selectedListId === list.id) {
           state.selectedListId = null;
-        }
-        if (state.addTaskSelectedListId === list.id) {
-          state.addTaskSelectedListId = null;
         }
         state.openListMenuId = null;
         renderLists();
         renderTasks();
-        renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
+        syncListPicker();
         updateTasksTitle();
       } catch (error) {
         console.error('Failed to delete list', error);
@@ -219,14 +236,7 @@ export const renderLists = () => {
 
     item.appendChild(menuBtn);
     item.appendChild(menu);
-    item.addEventListener('click', () => {
-      state.selectedListId = list.id;
-      state.addTaskSelectedListId = list.id;
-      updateTasksTitle();
-      renderLists();
-      renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId, refs.addTaskListLabel);
-      renderTasks();
-    });
+    item.addEventListener('click', () => selectList(list.id));
     item.addEventListener('dragstart', (event) => {
       state.listDragIndex = Number(item.dataset.index);
       item.classList.add('dragging');
@@ -354,5 +364,5 @@ export const setLists = (lists: List[]) => {
   state.lists = lists ?? [];
   renderLists();
   updateTasksTitle();
-  renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
+  syncListPicker();
 };

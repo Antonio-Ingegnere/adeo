@@ -7,7 +7,7 @@ import {
   templateSeed,
 } from './activeSmartList.js';
 import { refs } from './dom.js';
-import { renderLists, renderListOptions } from './lists.js';
+import { renderLists, syncListPicker } from './lists.js';
 import { mergeTag, renderTags, sortTags } from './tags.js';
 import { renderPendingTags } from './tagInput.js';
 import { renderTasks, updateTasksTitle } from './tasks.js';
@@ -65,7 +65,7 @@ export const addTask = async () => {
   const listId =
     resolved && resolved.listId !== undefined
       ? resolved.listId
-      : state.addTaskSelectedListId ?? state.selectedListId;
+      : state.selectedListId;
   // tags the smart list names that already existed; the rest were just created above
   resolved?.tagIds.forEach((id) => {
     if (!tagIds.includes(id)) tagIds.push(id);
@@ -171,7 +171,7 @@ export const loadLists = async () => {
     state.lists.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id);
     renderLists();
     updateTasksTitle();
-    renderListOptions(refs.addTaskListMenu, state.addTaskSelectedListId ?? state.selectedListId, refs.addTaskListLabel);
+    syncListPicker();
   } catch (error) {
     console.error('Failed to load lists', error);
   }

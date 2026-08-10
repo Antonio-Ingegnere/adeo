@@ -6,6 +6,11 @@ export type UIState = {
   lists: List[];
   tags: Tag[];
   smartLists: SmartList[];
+  /**
+   * One selection, two jobs: which list the rows below are filtered to, and which list a new
+   * task goes into. The title picker and the sidebar pills both write it through selectList().
+   * null is "All lists" for the view and "no list" for a new task -- the same thing said twice.
+   */
   selectedListId: number | null;
   selectedTagId: number | null;
   listsExpanded: boolean;
@@ -32,7 +37,6 @@ export type UIState = {
   openSmartListMenuId: number | null;
   modalSelectedListId: number | null;
   modalTagIds: number[];
-  addTaskSelectedListId: number | null;
   openListMenuId: number | null;
   openTagMenuId: number | null;
   pendingTagIds: number[];
@@ -80,7 +84,6 @@ export const state: UIState = {
   openSmartListMenuId: null,
   modalSelectedListId: null,
   modalTagIds: [],
-  addTaskSelectedListId: null,
   openListMenuId: null,
   openTagMenuId: null,
   pendingTagIds: [],

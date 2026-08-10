@@ -354,8 +354,16 @@ body {
   font-size: var(--font-l);
 }
 
-.input-row {
+.compose-block {
+  display: flex;
+  flex-direction: column;
+  /* the title picker names what the input below adds to, so they sit closer to each other
+     than .main-body's 16px puts everything else */
+  gap: 8px;
   margin-top: 16px;
+}
+
+.input-row {
   display: flex;
   gap: 8px;
   width: 100%;
@@ -428,15 +436,19 @@ body {
 }
 
 .tasks-section {
-  margin-top: 20px;
+  margin-top: 4px;
   text-align: left;
   width: 100%;
 }
 
+/* The search annotation, not the heading -- the list picker beside it is the heading now, so
+   this is deliberately quieter than the thing it used to be. */
 .tasks-title {
-  margin: 0 0 8px;
-  color: var(--text-body);
-  font-weight: 600;
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: var(--font-s);
+  white-space: nowrap;
 }
 
 /* list-name headers inside search results: subordinate to the page title, not a peer */
@@ -464,7 +476,7 @@ body {
 }
 
 .search-stale-note {
-  margin: 0 0 8px 10px;
+  margin: 0;
   font-size: var(--font-xs);
   color: var(--text-hint);
   font-style: italic;
@@ -1162,7 +1174,6 @@ body {
 
 .priority-select-wrap,
 .reminder-select-wrap,
-.add-task-select-wrap,
 .modal-list-select-wrap,
 .repeat-select-wrap {
   position: relative;
@@ -1250,8 +1261,7 @@ body {
 }
 
 .priority-picker,
-.reminder-picker,
-.add-task-picker {
+.reminder-picker {
   width: 100%;
   border: none;
   background: var(--surface-sunken);
@@ -1270,14 +1280,8 @@ body {
   font-size: var(--font-xs);
 }
 
-.add-task-picker {
-  font-size: var(--font-l);
-  padding: 8px 10px;
-}
-
 .priority-picker:hover,
-.reminder-picker:hover,
-.add-task-picker:hover {
+.reminder-picker:hover {
   background: var(--surface-active);
 }
 
@@ -1353,21 +1357,13 @@ body {
   z-index: 10;
 }
 
-.add-task-select-wrap,
 .modal-list-select-wrap {
   min-width: 140px;
   flex-shrink: 0;
-}
-
-.add-task-select-wrap {
-  margin-top: 5px;
-}
-
-.modal-list-select-wrap {
   width: 100%;
 }
 
-.add-task-list-menu,
+.list-picker-menu,
 .modal-list-menu,
 .repeat-menu {
   position: absolute;
@@ -1386,7 +1382,7 @@ body {
   z-index: 10;
 }
 
-.add-task-list-item,
+.list-picker-item,
 .modal-list-item,
 .repeat-menu-item {
   width: 100%;
@@ -1399,8 +1395,8 @@ body {
   font-size: var(--font-m);
 }
 
-.add-task-list-item:hover,
-.add-task-list-item.selected,
+.list-picker-item:hover,
+.list-picker-item.selected,
 .modal-list-item:hover,
 .modal-list-item.selected,
 .repeat-menu-item:hover,
@@ -2193,9 +2189,77 @@ body {
   filter: brightness(0.95);
 }
 
+/* Sits above the add-task row now, so the margins that used to space it off the task list
+   below are gone -- .main-body's own 16px gap does that job. */
 .tasks-title-row {
   display: flex;
   align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ---------- List picker ----------
+   The heading and the list selector are one control. It is plain text until pointed at: no
+   border, no fill, the type .tasks-title used to carry. The -6px pulls its own padding back so
+   the label still starts on the content column's left edge, in line with the task rows. */
+/* The cap lives here, not on the button: a percentage max-width on the button makes its own
+   parent's intrinsic width resolve to zero in Chromium, which ellipsised even a name as short
+   as "Work" down to "W...". */
+.list-picker-wrap {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.list-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -6px;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-m);
+  color: var(--text-body);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.list-picker > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* always in the layout, only sometimes drawn: revealing it must not move the name */
+.list-picker-caret {
+  flex: 0 0 auto;
+  font-size: var(--font-xs);
+  color: var(--text-hint);
+  opacity: 0;
+}
+
+.list-picker:hover,
+.list-picker:focus-visible,
+.list-picker[aria-expanded='true'] {
+  background: var(--surface-hover);
+}
+
+.list-picker:hover .list-picker-caret,
+.list-picker:focus-visible .list-picker-caret,
+.list-picker[aria-expanded='true'] .list-picker-caret {
+  opacity: 1;
+}
+
+/* sized to its own content rather than to the trigger, which is now as wide as a list name */
+.list-picker-menu {
+  width: max-content;
+  min-width: 180px;
+  max-width: 320px;
 }
 
 .tag-filter-chip {
@@ -2206,8 +2270,6 @@ body {
   border-radius: var(--radius-l);
   color: var(--text-chip);
   line-height: 16px;
-  margin-left: 8px;
-  margin-bottom: 8px;
 }
 
 .tag-filter-chip:hover {
@@ -2271,6 +2333,11 @@ body {
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 6px;
+}
+
+/* empty most of the time, and an empty flex box still costs .main-body's gap */
+.add-task-tags:empty {
+  display: none;
 }
 
 .add-task-tag-chip {
@@ -2351,14 +2418,12 @@ body {
 
 /* Pinned to the content column's right edge by margin-left:auto, so both ends of the header
    toolbar line up with the task rows below it.
-   The 147px is not arbitrary: 147 + 8 gap + 26 (?) = 181, which is exactly the add-task row's
-   trailing group (.add-task-select-wrap's 140px min-width + 8 gap + the 33px + button). That
-   puts this switch's left edge on the list picker's and the search field's right edge on the
-   add-task input's. Change it only together with those three numbers.
-   It does drift: the picker grows past 140px for long list names (measured: "Groceries and
-   household supplies" moves that seam 109px), so the add-task row's seam shifts while such a
-   list is selected. Capping the picker instead would truncate list names, which is a real
-   cost for a cosmetic gain -- being right in the common case is the better trade. */
+   The 147px used to be load-bearing: 147 + 8 + 26 (?) = 181 matched the add-task row's own
+   trailing group (a 140px list picker + 8 + the 33px + button), which put the search field's
+   right edge exactly on the add-task input's. That picker is now the view's title, one row
+   higher, so the add-task row is just [input][+] and there is nothing left on that side to
+   align to. The two rows share their outer right edge, which is automatic. 147px is now only
+   what "Text | Query" needs, and it can be changed on its own. */
 .search-mode-switch {
   margin-left: auto;
   display: flex;
@@ -2615,7 +2680,7 @@ body {
   .list-menu,
   .priority-menu,
   .reminder-menu,
-  .add-task-list-menu,
+  .list-picker-menu,
   .modal-list-menu,
   .repeat-menu,
   .tag-suggest-menu,

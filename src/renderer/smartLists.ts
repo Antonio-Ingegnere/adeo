@@ -3,6 +3,7 @@
 // advanced-search machinery does all the work.
 import { refs } from './dom.js';
 import { makePillActivatable, revealInScroller } from './helpers.js';
+import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
 import {
   clearSmartListOrigin,
   invalidateSmartListUI,
@@ -11,6 +12,14 @@ import {
 import { isSmartListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
+
+const saveSmartListOrder = async () => {
+  try {
+    await window.electronAPI.updateSmartListOrder(state.smartLists.map((f) => f.id));
+  } catch (error) {
+    console.error('Failed to save smart list order', error);
+  }
+};
 
 export const toggleSmartListsExpanded = () => {
   state.smartListsExpanded = !state.smartListsExpanded;
@@ -43,13 +52,26 @@ export const renderSmartLists = () => {
     return;
   }
 
-  state.smartLists.forEach((smartList) => {
+  state.smartLists.forEach((smartList, index) => {
     const item = document.createElement('div');
     // the view, so this pill and the list pills can never be lit at the same time; it stays
     // lit through an edit of the query, because editing one is not leaving it
     const isSelected = isSmartListInView(smartList.id);
     item.className = `list-pill smart-list-pill${isSelected ? ' selected' : ''}`;
     makePillActivatable(item, isSelected);
+    attachPillDnD({
+      kind: 'smart-list',
+      item,
+      index,
+      reorder: (from, to) => {
+        moveItem(state.smartLists, from, to);
+        renderSmartLists();
+        // the view picker names every smart list in array order, so it follows the sidebar
+        renderViewBar();
+        saveSmartListOrder();
+      },
+    });
+    item.appendChild(makeDragHandle());
 
     const label = document.createElement('span');
     label.className = 'list-pill-label';

@@ -1,5 +1,5 @@
 import type { List } from '../types.js';
-import { listDropIndicator, refs } from './dom.js';
+import { refs } from './dom.js';
 import { renderTasks } from './tasks.js';
 import { isListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
@@ -14,6 +14,7 @@ const selectView = (listId: number | null) => {
 };
 import { state } from './state.js';
 import { makePillActivatable, revealInScroller } from './helpers.js';
+import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
 
 const truncateListName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -32,12 +33,6 @@ const makeLabel = (text: string) => {
     span.title = title;
   }
   return span;
-};
-
-const removeListDropIndicator = () => {
-  if (listDropIndicator.parentNode) {
-    listDropIndicator.parentNode.removeChild(listDropIndicator);
-  }
 };
 
 const saveListOrder = async () => {
@@ -139,21 +134,22 @@ export const renderLists = () => {
     const isSelected = isListInView(list.id);
     item.className = `list-pill${isSelected ? ' selected' : ''}`;
     makePillActivatable(item, isSelected);
-    item.dataset.index = String(state.lists.findIndex((l) => l.id === list.id));
-
-    item.setAttribute('draggable', 'true');
-
-    const dragHandle = document.createElement('span');
-    dragHandle.className = 'list-drag-handle';
-    dragHandle.innerHTML = `
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
-      </svg>
-    `;
-    dragHandle.addEventListener('click', (event) => event.stopPropagation());
+    const index = state.lists.findIndex((l) => l.id === list.id);
+    attachPillDnD({
+      kind: 'list',
+      item,
+      index,
+      reorder: (from, to) => {
+        moveItem(state.lists, from, to);
+        renderLists();
+        // the view picker names every list in array order, so it has to follow the sidebar
+        renderViewBar();
+        saveListOrder();
+      },
+    });
 
     const label = makeLabel(list.name);
-    item.appendChild(dragHandle);
+    item.appendChild(makeDragHandle());
     item.appendChild(label);
 
     // matches the tags panel, which has always shown a count
@@ -230,113 +226,12 @@ export const renderLists = () => {
     item.appendChild(menuBtn);
     item.appendChild(menu);
     item.addEventListener('click', () => selectView(list.id));
-    item.addEventListener('dragstart', (event) => {
-      state.listDragIndex = Number(item.dataset.index);
-      item.classList.add('dragging');
-      const dt = event.dataTransfer;
-      dt?.setData('text/plain', String(state.listDragIndex));
-      if (dt) {
-        dt.effectAllowed = 'move';
-        const dragImage = item.cloneNode(true) as HTMLElement;
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-9999px';
-        dragImage.style.left = '-9999px';
-        dragImage.style.width = `${item.getBoundingClientRect().width}px`;
-        dragImage.style.boxSizing = 'border-box';
-        dragImage.classList.add('dragging');
-        document.body.appendChild(dragImage);
-        const rect = item.getBoundingClientRect();
-        const offsetX = Math.min(Math.max(event.clientX - rect.left, 12), rect.width - 12);
-        const offsetY = Math.min(Math.max(event.clientY - rect.top, 12), rect.height - 12);
-        dt.setDragImage(dragImage, offsetX, offsetY);
-        requestAnimationFrame(() => dragImage.remove());
-      }
-    });
-
-    item.addEventListener('dragend', () => {
-      state.listDragIndex = null;
-      state.listDropIndex = null;
-      item.classList.remove('dragging');
-      removeListDropIndicator();
-    });
-
-    item.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      const targetIndex = Number(item.dataset.index);
-      const isBefore = event.clientY < item.getBoundingClientRect().top + item.offsetHeight / 2;
-      const nextIndex = isBefore ? targetIndex : targetIndex + 1;
-      if (state.listDropIndex === nextIndex) {
-        if (event.dataTransfer) {
-          event.dataTransfer.dropEffect = 'move';
-        }
-        return;
-      }
-      state.listDropIndex = nextIndex;
-      removeListDropIndicator();
-      if (item.parentNode) {
-        if (isBefore) {
-          item.parentNode.insertBefore(listDropIndicator, item);
-        } else {
-          item.parentNode.insertBefore(listDropIndicator, item.nextSibling);
-        }
-      }
-      if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = 'move';
-      }
-    });
-    item.addEventListener('drop', (event) => {
-      event.preventDefault();
-      removeListDropIndicator();
-      if (state.listDragIndex === null || state.listDropIndex === null) return;
-      if (state.listDragIndex === state.listDropIndex || state.listDragIndex + 1 === state.listDropIndex) {
-        state.listDragIndex = null;
-        state.listDropIndex = null;
-        return;
-      }
-      const [moved] = state.lists.splice(state.listDragIndex, 1);
-      const adjustedIndex = state.listDragIndex < state.listDropIndex ? state.listDropIndex - 1 : state.listDropIndex;
-      state.lists.splice(adjustedIndex, 0, moved);
-      state.listDragIndex = null;
-      state.listDropIndex = null;
-      renderLists();
-      saveListOrder();
-    });
     item.addEventListener('dblclick', () => {
       const event = new CustomEvent('open-edit-list-modal', { detail: { listId: list.id } });
       document.dispatchEvent(event);
     });
     container.appendChild(item);
   });
-
-  container.ondragover = (event) => {
-    if (state.lists.length === 0) {
-      event.preventDefault();
-      const dragEvent = event as DragEvent;
-      state.listDropIndex = 0;
-      removeListDropIndicator();
-      container.appendChild(listDropIndicator);
-      if (dragEvent.dataTransfer) {
-        dragEvent.dataTransfer.dropEffect = 'move';
-      }
-    }
-  };
-  container.ondrop = (event) => {
-    if (state.lists.length === 0) {
-      event.preventDefault();
-      if (state.listDragIndex === null || state.listDropIndex === null) {
-        removeListDropIndicator();
-        return;
-      }
-      const [moved] = state.lists.splice(state.listDragIndex, 1);
-      const adjustedIndex = state.listDragIndex < state.listDropIndex ? state.listDropIndex - 1 : state.listDropIndex;
-      state.lists.splice(adjustedIndex, 0, moved);
-      state.listDragIndex = null;
-      state.listDropIndex = null;
-      renderLists();
-      saveListOrder();
-      removeListDropIndicator();
-    }
-  };
 };
 
 export const toggleListsExpanded = () => {

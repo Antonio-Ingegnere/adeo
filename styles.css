@@ -216,6 +216,10 @@ body {
 
 .lists-search-input {
   width: 100%;
+  /* 34px is the row's unit: the mode switch beside it and the + button under it are both 34,
+     and the add-task field matches. A single-line input centres its own text, so the vertical
+     padding here only has to be smaller than the box. */
+  height: 34px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-body);
@@ -522,9 +526,8 @@ body {
 }
 
 .primary-button.icon-btn {
-  width: 33px;
-  height: 33px;
-  margin-top: 5px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -864,6 +867,15 @@ body {
   /* the column is its own scroller now, so the breathing room at the end of the list has to
      live inside it rather than on .card */
   padding-bottom: 24px;
+  /* A scroller clips to its padding box, and overflow-y:auto makes overflow-x:auto too, so the
+     focus ring on anything flush with an edge was being sliced off. The negative margins give
+     that room back without moving any content: the column still starts and ends where it did.
+     Left needs 10 = the view picker's own -6px overhang (which is what puts its *label* on the
+     task rows) plus the ring's 4; right needs only the ring's 4, for the + button. */
+  padding-left: 10px;
+  padding-right: 4px;
+  margin-left: -10px;
+  margin-right: -4px;
 }
 
 .main-body {
@@ -2310,8 +2322,11 @@ body {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
-  height: auto;
-  padding: 8px 12px;
+  /* the same 34px as the search field above it; without box-sizing the border would put it at
+     36 and the two would still not line up */
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 12px;
 }
 
 .add-task-input-wrap .text-input:focus {

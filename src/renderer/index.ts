@@ -753,7 +753,12 @@ const setupEvents = () => {
     }
   });
 
+  // both panels show a count of open tasks, so both have to follow any change to the task
+  // collection -- adding one, completing one, or moving one to another list. renderTasks
+  // dispatches this after every one of those, which is why neither panel needs to know about
+  // the paths that cause them.
   document.addEventListener('tasks-rendered', () => {
+    renderLists();
     renderTags();
   });
 

@@ -1612,6 +1612,9 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* the label sat directly on the field, and the focus ring is drawn 4px above it (2px wide
+     at 2px offset), so focusing the textarea struck a line through the bottom of "Details" */
+  gap: 6px;
   min-height: 0;
   position: relative;
   z-index: 2;

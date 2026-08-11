@@ -2266,9 +2266,11 @@ body {
   flex-shrink: 0;
 }
 
-/* the count owns the auto margin in tag pills; two auto margins would
-   split the free space and misalign counts across rows */
-.tag-pill .list-menu-btn {
+/* Wherever a pill carries a count, the count owns the auto margin: two auto margins in one
+   flex row split the free space between them, which left the count floating somewhere in the
+   middle and at a different place on every row. Keyed on the count rather than on the panel,
+   so smart-list pills -- which have no count -- keep pushing their menu button right. */
+.list-pill:has(.tag-count) .list-menu-btn {
   margin-left: 0;
 }
 

@@ -399,8 +399,11 @@
       </div>
     </div>
     <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true">
-      <div class="modal modal-small">
+      <!-- modal-settings rather than modal-small: modal-small has no scroller, and the
+           shortcut list does not fit in its 460px. The sections scroll; the actions do not. -->
+      <div class="modal modal-settings">
         <h2>Settings</h2>
+        <div class="settings-body">
         <div class="settings-section">
           <p class="modal-label">Theme</p>
           <div class="settings-options">
@@ -446,6 +449,14 @@
             <option value="YYYY.MM.DD">YYYY.MM.DD</option>
           </select>
         </div>
+        <div class="settings-section">
+          <p class="modal-label">Keyboard shortcuts</p>
+          <!-- Rows are generated from the registry by renderShortcutSettings(). -->
+          <div id="shortcut-list" class="shortcut-list"></div>
+          <p id="shortcut-error" class="shortcut-error" role="alert"></p>
+          <button id="reset-shortcuts" type="button" class="btn-link">Reset all to defaults</button>
+        </div>
+        </div>
         <div class="modal-actions">
           <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings" title="Cancel">✕</button>
           <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings" title="Save">
@@ -454,6 +465,19 @@
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
             </svg>
           </button>
+        </div>
+      </div>
+    </div>
+    <!-- Contents are generated from the shortcut registry by renderShortcutsHelp(); this is
+         only the shell. Hand-written rows would go stale the moment a binding changed. -->
+    <div id="shortcuts-overlay" class="overlay" role="dialog" aria-modal="true"
+      aria-labelledby="shortcuts-title">
+      <div class="modal modal-shortcuts">
+        <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+        <div id="shortcuts-body" class="shortcuts-body"></div>
+        <p class="shortcuts-footnote">Change these in Settings, under Keyboard shortcuts.</p>
+        <div class="modal-actions">
+          <button id="close-shortcuts" class="btn icon-btn" aria-label="Close" title="Close">✕</button>
         </div>
       </div>
     </div>

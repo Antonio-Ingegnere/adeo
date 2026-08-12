@@ -18,6 +18,19 @@ export type UIState = {
   smartListsExpanded: boolean;
   showCompleted: boolean;
   expandedDetails: Set<number>;
+  /**
+   * The user's rebound shortcuts, by id — overrides only, never a full keymap (see Settings
+   * in types.ts). Held here so the Settings modal can seed its rows without another IPC round
+   * trip; the dispatcher keeps its own resolved copy.
+   */
+  shortcutOverrides: Record<string, string[]>;
+  /**
+   * The task the keyboard cursor is on. An id rather than an index because the row's
+   * dataset.index is the drag-and-drop coordinate and every reorder or refetch invalidates
+   * it, and because renderTasks() rebuilds the list from scratch — the cursor has to be
+   * something that survives having its DOM thrown away.
+   */
+  focusedTaskId: number | null;
   dragIndex: number | null;
   dropIndex: number | null;
   editingTaskId: number | null;
@@ -70,6 +83,8 @@ export const state: UIState = {
   smartListsExpanded: true,
   showCompleted: true,
   expandedDetails: new Set<number>(),
+  shortcutOverrides: {},
+  focusedTaskId: null,
   dragIndex: null,
   dropIndex: null,
   editingTaskId: null,

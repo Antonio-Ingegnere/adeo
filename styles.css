@@ -621,6 +621,23 @@ body {
   opacity: 0.6;
 }
 
+/* The keyboard cursor. The ring is drawn from the .focused class rather than :focus-visible
+   because the cursor stays put across a re-render even when focus itself has moved on, and
+   because a row focused by arrow key should show it whether or not the last input was a
+   mouse. The offset is inset: .main-column is the scroller and clips anything drawn outside
+   the row, which is the same reason moveTaskFocus scrolls with block: 'nearest'. */
+.task-row.focused {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+/* .focused is the ring; without this the UA would draw a second one just outside it. */
+.task-row:focus,
+.task-row:focus-visible {
+  outline: none;
+}
+
 .drop-indicator {
   height: 3px;
   background: var(--accent-drop);
@@ -1162,6 +1179,251 @@ body {
   max-width: 90vw;
   max-height: 460px;
   padding: 20px;
+}
+
+/* Settings outgrew modal-small once it gained a shortcut list: modal-small is 380px with a
+   460px cap and no scroller. Four sections in one scrolling column, no tabs — that matches
+   the app's other modals and is far less machinery than a tab strip. */
+.modal.modal-settings {
+  width: 460px;
+  height: auto;
+  max-width: 92vw;
+  max-height: min(84vh, 760px);
+  padding: 20px;
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* negative margin + matching padding so focus rings inside aren't clipped by the scroller */
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcut-group-title {
+  margin: 12px 0 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shortcut-group-title:first-child {
+  margin-top: 0;
+}
+
+.shortcut-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.shortcut-setting-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut-binding-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 92px;
+  min-height: 26px;
+  justify-content: flex-end;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.shortcut-binding-btn:hover {
+  border-color: var(--border-subtle);
+}
+
+.shortcut-binding-btn.is-capturing {
+  justify-content: center;
+  color: var(--accent-focus);
+  border-color: var(--accent-focus);
+  border-style: dashed;
+}
+
+.shortcut-binding-btn.is-unbound {
+  font-style: italic;
+}
+
+.shortcut-icon-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.shortcut-icon-btn:hover {
+  color: var(--text);
+  background: var(--surface-sunken);
+}
+
+.shortcut-error {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: none;
+}
+
+.btn-link {
+  margin-top: 8px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  color: var(--text);
+}
+
+/* Wider and taller than modal-small, which has no scroller and would clip the list, but not
+   the full 80vw of the edit modal — the content is one narrow column of rows. */
+.modal.modal-shortcuts {
+  width: 520px;
+  height: auto;
+  max-width: 92vw;
+  max-height: min(80vh, 720px);
+  padding: 20px;
+}
+
+/* The list scrolls; the heading, the footnote and the actions stay put. */
+.shortcuts-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 4px -4px 0;
+  padding: 0 4px;
+}
+
+.shortcuts-section + .shortcuts-section {
+  margin-top: 18px;
+}
+
+.shortcuts-section h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shortcuts-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcuts-list .shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shortcuts-list .shortcut-row:last-child {
+  border-bottom: none;
+}
+
+.shortcuts-list dt {
+  margin: 0;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.shortcuts-list dd {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Escape and Tab are listed so they can be found, not changed. */
+.shortcut-row.is-fixed dt,
+.shortcut-row.is-fixed .shortcut-sep {
+  color: var(--text-muted);
+}
+
+.shortcut-row.is-fixed kbd {
+  opacity: 0.7;
+}
+
+.shortcut-binding-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shortcut-keys {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.shortcut-sep {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.shortcut-unbound {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.shortcuts-footnote {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* One keycap. Shared by the help overlay and the rebinding rows in Settings. */
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .modal-content {
@@ -2332,6 +2594,10 @@ body {
   box-sizing: border-box;
   height: 34px;
   padding: 0 12px;
+  /* matches .lists-search-input rather than .text-input's --font-l: these two fields sit one
+     above the other in the same column, so a 1px difference in text size reads as a mistake.
+     Overridden here rather than on .text-input, which the modal fields also use. */
+  font-size: var(--font-m);
 }
 
 .add-task-input-wrap .text-input:focus {

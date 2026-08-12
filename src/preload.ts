@@ -29,7 +29,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       repeatRule: string | null;
       repeatStart: string | null;
     }>,
+  deleteTask: (id: number) => ipcRenderer.invoke('delete-task', id) as Promise<{ id: number }>,
+  confirmDeleteTask: (text: string) => ipcRenderer.invoke('confirm-delete-task', text) as Promise<boolean>,
   getSettings: () => ipcRenderer.invoke('get-settings') as Promise<Settings>,
+  updateShortcuts: (payload: {
+    overrides: Record<string, string[]>;
+    menuAccelerators: Record<string, string>;
+  }) =>
+    ipcRenderer.invoke('update-shortcuts', payload) as Promise<{
+      shortcuts: Record<string, string[]>;
+      menuAccelerators: Record<string, string>;
+    }>,
   onShowCompletedChanged: (callback: (show: boolean) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, value: boolean) => callback(value);
     ipcRenderer.on('show-completed-changed', listener);
@@ -79,6 +89,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback();
     ipcRenderer.on('focus-search', listener);
     return () => ipcRenderer.removeListener('focus-search', listener);
+  },
+  onOpenShortcuts: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('open-shortcuts', listener);
+    return () => ipcRenderer.removeListener('open-shortcuts', listener);
   },
   onOpenTaskEdit: (callback: (taskId: number) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, taskId: number) => callback(taskId);

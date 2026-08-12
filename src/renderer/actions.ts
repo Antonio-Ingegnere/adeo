@@ -10,6 +10,8 @@ import { refs } from './dom.js';
 import { renderLists } from './lists.js';
 import { mergeTag, renderTags, sortTags } from './tags.js';
 import { renderPendingTags } from './tagInput.js';
+import { setKeymap } from './shortcuts.js';
+import { renderShortcutHints } from './shortcutHints.js';
 import { renderTasks } from './tasks.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
@@ -145,6 +147,9 @@ export const loadSettings = async () => {
     // only used to seed the Settings radio; the theme itself is applied in the main
     // process via nativeTheme.themeSource, which drives prefers-color-scheme here
     state.theme = settings.theme ?? 'system';
+    state.shortcutOverrides = settings.shortcuts ?? {};
+    setKeymap(state.shortcutOverrides);
+    renderShortcutHints();
     renderTasks();
   } catch (error) {
     console.error('Failed to load settings', error);

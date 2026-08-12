@@ -19,7 +19,16 @@ import {
   setupQuerySearch,
 } from './querySearch.js';
 import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
-import { attachTaskListDnD, renderTasks } from './tasks.js';
+import {
+  attachTaskListDnD,
+  attachTaskListKeyboard,
+  deleteTask,
+  focusTaskEdge,
+  moveTaskByOffset,
+  moveTaskFocus,
+  renderTasks,
+  toggleTaskDone,
+} from './tasks.js';
 import {
   closeEditModal,
   closeListModal,
@@ -42,7 +51,19 @@ import { state } from './state.js';
 import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
-import { installModalFocusTrap } from './focusTrap.js';
+import { activeOverlay, installModalFocusTrap } from './focusTrap.js';
+import {
+  installShortcuts,
+  registerShortcutHandlers,
+  type ShortcutHandler,
+} from './shortcuts.js';
+import { renderShortcutHints } from './shortcutHints.js';
+import { closeShortcutsHelp, openShortcutsHelp } from './shortcutsHelp.js';
+import {
+  saveShortcutSettings,
+  seedShortcutSettings,
+  setupShortcutSettings,
+} from './shortcutsSettings.js';
 
 /** Menu down and the button's aria-expanded back to false; the two must never disagree. */
 const closeViewMenu = () => {
@@ -107,6 +128,35 @@ const openSmartListModal = (smartListId?: number) => {
   refs.smartListOverlay?.classList.add('open');
   refs.smartListNameInput?.focus();
   refs.smartListNameInput?.select();
+};
+
+const clearTagFilter = () => {
+  state.selectedTagId = null;
+  renderViewBar();
+  renderTags();
+  renderTasks();
+};
+
+// ---------- Settings modal ----------
+
+/** Seeds every control from state, since the modal keeps no scratch copy of its own. */
+const openSettingsModal = () => {
+  if (!refs.settingsOverlay) return;
+  if (state.timeFormat === '24h') {
+    if (refs.settingsRadio24) refs.settingsRadio24.checked = true;
+  } else if (refs.settingsRadio12) {
+    refs.settingsRadio12.checked = true;
+  }
+  if (refs.dateFormatSelect) {
+    refs.dateFormatSelect.value = state.dateFormat;
+  }
+  seedThemeRadio();
+  seedShortcutSettings();
+  refs.settingsOverlay.classList.add('open');
+};
+
+const closeSettingsModal = () => {
+  refs.settingsOverlay?.classList.remove('open');
 };
 
 /** The smart list already holding this name, if any — matched case-insensitively, as the DB does. */
@@ -639,6 +689,7 @@ const seedThemeRadio = () => {
 
 const setupEvents = () => {
   attachTaskListDnD();
+  attachTaskListKeyboard();
 
   refs.addButton?.addEventListener('click', addTask);
   refs.input?.addEventListener('keypress', (event) => {
@@ -771,12 +822,7 @@ const setupEvents = () => {
     renderTasks();
   });
 
-  refs.tagFilterChip?.addEventListener('click', () => {
-    state.selectedTagId = null;
-    renderViewBar();
-    renderTags();
-    renderTasks();
-  });
+  refs.tagFilterChip?.addEventListener('click', clearTagFilter);
 
   refs.viewPicker?.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1245,6 +1291,7 @@ const setupEvents = () => {
         window.electronAPI.updateTimeFormat(selected),
         window.electronAPI.updateDateFormat(selectedDateFormat),
         window.electronAPI.updateTheme(selectedTheme),
+        saveShortcutSettings(),
       ]);
       state.timeFormat = timeResult.timeFormat;
       state.dateFormat = dateResult.dateFormat;
@@ -1257,19 +1304,16 @@ const setupEvents = () => {
     } catch (error) {
       console.error('Failed to save settings', error);
     }
-    refs.settingsOverlay?.classList.remove('open');
+    closeSettingsModal();
   });
 
-  refs.settingsCancel?.addEventListener('click', () => {
-    refs.settingsOverlay?.classList.remove('open');
-  });
+  setupShortcutSettings();
+  refs.settingsCancel?.addEventListener('click', closeSettingsModal);
 
   if (refs.settingsOverlay) {
     const overlay = refs.settingsOverlay;
     overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) {
-        overlay.classList.remove('open');
-      }
+      if (event.target === overlay) closeSettingsModal();
     });
   }
 
@@ -1277,20 +1321,16 @@ const setupEvents = () => {
     openEditModal(taskId);
   });
 
-  window.electronAPI.onOpenSettings(() => {
-    if (refs.settingsOverlay) {
-      if (state.timeFormat === '24h') {
-        if (refs.settingsRadio24) refs.settingsRadio24.checked = true;
-      } else if (refs.settingsRadio12) {
-        refs.settingsRadio12.checked = true;
-      }
-      if (refs.dateFormatSelect) {
-        refs.dateFormatSelect.value = state.dateFormat;
-      }
-      seedThemeRadio();
-      refs.settingsOverlay.classList.add('open');
-    }
-  });
+  window.electronAPI.onOpenSettings(openSettingsModal);
+  window.electronAPI.onOpenShortcuts(openShortcutsHelp);
+
+  refs.shortcutsClose?.addEventListener('click', closeShortcutsHelp);
+  if (refs.shortcutsOverlay) {
+    const overlay = refs.shortcutsOverlay;
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeShortcutsHelp();
+    });
+  }
 
   document.addEventListener('open-edit-modal', (event) => {
     const detail = (event as CustomEvent<{ taskId: number }>).detail;
@@ -1343,17 +1383,34 @@ const setupEvents = () => {
     void updateSmartListFromBar();
   });
 
+  // Escape closes exactly one thing: the topmost overlay. Closing every open overlay at once
+  // meant one Escape in the repeat modal — which opens on top of the edit modal — dismissed
+  // both, losing the edit underneath.
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     closeViewMenu();
-    if (refs.overlay?.classList.contains('open')) {
-      closeEditModal();
-    }
-    if (refs.repeatOverlay?.classList.contains('open')) {
-      refs.repeatOverlay.classList.remove('open');
-    }
-    if (refs.smartListOverlay?.classList.contains('open')) {
-      closeSmartListModal();
+    switch (activeOverlay()?.id) {
+      case 'edit-overlay':
+        closeEditModal();
+        break;
+      case 'repeat-overlay':
+        refs.repeatOverlay?.classList.remove('open');
+        break;
+      case 'smart-list-overlay':
+        closeSmartListModal();
+        break;
+      case 'list-overlay':
+        closeListModal();
+        break;
+      case 'tag-overlay':
+        closeTagModal();
+        break;
+      case 'settings-overlay':
+        closeSettingsModal();
+        break;
+      case 'shortcuts-overlay':
+        closeShortcutsHelp();
+        break;
     }
   });
 
@@ -1393,8 +1450,80 @@ const setupEvents = () => {
   });
 };
 
+/**
+ * The id-to-function table the registry deliberately doesn't hold. Handlers that return false
+ * decline the key and leave the event alone — that is how "Nth list" backs off when there is
+ * no Nth list, rather than swallowing the keypress.
+ */
+const shortcutHandlers: Record<string, ShortcutHandler> = {
+  'nav.down': () => moveTaskFocus(1),
+  'nav.up': () => moveTaskFocus(-1),
+  'nav.first': () => focusTaskEdge('first'),
+  'nav.last': () => focusTaskEdge('last'),
+
+  'task.toggleDone': () => {
+    if (state.focusedTaskId === null) return false;
+    void toggleTaskDone(state.focusedTaskId);
+  },
+  'task.open': () => {
+    if (state.focusedTaskId === null) return false;
+    openEditModal(state.focusedTaskId);
+  },
+  'task.toggleDetails': () => {
+    const taskId = state.focusedTaskId;
+    if (taskId === null) return false;
+    // Nothing to show, so decline rather than toggle a state with no visible effect.
+    if (!state.tasks.find((t) => t.id === taskId)?.details?.trim()) return false;
+    if (state.expandedDetails.has(taskId)) {
+      state.expandedDetails.delete(taskId);
+    } else {
+      state.expandedDetails.add(taskId);
+    }
+    renderTasks();
+  },
+  'task.delete': () => {
+    if (state.focusedTaskId === null) return false;
+    void deleteTask(state.focusedTaskId);
+  },
+  'task.moveUp': () => (state.focusedTaskId === null ? false : moveTaskByOffset(state.focusedTaskId, -1)),
+  'task.moveDown': () => (state.focusedTaskId === null ? false : moveTaskByOffset(state.focusedTaskId, 1)),
+
+  'search.clear': () => {
+    if (!state.searchQuery) return false;
+    clearSearch();
+  },
+  'search.toggleMode': () => {
+    setSearchMode(state.searchMode === 'simple' ? 'advanced' : 'simple');
+  },
+  'view.allLists': () => selectList(null),
+  'view.selectListByNumber': (binding) => {
+    const nth = Number(binding.slice(binding.lastIndexOf('+') + 1));
+    const list = state.lists[nth - 1];
+    if (!list) return false;
+    selectList(list.id);
+  },
+  'view.clearTagFilter': () => {
+    if (state.selectedTagId === null) return false;
+    clearTagFilter();
+  },
+  'app.newTask': () => {
+    refs.input?.focus();
+    refs.input?.select();
+  },
+  'app.newList': () => openListModal(),
+  'app.newSmartList': () => openSmartListModal(),
+  'app.help': () => openShortcutsHelp(),
+};
+
 const init = async () => {
   setupEvents();
+  registerShortcutHandlers(shortcutHandlers);
+  // Before the focus trap: both are capture-phase listeners on document, so they fire in
+  // registration order, and the rebinding UI's capture mode has to see Tab first.
+  installShortcuts();
+  // Defaults are live from the dispatcher's module load, so the hints are correct before
+  // loadSettings() lays any user overrides over them and repaints.
+  renderShortcutHints();
   installModalFocusTrap();
   attachDatePicker(refs.reminderDateInput);
   attachDatePicker(refs.repeatStartDate);

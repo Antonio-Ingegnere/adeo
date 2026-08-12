@@ -22,6 +22,19 @@ export type Settings = {
   timeFormat: '12h' | '24h';
   dateFormat: string;
   theme: Theme;
+  /**
+   * Rebound shortcuts only, keyed by shortcut id — not a snapshot of the whole keymap. An
+   * absent id keeps its platform default, so a default improved in a later version still
+   * reaches anyone who never rebound that particular one; an empty array is an explicit
+   * unbind, which is why it has to stay distinguishable from absent.
+   */
+  shortcuts: Record<string, string[]>;
+  /**
+   * Electron accelerators for the menu-owned shortcuts, computed by the renderer and cached
+   * here so the menu can be built at launch — setupMenu runs long before the renderer has
+   * loaded settings. Derived data: the shortcuts map above is the source of truth.
+   */
+  menuAccelerators: Record<string, string>;
 };
 
 export type List = {
@@ -80,7 +93,13 @@ export type ElectronAPI = {
     repeatRule: string | null,
     repeatStart: string | null
   ) => Promise<{ id: number; repeatRule: string | null; repeatStart: string | null }>;
+  deleteTask: (id: number) => Promise<{ id: number }>;
+  confirmDeleteTask: (text: string) => Promise<boolean>;
   getSettings: () => Promise<Settings>;
+  updateShortcuts: (payload: {
+    overrides: Record<string, string[]>;
+    menuAccelerators: Record<string, string>;
+  }) => Promise<{ shortcuts: Record<string, string[]>; menuAccelerators: Record<string, string> }>;
   onShowCompletedChanged: (callback: (show: boolean) => void) => () => void;
   addList: (name: string) => Promise<List | { error: string }>;
   getLists: () => Promise<List[]>;
@@ -106,6 +125,7 @@ export type ElectronAPI = {
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;
   onOpenSettings: (callback: () => void) => () => void;
+  onOpenShortcuts: (callback: () => void) => () => void;
   onFocusSearch: (callback: () => void) => () => void;
   onOpenTaskEdit: (callback: (taskId: number) => void) => () => void;
   notifyRendererReady: () => void;

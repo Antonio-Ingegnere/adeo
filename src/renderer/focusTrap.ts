@@ -16,8 +16,13 @@ const isVisible = (el: HTMLElement) => {
   return rect.width > 0 && rect.height > 0;
 };
 
-/** The topmost open overlay — the repeat modal can open on top of the edit modal. */
-const activeOverlay = (): HTMLElement | null => {
+/**
+ * The topmost open overlay — the repeat modal can open on top of the edit modal.
+ * Exported because it is the app's single answer to "is a modal open, and which one":
+ * Escape uses it to close only the topmost, and the shortcut dispatcher uses it to
+ * decide a key's scope. A second copy of this would drift.
+ */
+export const activeOverlay = (): HTMLElement | null => {
   const open = document.querySelectorAll<HTMLElement>('.overlay.open');
   return open.length ? open[open.length - 1] : null;
 };

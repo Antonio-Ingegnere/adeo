@@ -35,6 +35,13 @@ const todayParts = (): DateParts => {
 // JS Date#getDay(): Sun=0..Sat=6. This app treats weeks as Monday-first everywhere else.
 const mondayIndex = (jsDay: number) => (jsDay + 6) % 7;
 
+// A date popover is not an .overlay, so activeOverlay() can't see it, and its own Escape
+// handler registers only while it's open — i.e. *after* the shortcut dispatcher's. The
+// dispatcher therefore has to ask. Counted rather than boolean: three pickers are attached
+// (reminder date, repeat start, repeat end) and each owns its own isOpen.
+let openPickerCount = 0;
+export const isDatePickerOpen = (): boolean => openPickerCount > 0;
+
 export const attachDatePicker = (input: HTMLInputElement | null | undefined): void => {
   if (!input || input.dataset.datePickerAttached === 'true') return;
   input.dataset.datePickerAttached = 'true';
@@ -86,6 +93,7 @@ export const attachDatePicker = (input: HTMLInputElement | null | undefined): vo
   const closePopover = () => {
     if (!isOpen) return;
     isOpen = false;
+    openPickerCount -= 1;
     popover.style.display = 'none';
     document.removeEventListener('click', handleOutsideClick, true);
     document.removeEventListener('keydown', handleKeydown, true);
@@ -289,6 +297,7 @@ export const attachDatePicker = (input: HTMLInputElement | null | undefined): vo
     renderCalendar();
     positionPopover();
     isOpen = true;
+    openPickerCount += 1;
     document.addEventListener('click', handleOutsideClick, true);
     document.addEventListener('keydown', handleKeydown, true);
   };

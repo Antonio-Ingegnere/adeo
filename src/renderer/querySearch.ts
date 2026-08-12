@@ -19,14 +19,17 @@ import { state } from './state.js';
 
 const RENDER_DEBOUNCE_MS = 150;
 
-// S6: Cmd/Ctrl+F is otherwise undiscoverable. userAgentData is not in every Electron
-// version's lib.dom, so fall back to the (deprecated but reliable) platform string.
-// case-insensitive: userAgentData.platform reports "macOS", navigator.platform "MacIntel"
-const isMac = /mac|iphone|ipad/i.test(
-  (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
-    navigator.platform
-);
-export const SEARCH_SHORTCUT = isMac ? '⌘F' : 'Ctrl+F';
+// S6: the shortcut is otherwise undiscoverable, so the placeholder names it. Pushed in from
+// shortcutHints.ts rather than read from the keymap here: shortcuts.ts already imports this
+// module for isQuerySuggestOpen, so importing it back would be a cycle. Empty means the
+// action is unbound, and then the placeholder promises nothing.
+let searchShortcutHint = '';
+
+export const setSearchShortcutHint = (hint: string) => {
+  if (hint === searchShortcutHint) return;
+  searchShortcutHint = hint;
+  applyModeUI();
+};
 
 const OP_HINTS: Record<string, string> = {
   ':': 'is',
@@ -280,7 +283,9 @@ const applyModeUI = () => {
   if (refs.listsSearchInput) {
     refs.listsSearchInput.placeholder = advanced
       ? 'Query… e.g. list:Home AND due<=today'
-      : `Search (${SEARCH_SHORTCUT})`;
+      : searchShortcutHint
+        ? `Search (${searchShortcutHint})`
+        : 'Search';
   }
   if (refs.searchModeSimple && refs.searchModeAdvanced) {
     refs.searchModeSimple.checked = !advanced;

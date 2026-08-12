@@ -113,6 +113,12 @@ export const refs = {
   settingsSave: byId<HTMLButtonElement>('save-settings'),
   settingsCancel: byId<HTMLButtonElement>('cancel-settings'),
   dateFormatSelect: byId<HTMLSelectElement>('date-format'),
+  shortcutList: byId<HTMLDivElement>('shortcut-list'),
+  shortcutError: byId<HTMLParagraphElement>('shortcut-error'),
+  resetShortcuts: byId<HTMLButtonElement>('reset-shortcuts'),
+  shortcutsOverlay: byId<HTMLDivElement>('shortcuts-overlay'),
+  shortcutsBody: byId<HTMLDivElement>('shortcuts-body'),
+  shortcutsClose: byId<HTMLButtonElement>('close-shortcuts'),
 };
 
 export const dropIndicator = (() => {

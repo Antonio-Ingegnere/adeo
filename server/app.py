@@ -438,6 +438,20 @@ def update_task_details(task_id: int, payload: TaskDetails) -> Dict[str, Any]:
     conn.close()
 
 
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    # task_tags first: there is no ON DELETE CASCADE on the join table, so skipping this
+    # would strand rows pointing at a task that no longer exists.
+    conn.execute("DELETE FROM task_tags WHERE task_id = ?", (task_id,))
+    conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    return {"id": task_id}
+  finally:
+    conn.close()
+
+
 @app.patch("/tasks/{task_id}/list")
 def update_task_list(task_id: int, payload: TaskList) -> Dict[str, Any]:
   conn = get_conn()

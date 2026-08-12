@@ -33,6 +33,51 @@ type AppSettings = {
   timeFormat: TimeFormat;
   dateFormat: DateFormat;
   theme: Theme;
+  // Mirrors Settings in src/types.ts by hand, as Theme/TimeFormat already do.
+  shortcuts: Record<string, string[]>;
+  menuAccelerators: Record<string, string>;
+};
+
+/** Accelerators the menu falls back to when the stored ones are missing or unusable. */
+const DEFAULT_MENU_ACCELERATORS: Record<string, string> = {
+  'search.focus': 'CmdOrCtrl+F',
+  'view.toggleCompleted': 'CmdOrCtrl+Shift+H',
+  'app.settings': 'CmdOrCtrl+,',
+};
+
+/**
+ * Menu.buildFromTemplate *throws* on a malformed accelerator, which would leave the app with
+ * no menu at all — and this value came off disk, where anything could have edited it. So it
+ * is validated against a deliberately narrow shape rather than trusted.
+ */
+const ACCELERATOR_PATTERN =
+  /^(?:(?:CmdOrCtrl|Command|Cmd|Control|Ctrl|Alt|Option|AltGr|Shift|Super|Meta)\+)*(?:[A-Za-z0-9]|F[1-9][0-2]?|[,./;'\[\]\\`\-=]|Space|Esc|Escape|Tab|Enter|Return|Backspace|Delete|Home|End|PageUp|PageDown|Up|Down|Left|Right|Plus)$/;
+
+const safeAccelerator = (id: string, value: unknown): string => {
+  const fallback = DEFAULT_MENU_ACCELERATORS[id];
+  if (typeof value !== 'string' || !ACCELERATOR_PATTERN.test(value)) return fallback;
+  return value;
+};
+
+/** Structural only. "Is this a shortcut id we know?" is a renderer question — main has no registry. */
+const sanitizeShortcuts = (value: unknown): Record<string, string[]> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const result: Record<string, string[]> = {};
+  for (const [id, bindings] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(bindings)) continue;
+    if (!bindings.every((binding) => typeof binding === 'string')) continue;
+    result[id] = bindings as string[];
+  }
+  return result;
+};
+
+const sanitizeMenuAccelerators = (value: unknown): Record<string, string> => {
+  const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  for (const id of Object.keys(DEFAULT_MENU_ACCELERATORS)) {
+    result[id] = safeAccelerator(id, raw[id]);
+  }
+  return result;
 };
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -42,6 +87,8 @@ const defaultSettings: AppSettings = {
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
   theme: 'system',
+  shortcuts: {},
+  menuAccelerators: { ...DEFAULT_MENU_ACCELERATORS },
 };
 
 const normalizeTheme = (value: unknown): Theme =>
@@ -59,6 +106,8 @@ const readSettings = (): AppSettings => {
         dateFormat: parsed.dateFormat || defaultSettings.dateFormat,
         showCompleted: typeof parsed.showCompleted === 'boolean' ? parsed.showCompleted : true,
         theme: normalizeTheme(parsed.theme),
+        shortcuts: sanitizeShortcuts(parsed.shortcuts),
+        menuAccelerators: sanitizeMenuAccelerators(parsed.menuAccelerators),
       };
     }
   } catch {
@@ -728,6 +777,14 @@ function createWindow(): void {
   setupMenu(mainWindow);
 }
 
+/**
+ * Re-validated at build time, not only at read time: settings are also written from the
+ * renderer, and one bad string here would throw out of Menu.buildFromTemplate and leave the
+ * app with no menu.
+ */
+const menuAccelerator = (id: string): string =>
+  safeAccelerator(id, appSettings.menuAccelerators?.[id]);
+
 function setupMenu(window: BrowserWindow): void {
   const isMac = process.platform === 'darwin';
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -783,7 +840,7 @@ function setupMenu(window: BrowserWindow): void {
       submenu: [
         {
           label: 'Find',
-          accelerator: 'CmdOrCtrl+F',
+          accelerator: menuAccelerator('search.focus'),
           click: () => {
             window.webContents.send('focus-search');
           },
@@ -791,6 +848,7 @@ function setupMenu(window: BrowserWindow): void {
         {
           label: 'Show Completed Tasks',
           type: 'checkbox',
+          accelerator: menuAccelerator('view.toggleCompleted'),
           checked: showCompleted,
           click: (menuItem) => {
             showCompleted = menuItem.checked;
@@ -801,8 +859,23 @@ function setupMenu(window: BrowserWindow): void {
         },
         {
           label: 'Settings',
+          accelerator: menuAccelerator('app.settings'),
           click: () => {
             window.webContents.send('open-settings');
+          },
+        },
+      ],
+    },
+    {
+      label: 'Help',
+      role: 'help',
+      submenu: [
+        {
+          // No accelerator on purpose: the renderer owns this key so it can offer both "?"
+          // and Mod+/, which one accelerator could not. The item is here for discovery.
+          label: 'Keyboard Shortcuts',
+          click: () => {
+            window.webContents.send('open-shortcuts');
           },
         },
       ],
@@ -947,6 +1020,10 @@ ipcMain.handle('update-list-name', async (_event, id: number, name: string) => {
   });
 });
 
+ipcMain.handle('delete-task', async (_event, id: number) => {
+  return apiRequest(`/tasks/${id}`, { method: 'DELETE' });
+});
+
 ipcMain.handle('delete-list', async (_event, id: number) => {
   return apiRequest(`/lists/${id}`, { method: 'DELETE' });
 });
@@ -976,6 +1053,10 @@ const confirmAction = async (
 
 const confirmDelete = async (message: string, detail: string): Promise<boolean> =>
   confirmAction(message, detail, 'Delete');
+
+ipcMain.handle('confirm-delete-task', async (_event, text: string) => {
+  return confirmDelete(`Delete task "${text}"?`, 'The task will be removed. This cannot be undone.');
+});
 
 ipcMain.handle('confirm-delete-list', async (_event, name: string) => {
   return confirmDelete(`Delete list "${name}"?`, 'The list and all of its tasks will be removed.');
@@ -1128,6 +1209,25 @@ ipcMain.handle('update-date-format', async (_event, format: DateFormat) => {
 
 // Setting themeSource is the whole of "apply the theme": it drives prefers-color-scheme in
 // the renderer (so styles.css needs no switch of its own) and the native window chrome.
+ipcMain.handle(
+  'update-shortcuts',
+  async (
+    _event,
+    payload: { overrides: Record<string, string[]>; menuAccelerators: Record<string, string> }
+  ) => {
+    const shortcuts = sanitizeShortcuts(payload?.overrides);
+    const menuAccelerators = sanitizeMenuAccelerators(payload?.menuAccelerators);
+    appSettings = { ...appSettings, shortcuts, menuAccelerators };
+    writeSettings(appSettings);
+    // The menu holds the keys for the menu-owned shortcuts, so rebinding one of those means
+    // rebuilding the menu — otherwise the old accelerator stays live until the next launch.
+    if (mainWindow) {
+      setupMenu(mainWindow);
+    }
+    return { shortcuts, menuAccelerators };
+  }
+);
+
 ipcMain.handle('update-theme', async (_event, theme: Theme) => {
   const nextTheme = normalizeTheme(theme);
   nativeTheme.themeSource = nextTheme;

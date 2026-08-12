@@ -43,6 +43,118 @@ const applyPriorityStyles = (checkbox: HTMLInputElement, task: Task) => {
   setPriorityAttr(checkbox, task.priority);
 };
 
+/**
+ * The rendered rows in visual order. In search mode they are grouped under list headers,
+ * so this is deliberately not getVisibleTasks() — anything walking the list by position
+ * (the keyboard cursor, move up/down) has to agree with what is on screen.
+ */
+export const taskRows = (): HTMLElement[] =>
+  Array.from(refs.tasksList?.querySelectorAll<HTMLElement>('.task-row') ?? []);
+
+/** Move state.tasks[fromIndex] to the insertion point insertAt, in pre-removal coordinates. */
+const moveTaskInState = (fromIndex: number, insertAt: number) => {
+  const [moved] = state.tasks.splice(fromIndex, 1);
+  const adjusted = fromIndex < insertAt ? insertAt - 1 : insertAt;
+  state.tasks.splice(adjusted, 0, moved);
+};
+
+/**
+ * Move the ring and the single tab stop onto one row. Roving tabindex: exactly one row is
+ * reachable by Tab, so the list is one stop rather than one per task.
+ */
+const markCursorRow = (target: HTMLElement | null) => {
+  taskRows().forEach((row, index) => {
+    // With no cursor, the first row still holds tabindex 0 — otherwise the list would have
+    // no tab stop at all and Tab could never reach it.
+    const isTarget = target ? row === target : index === 0;
+    row.classList.toggle('focused', Boolean(target) && isTarget);
+    row.tabIndex = isTarget ? 0 : -1;
+  });
+};
+
+const rowForTask = (taskId: number | null): HTMLElement | null =>
+  taskId === null
+    ? null
+    : refs.tasksList?.querySelector<HTMLElement>(`.task-row[data-task-id="${taskId}"]`) ?? null;
+
+/**
+ * Put the keyboard cursor on a task: roving tabindex, the ring, and real DOM focus.
+ *
+ * Real focus rather than only a class, because document.activeElement being a task row is
+ * exactly what makes the shortcut dispatcher report "list" context. With a class alone focus
+ * would sit on <body>, arrow keys would scroll the page, and every arrow shortcut would need
+ * a blanket preventDefault that then has to be undone for the search field.
+ */
+export const focusTaskRow = (taskId: number | null, scroll = true): boolean => {
+  const row = rowForTask(taskId);
+  if (!row) return false;
+  state.focusedTaskId = taskId;
+  markCursorRow(row);
+  row.focus({ preventScroll: true });
+  // 'nearest', never 'center': .main-column is the scroller and yanking it around under a
+  // cursor key is disorienting when the row is already on screen.
+  if (scroll) row.scrollIntoView({ block: 'nearest' });
+  return true;
+};
+
+/** Move the cursor by whole rows in visual order. Returns false at either end. */
+export const moveTaskFocus = (offset: number): boolean => {
+  const rows = taskRows();
+  if (rows.length === 0) return false;
+
+  const current = rows.findIndex((row) => Number(row.dataset.taskId) === state.focusedTaskId);
+  // Entering the list from nowhere: down lands on the first row, up on the last.
+  if (current === -1) {
+    return focusTaskRow(Number((offset < 0 ? rows[rows.length - 1] : rows[0]).dataset.taskId));
+  }
+  const next = current + offset;
+  if (next < 0 || next >= rows.length) return false;
+  return focusTaskRow(Number(rows[next].dataset.taskId));
+};
+
+export const focusTaskEdge = (edge: 'first' | 'last'): boolean => {
+  const rows = taskRows();
+  if (rows.length === 0) return false;
+  const row = edge === 'first' ? rows[0] : rows[rows.length - 1];
+  return focusTaskRow(Number(row.dataset.taskId));
+};
+
+/**
+ * Re-seat the cursor after renderTasksInner has thrown the old rows away.
+ *
+ * hadFocus is not optional. renderTasks() is called from around fifteen places, several where
+ * focus legitimately belongs somewhere else — saving the edit modal, or addTask(), which puts
+ * the caret back in the add-task input. Restoring focus unconditionally would yank it out
+ * from under the user mid-keystroke.
+ */
+const applyTaskFocus = (hadFocus: boolean, previousOrdinal: number) => {
+  const rows = taskRows();
+  if (rows.length === 0) {
+    state.focusedTaskId = null;
+    return;
+  }
+
+  let target = rowForTask(state.focusedTaskId);
+  if (!target) {
+    // The focused task is gone: completed with Show completed off, filtered out by a new
+    // search, or deleted. Hold the position instead of the task, so completing a run of
+    // tasks with Space walks down the list rather than dumping the cursor at the top.
+    if (previousOrdinal < 0) {
+      state.focusedTaskId = null;
+      markCursorRow(null);
+      return;
+    }
+    target = rows[Math.min(previousOrdinal, rows.length - 1)];
+  }
+
+  state.focusedTaskId = Number(target.dataset.taskId);
+  markCursorRow(target);
+  if (hadFocus) {
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'nearest' });
+  }
+};
+
 const refreshTasksFromApi = async () => {
   try {
     const existingTasks = await window.electronAPI.getTasks();
@@ -83,7 +195,15 @@ const refreshTasksFromApi = async () => {
 const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   const row = document.createElement('div');
   row.className = 'task-row';
+  // Two different coordinates, deliberately both present: dataset.index is the position in
+  // state.tasks that drag-and-drop computes drop points against, and every reorder or
+  // refetch invalidates it. dataset.taskId is stable, and is what the keyboard cursor uses.
   row.dataset.index = String(index);
+  row.dataset.taskId = String(task.id);
+  // Roving tabindex: applyTaskFocus promotes exactly one row to 0, so the list is a single
+  // tab stop rather than one per task. No role="option" — rows hold a checkbox and buttons,
+  // and role=option forbids interactive descendants (same trap as the sidebar pills).
+  row.tabIndex = -1;
 
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
@@ -139,9 +259,7 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
       state.dropIndex = null;
       return;
     }
-    const [moved] = state.tasks.splice(state.dragIndex, 1);
-    const adjustedIndex = state.dragIndex < state.dropIndex ? state.dropIndex - 1 : state.dropIndex;
-    state.tasks.splice(adjustedIndex, 0, moved);
+    moveTaskInState(state.dragIndex, state.dropIndex);
     state.dragIndex = null;
     state.dropIndex = null;
     rerender();
@@ -152,21 +270,8 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   checkbox.type = 'checkbox';
   checkbox.checked = task.done;
   applyPriorityStyles(checkbox, task);
-  checkbox.addEventListener('change', async (event) => {
-    const checked = (event.target as HTMLInputElement).checked;
-    state.tasks[index].done = checked;
-    applyPriorityStyles(checkbox, state.tasks[index]);
-    textSpan.style.textDecoration = checked ? 'line-through' : 'none';
-    try {
-      await window.electronAPI.updateTaskDone(task.id, checked);
-      if (checked) {
-        await refreshTasksFromApi();
-      } else {
-        document.dispatchEvent(new CustomEvent('tasks-rendered'));
-      }
-    } catch (error) {
-      console.error('Failed to update task status', error);
-    }
+  checkbox.addEventListener('change', (event) => {
+    void toggleTaskDone(task.id, (event.target as HTMLInputElement).checked);
   });
 
   const textSpan = document.createElement('span');
@@ -297,8 +402,90 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
 };
 
 export const renderTasks = () => {
+  // The cursor is bracketed around the rebuild rather than threaded through it: renderTasksInner
+  // has several early returns and re-seating the cursor inside a 'tasks-rendered' listener would
+  // race the paint and split the logic across modules.
+  const active = document.activeElement;
+  const hadFocus =
+    active === document.body || (active instanceof Node && !!refs.tasksList?.contains(active));
+  const previousOrdinal = taskRows().findIndex(
+    (row) => Number(row.dataset.taskId) === state.focusedTaskId
+  );
+
   renderTasksInner();
+  applyTaskFocus(hadFocus, previousOrdinal);
   document.dispatchEvent(new CustomEvent('tasks-rendered'));
+};
+
+/**
+ * Complete or un-complete a task, by id. Keyed by id rather than by row index because the
+ * keyboard cursor and the checkbox are both callers and only one of them has a row.
+ * Optimistic: state and the rendering move first, the API call follows.
+ */
+export const toggleTaskDone = async (taskId: number, next?: boolean): Promise<void> => {
+  const task = state.tasks.find((t) => t.id === taskId);
+  if (!task) return;
+  const checked = next ?? !task.done;
+  task.done = checked;
+  renderTasks();
+  try {
+    await window.electronAPI.updateTaskDone(taskId, checked);
+    // Completing a repeating task inserts its next occurrence server-side, so the local
+    // list is now short a task. Un-completing can't add anything, so it needs no refetch.
+    if (checked) await refreshTasksFromApi();
+  } catch (error) {
+    console.error('Failed to update task status', error);
+  }
+};
+
+/**
+ * Delete a task, after a native confirm. Not optimistic, unlike toggling done: this is the
+ * one action with nothing to undo it, so nothing is removed until the server says it's gone.
+ */
+export const deleteTask = async (taskId: number): Promise<void> => {
+  const task = state.tasks.find((t) => t.id === taskId);
+  if (!task) return;
+  if (!(await window.electronAPI.confirmDeleteTask(task.text))) return;
+  try {
+    await window.electronAPI.deleteTask(taskId);
+  } catch (error) {
+    console.error('Failed to delete task', error);
+    return;
+  }
+  const index = state.tasks.findIndex((t) => t.id === taskId);
+  if (index !== -1) state.tasks.splice(index, 1);
+  state.expandedDetails.delete(taskId);
+  // focusedTaskId deliberately still points at the deleted task: renderTasks reads its ordinal
+  // off the *old* DOM before rebuilding, then fails to find it and seats the cursor on whatever
+  // row takes its place. Clearing it here would instead drop the cursor entirely.
+  renderTasks();
+  void saveTaskOrder();
+};
+
+/**
+ * Swap a task with the row above or below it. Returns false when it can't act, which is
+ * how a shortcut declines and leaves the key to the browser.
+ */
+export const moveTaskByOffset = (taskId: number, offset: number): boolean => {
+  // In search mode rows are grouped by list, so "the row below" can sit under a different
+  // heading and reordering against it would mean nothing.
+  if (isSearching()) return false;
+
+  const rows = taskRows();
+  const from = rows.findIndex((row) => Number(row.dataset.taskId) === taskId);
+  if (from === -1) return false;
+  const to = from + offset;
+  if (to < 0 || to >= rows.length) return false;
+
+  const fromIndex = state.tasks.findIndex((t) => t.id === taskId);
+  const toIndex = state.tasks.findIndex((t) => t.id === Number(rows[to].dataset.taskId));
+  if (fromIndex === -1 || toIndex === -1) return false;
+
+  // Insertion point, not target index: past the neighbour going down, before it going up.
+  moveTaskInState(fromIndex, offset > 0 ? toIndex + 1 : toIndex);
+  renderTasks();
+  void saveTaskOrder();
+  return true;
 };
 
 const renderTasksInner = () => {
@@ -382,6 +569,23 @@ const renderTasksInner = () => {
   });
 };
 
+/**
+ * Keep the cursor in step with wherever focus actually lands — tabbing into the list, or
+ * clicking a tag chip inside a row. Listening rather than hijacking clicks means the cursor
+ * ends up somewhere sensible without this fighting the document click handler.
+ */
+export const attachTaskListKeyboard = () => {
+  if (!refs.tasksList) return;
+  refs.tasksList.addEventListener('focusin', (event) => {
+    const row = (event.target as HTMLElement | null)?.closest<HTMLElement>('.task-row');
+    if (!row) return;
+    const taskId = Number(row.dataset.taskId);
+    if (taskId === state.focusedTaskId) return;
+    state.focusedTaskId = taskId;
+    markCursorRow(row);
+  });
+};
+
 export const attachTaskListDnD = () => {
   if (!refs.tasksList) return;
   refs.tasksList.addEventListener('dragover', (event) => {
@@ -410,9 +614,7 @@ export const attachTaskListDnD = () => {
       removeDropIndicator();
       return;
     }
-    const [moved] = state.tasks.splice(state.dragIndex, 1);
-    const adjustedIndex = state.dragIndex < state.dropIndex ? state.dropIndex - 1 : state.dropIndex;
-    state.tasks.splice(adjustedIndex, 0, moved);
+    moveTaskInState(state.dragIndex, state.dropIndex);
     state.dragIndex = null;
     state.dropIndex = null;
     renderTasks();

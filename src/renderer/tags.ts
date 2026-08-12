@@ -4,6 +4,7 @@ import { renderTasks } from './tasks.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { makePillActivatable, revealInScroller } from './helpers.js';
+import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -13,8 +14,27 @@ const truncateTagName = (text: string) => {
   };
 };
 
+/**
+ * By position, not by name: tags are draggable, so the user's arrangement is the order. The
+ * server hands them over already sorted this way; this keeps a locally-added tag in the right
+ * place without a refetch. id breaks ties only in the moment before a reorder is persisted.
+ */
 export const sortTags = () => {
-  state.tags.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id - b.id);
+  state.tags.sort((a, b) => a.position - b.position || a.id - b.id);
+};
+
+const saveTagOrder = async () => {
+  try {
+    const orderedIds = state.tags.map((t) => t.id);
+    // Local positions have to match what was just sent, or the next sortTags() -- which any
+    // tag rename or creation triggers -- would sort by stale numbers and undo the drag.
+    state.tags.forEach((tag, index) => {
+      tag.position = index;
+    });
+    await window.electronAPI.updateTagOrder(orderedIds);
+  } catch (error) {
+    console.error('Failed to save tag order', error);
+  }
 };
 
 export const mergeTag = (tag: Tag) => {
@@ -76,11 +96,23 @@ export const renderTags = () => {
     return;
   }
 
-  state.tags.forEach((tag) => {
+  state.tags.forEach((tag, index) => {
     const item = document.createElement('div');
     const isSelected = state.selectedTagId === tag.id;
     item.className = `list-pill tag-pill${isSelected ? ' selected' : ''}`;
     makePillActivatable(item, isSelected);
+    attachPillDnD({
+      kind: 'tag',
+      item,
+      index,
+      reorder: (from, to) => {
+        moveItem(state.tags, from, to);
+        renderTags();
+        saveTagOrder();
+      },
+    });
+
+    item.appendChild(makeDragHandle());
 
     const dot = document.createElement('span');
     dot.className = 'tag-dot';

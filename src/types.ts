@@ -111,6 +111,7 @@ export type ElectronAPI = {
   getTags: () => Promise<Tag[]>;
   updateTagName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
   deleteTag: (id: number) => Promise<{ id: number }>;
+  updateTagOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
   setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
   confirmDeleteTag: (name: string) => Promise<boolean>;
   addSmartList: (name: string, query: string) => Promise<SmartList | { error: string }>;

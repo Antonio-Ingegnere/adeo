@@ -1160,6 +1160,13 @@ ipcMain.handle('delete-tag', async (_event, id: number) => {
   return apiRequest(`/tags/${id}`, { method: 'DELETE' });
 });
 
+ipcMain.handle('update-tag-order', async (_event, orderedIds: number[]) => {
+  return apiRequest('/tags/order', {
+    method: 'POST',
+    body: JSON.stringify({ orderedIds }),
+  });
+});
+
 ipcMain.handle('set-task-tags', async (_event, id: number, tagIds: number[]) => {
   return apiRequest(`/tasks/${id}/tags`, {
     method: 'PUT',

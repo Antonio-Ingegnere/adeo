@@ -98,6 +98,18 @@ def initialize_db() -> None:
       )
       """
     )
+    # Tags gained a user-defined order. `position` was always written but never read -- the
+    # panel sorted by name -- and add_tag stored COUNT(*), which repeats a number as soon as
+    # anything has been deleted. Renumber by the order tags used to display in, so the panel
+    # opens looking exactly as it did before it became draggable.
+    #
+    # Self-guarding rather than flag-driven: a distinct 0..n-1 run is precisely what reordering
+    # produces, so once this has run it never fires again and can never undo an arrangement.
+    tag_positions = [row["position"] for row in conn.execute("SELECT position FROM tags").fetchall()]
+    if sorted(tag_positions) != list(range(len(tag_positions))):
+      ordered = conn.execute("SELECT id FROM tags ORDER BY name COLLATE NOCASE ASC, id ASC").fetchall()
+      for index, row in enumerate(ordered):
+        conn.execute("UPDATE tags SET position = ? WHERE id = ?", (index, row["id"]))
     conn.execute(
       """
       CREATE TABLE IF NOT EXISTS task_tags (
@@ -163,6 +175,10 @@ class TaskOrder(BaseModel):
 
 
 class ListOrder(BaseModel):
+  orderedIds: List[int]
+
+
+class TagOrder(BaseModel):
   orderedIds: List[int]
 
 
@@ -600,12 +616,16 @@ def add_tag(payload: TagCreate) -> Dict[str, Any]:
     count_row = conn.execute("SELECT COUNT(*) as total FROM tags").fetchone()
     count = count_row["total"] if count_row else 0
     color = TAG_PALETTE[count % len(TAG_PALETTE)]
+    # MAX+1, like add_list. COUNT(*) repeats a position as soon as a tag has been deleted,
+    # which was harmless while nothing ordered by it and is not any more.
+    pos_row = conn.execute("SELECT MAX(position) as maxPos FROM tags").fetchone()
+    next_pos = (pos_row["maxPos"] if pos_row and pos_row["maxPos"] is not None else -1) + 1
     cursor = conn.execute(
       "INSERT INTO tags (name, color, position) VALUES (?, ?, ?)",
-      (name, color, count),
+      (name, color, next_pos),
     )
     conn.commit()
-    return {"id": cursor.lastrowid, "name": name, "color": color, "position": count}
+    return {"id": cursor.lastrowid, "name": name, "color": color, "position": next_pos}
   finally:
     conn.close()
 
@@ -615,12 +635,24 @@ def get_tags() -> List[Dict[str, Any]]:
   conn = get_conn()
   try:
     rows = conn.execute(
-      "SELECT id, name, color, position FROM tags ORDER BY name COLLATE NOCASE ASC, id ASC"
+      "SELECT id, name, color, position FROM tags ORDER BY position ASC, id ASC"
     ).fetchall()
     return [
       {"id": row["id"], "name": row["name"], "color": row["color"], "position": row["position"]}
       for row in rows
     ]
+  finally:
+    conn.close()
+
+
+@app.post("/tags/order")
+def update_tag_order(payload: TagOrder) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    for index, tag_id in enumerate(payload.orderedIds):
+      conn.execute("UPDATE tags SET position = ? WHERE id = ?", (index, tag_id))
+    conn.commit()
+    return {"success": True}
   finally:
     conn.close()
 

@@ -1,5 +1,5 @@
-// Drag-to-reorder for the sidebar's pills. Lists and smart lists are different things but the
-// same gesture, so the wiring lives here once rather than twice.
+// Drag-to-reorder for the sidebar's pills. Lists, smart lists and tags are different things
+// but the same gesture, so the wiring lives here once rather than three times.
 //
 // The in-flight drag is module-local: it is interaction state, not app state, and only one
 // drag can exist at a time. `kind` is what keeps the two panels apart -- a dragover whose kind
@@ -7,7 +7,7 @@
 // the drop and no indicator appears.
 import { listDropIndicator } from './dom.js';
 
-export type PillKind = 'list' | 'smart-list';
+export type PillKind = 'list' | 'smart-list' | 'tag';
 
 type Drag = { kind: PillKind; from: number; to: number | null };
 

@@ -5,6 +5,7 @@ import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { makePillActivatable, revealInScroller } from './helpers.js';
 import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
+import { makeTagDot } from './tagColor.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -114,10 +115,8 @@ export const renderTags = () => {
 
     item.appendChild(makeDragHandle());
 
-    const dot = document.createElement('span');
-    dot.className = 'tag-dot';
-    dot.style.background = tag.color;
-    item.appendChild(dot);
+    const dot = makeTagDot(tag.color);
+    if (dot) item.appendChild(dot);
 
     const label = document.createElement('span');
     label.className = 'list-pill-label';
@@ -159,7 +158,7 @@ export const renderTags = () => {
 
     const renameItem = document.createElement('button');
     renameItem.className = 'list-menu-item';
-    renameItem.textContent = 'Rename tag';
+    renameItem.textContent = 'Edit tag';
     renameItem.addEventListener('click', (event) => {
       event.stopPropagation();
       const evt = new CustomEvent('open-edit-tag-modal', { detail: { tagId: tag.id } });

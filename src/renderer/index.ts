@@ -151,6 +151,7 @@ const openSettingsModal = () => {
     refs.dateFormatSelect.value = state.dateFormat;
   }
   seedThemeRadio();
+  if (refs.tagColorsCheckbox) refs.tagColorsCheckbox.checked = state.tagColors;
   seedShortcutSettings();
   refs.settingsOverlay.classList.add('open');
 };
@@ -1286,11 +1287,13 @@ const setupEvents = () => {
     const selected: '12h' | '24h' = refs.settingsRadio24?.checked ? '24h' : '12h';
     const selectedDateFormat = refs.dateFormatSelect?.value || state.dateFormat;
     const selectedTheme = readSelectedTheme();
+    const tagColors = refs.tagColorsCheckbox?.checked ?? true;
     try {
-      const [timeResult, dateResult, themeResult] = await Promise.all([
+      const [timeResult, dateResult, themeResult, tagColorResult] = await Promise.all([
         window.electronAPI.updateTimeFormat(selected),
         window.electronAPI.updateDateFormat(selectedDateFormat),
         window.electronAPI.updateTheme(selectedTheme),
+        window.electronAPI.updateTagColors(tagColors),
         saveShortcutSettings(),
       ]);
       state.timeFormat = timeResult.timeFormat;
@@ -1298,8 +1301,13 @@ const setupEvents = () => {
       // no re-render needed: the main process sets nativeTheme.themeSource, which flips
       // prefers-color-scheme and repaints via CSS on its own
       state.theme = themeResult.theme;
+      // every tag chip and dot in the app re-reads this, so the repaints below cover it
+      state.tagColors = tagColorResult.tagColors;
       buildTimeOptions();
       updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+      renderTags();
+      renderViewBar();
+      renderTagsMenu();
       renderTasks();
     } catch (error) {
       console.error('Failed to save settings', error);

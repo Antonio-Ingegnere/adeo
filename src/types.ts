@@ -22,6 +22,8 @@ export type Settings = {
   timeFormat: '12h' | '24h';
   dateFormat: string;
   theme: Theme;
+  /** Tag colours on chips and dots. Off gives outlined chips and no dots. */
+  tagColors: boolean;
   /**
    * Rebound shortcuts only, keyed by shortcut id — not a snapshot of the whole keymap. An
    * absent id keeps its platform default, so a default improved in a later version still
@@ -112,6 +114,8 @@ export type ElectronAPI = {
   updateTagName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
   deleteTag: (id: number) => Promise<{ id: number }>;
   updateTagOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+  updateTagColor: (id: number, color: string) => Promise<{ id: number; color: string } | { error: string }>;
+  updateTagColors: (enabled: boolean) => Promise<{ tagColors: boolean }>;
   setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
   confirmDeleteTag: (name: string) => Promise<boolean>;
   addSmartList: (name: string, query: string) => Promise<SmartList | { error: string }>;

@@ -16,6 +16,7 @@ import { FIELDS, compilePredicate, parseQuery, queryUsesField, tokenize } from '
 import type { FieldSpec, ParseError, Token } from './query.js';
 import { renderTasks } from './tasks.js';
 import { state } from './state.js';
+import { makeTagDot } from './tagColor.js';
 
 const RENDER_DEBOUNCE_MS = 150;
 
@@ -495,10 +496,8 @@ const renderSuggestMenu = () => {
     el.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
     el.tabIndex = -1; // the input keeps focus; the listbox is driven by aria-activedescendant
     if (item.color) {
-      const dot = document.createElement('span');
-      dot.className = 'tag-dot';
-      dot.style.background = item.color;
-      el.appendChild(dot);
+      const dot = makeTagDot(item.color);
+      if (dot) el.appendChild(dot);
     }
     el.appendChild(document.createTextNode(item.label));
     if (item.hint) {

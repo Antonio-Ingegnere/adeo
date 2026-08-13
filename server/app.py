@@ -182,6 +182,10 @@ class TagOrder(BaseModel):
   orderedIds: List[int]
 
 
+class TagColor(BaseModel):
+  color: str
+
+
 class TaskDone(BaseModel):
   done: bool
 
@@ -641,6 +645,24 @@ def get_tags() -> List[Dict[str, Any]]:
       {"id": row["id"], "name": row["name"], "color": row["color"], "position": row["position"]}
       for row in rows
     ]
+  finally:
+    conn.close()
+
+
+@app.patch("/tags/{tag_id}/color")
+def update_tag_color(tag_id: int, payload: TagColor) -> Dict[str, Any]:
+  # Only the palette is accepted. Chip text is a single fixed ink chosen to sit on these
+  # pastels, so an arbitrary colour could render a tag unreadable -- and the renderer offers
+  # nothing else. Rejecting loudly beats storing something that quietly looks broken.
+  color = (payload.color or "").strip().upper()
+  if color not in {c.upper() for c in TAG_PALETTE}:
+    raise HTTPException(status_code=400, detail="Unknown tag colour")
+  canonical = next(c for c in TAG_PALETTE if c.upper() == color)
+  conn = get_conn()
+  try:
+    conn.execute("UPDATE tags SET color = ? WHERE id = ?", (canonical, tag_id))
+    conn.commit()
+    return {"id": tag_id, "color": canonical}
   finally:
     conn.close()
 

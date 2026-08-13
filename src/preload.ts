@@ -60,6 +60,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteTag: (id: number) => ipcRenderer.invoke('delete-tag', id) as Promise<{ id: number }>,
   updateTagOrder: (orderedIds: number[]) =>
     ipcRenderer.invoke('update-tag-order', orderedIds) as Promise<{ success: boolean }>,
+  updateTagColor: (id: number, color: string) =>
+    ipcRenderer.invoke('update-tag-color', id, color) as Promise<
+      { id: number; color: string } | { error: string }
+    >,
+  updateTagColors: (enabled: boolean) =>
+    ipcRenderer.invoke('update-tag-colors', enabled) as Promise<{ tagColors: boolean }>,
   setTaskTags: (id: number, tagIds: number[]) =>
     ipcRenderer.invoke('set-task-tags', id, tagIds) as Promise<{ id: number; tagIds: number[] } | { error: string }>,
   confirmDeleteTag: (name: string) => ipcRenderer.invoke('confirm-delete-tag', name) as Promise<boolean>,

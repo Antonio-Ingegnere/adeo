@@ -96,6 +96,13 @@ The two always-visible text inputs name their own shortcut in their placeholder 
 
 `Settings.shortcuts` stores **overrides only, never a keymap snapshot**: an absent id keeps its platform default, so an improved default still reaches anyone who never rebound that one; `[]` is an explicit unbind and so must stay distinct from absent. `Settings.menuAccelerators` is a derived cache, needed because `setupMenu` runs inside `createWindow()` long before the renderer has loaded settings — main re-validates it against a narrow pattern on both read and menu build, because `Menu.buildFromTemplate` *throws* on a malformed accelerator and would leave the app with no menu at all. `update-shortcuts` persists both and re-calls `setupMenu`.
 
+### Tag colour
+Every tag swatch, dot and chip in the app goes through `tagColor.ts` — `paintTagChip` and `makeTagDot`. The colour is an **inline style, not a class**: it is data rather than a variant, which is what makes "turn tag colours off" simply *not setting it*, since the chip classes carry a border and no background of their own.
+
+`TAG_PALETTE` is hand-mirrored between `tagColor.ts` and `server/app.py`, the way `src/types.ts` mirrors the Pydantic models. The server assigns from it at creation and **validates against it** in `PATCH /tags/{id}/color`, so the two must be edited together — a colour the picker offers and the server doesn't know is rejected with a 400 rather than silently stored. Only palette colours are accepted because chip text is a single fixed ink chosen to sit on these pastels.
+
+`settings.tagColors` (default on) drops the fill everywhere and adds `tag-plain`; sidebar dots are not rendered at all, since a grey dot beside every tag carries no information. `tag-plain` is not just "no background": `--text-chip` is dark ink meant for a pastel fill and **stays dark in dark mode**, and `--border-chip` is black at low alpha, so an unfilled chip must switch to `--text-body` and `--border` or it goes invisible on a dark surface. `styles.css:2471` already documents that distinction for `.template-chip`. The rule must also sit *after* `.task-tag-chip` and `.tag-filter-chip` in the file — equal specificity means source order decides, and placing it earlier loses.
+
 ### Sidebar order
 All three sidebar panels — lists, smart lists and tags — are **drag-ordered by `position`, never by name**. The gesture lives once in `pillDnD.ts`; each panel calls `attachPillDnD` with a `kind`, and a `dragover` whose kind doesn't match the pill under the pointer never calls `preventDefault`, so the browser refuses the drop and the panels can't be dragged into each other. The in-flight drag is module-local — it's interaction state, only one exists at a time, and it deliberately does not live in `UIState`.
 

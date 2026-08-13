@@ -33,6 +33,7 @@ type AppSettings = {
   timeFormat: TimeFormat;
   dateFormat: DateFormat;
   theme: Theme;
+  tagColors: boolean;
   // Mirrors Settings in src/types.ts by hand, as Theme/TimeFormat already do.
   shortcuts: Record<string, string[]>;
   menuAccelerators: Record<string, string>;
@@ -87,6 +88,7 @@ const defaultSettings: AppSettings = {
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
   theme: 'system',
+  tagColors: true,
   shortcuts: {},
   menuAccelerators: { ...DEFAULT_MENU_ACCELERATORS },
 };
@@ -106,6 +108,7 @@ const readSettings = (): AppSettings => {
         dateFormat: parsed.dateFormat || defaultSettings.dateFormat,
         showCompleted: typeof parsed.showCompleted === 'boolean' ? parsed.showCompleted : true,
         theme: normalizeTheme(parsed.theme),
+        tagColors: typeof parsed.tagColors === 'boolean' ? parsed.tagColors : true,
         shortcuts: sanitizeShortcuts(parsed.shortcuts),
         menuAccelerators: sanitizeMenuAccelerators(parsed.menuAccelerators),
       };
@@ -1158,6 +1161,20 @@ ipcMain.handle('update-tag-name', async (_event, id: number, name: string) => {
 
 ipcMain.handle('delete-tag', async (_event, id: number) => {
   return apiRequest(`/tags/${id}`, { method: 'DELETE' });
+});
+
+ipcMain.handle('update-tag-color', async (_event, id: number, color: string) => {
+  return apiRequest(`/tags/${id}/color`, {
+    method: 'PATCH',
+    body: JSON.stringify({ color }),
+  });
+});
+
+ipcMain.handle('update-tag-colors', async (_event, enabled: boolean) => {
+  const tagColors = Boolean(enabled);
+  appSettings = { ...appSettings, tagColors };
+  writeSettings(appSettings);
+  return { tagColors };
 });
 
 ipcMain.handle('update-tag-order', async (_event, orderedIds: number[]) => {

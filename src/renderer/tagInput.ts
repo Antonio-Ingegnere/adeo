@@ -3,6 +3,7 @@ import { refs } from './dom.js';
 import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { mergeTag, renderTags } from './tags.js';
 import { state } from './state.js';
+import { makeTagDot, paintTagChip } from './tagColor.js';
 
 const TOKEN_RE = /(^|\s)#([A-Za-z0-9_-]*)$/;
 
@@ -35,7 +36,7 @@ export const renderPendingTags = () => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'task-tag-chip add-task-tag-chip';
-    chip.style.background = tag.color;
+    paintTagChip(chip, tag.color);
     chip.title = 'Remove tag';
     chip.textContent = `#${tag.name} ✕`;
     chip.addEventListener('click', (event) => {
@@ -62,10 +63,8 @@ const renderSuggestMenu = () => {
     el.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
     el.tabIndex = -1; // the input keeps focus; the listbox is driven by aria-activedescendant
     if (item.kind === 'tag') {
-      const dot = document.createElement('span');
-      dot.className = 'tag-dot';
-      dot.style.background = item.tag.color;
-      el.appendChild(dot);
+      const dot = makeTagDot(item.tag.color);
+      if (dot) el.appendChild(dot);
       el.appendChild(document.createTextNode(`#${item.tag.name}`));
     } else {
       el.appendChild(document.createTextNode(`Create "#${item.name}"`));

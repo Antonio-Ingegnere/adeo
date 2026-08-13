@@ -2507,6 +2507,37 @@ kbd {
   line-height: 1.5;
 }
 
+.tag-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tag-swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-chip-strong);
+  cursor: pointer;
+  position: relative;
+}
+
+/* a ring outside the swatch rather than a tick inside it, which would need an ink colour that
+   works on all eight pastels */
+.tag-swatch.selected {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-m);
+  cursor: pointer;
+}
+
 .tag-dot {
   width: 10px;
   height: 10px;
@@ -2577,6 +2608,21 @@ kbd {
 
 .tag-filter-chip:hover {
   filter: brightness(0.95);
+}
+
+/* Tag colours off. Not merely "drop the fill": --text-chip is the dark ink meant to sit on a
+   pastel and stays dark in dark mode, and --border-chip is black at low alpha, so an unfilled
+   chip needs the scheme-aware pair or it goes invisible on a dark surface. */
+.tag-plain {
+  background: none;
+  color: var(--text-body);
+  border-color: var(--border);
+}
+
+/* the coloured chips dim their fill on hover; with no fill there is nothing to dim */
+.tag-plain:hover {
+  filter: none;
+  background: var(--surface-sunken);
 }
 
 .add-task-input-wrap {

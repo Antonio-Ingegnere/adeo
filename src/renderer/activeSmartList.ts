@@ -6,6 +6,7 @@ import { parseQuery } from './query.js';
 import { deriveTemplate } from './smartListTemplate.js';
 import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
+import { paintTagChip } from './tagColor.js';
 
 /**
  * Derived, never stored. A smart list is *running* iff the search bar currently holds exactly
@@ -231,7 +232,7 @@ export const renderTemplateHints = (force = false) => {
     // the tag-chip ink assumes a pastel fill; a tag that does not exist yet has none, so it
     // keeps the plain chip styling until it is created
     const el = chip(`#${name}`, known ? 'template-chip-tag' : '');
-    if (known) el.style.background = known.color;
+    if (known) paintTagChip(el, known.color);
     container.appendChild(el);
   });
   if (template.priority) {

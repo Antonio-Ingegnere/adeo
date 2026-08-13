@@ -9,6 +9,7 @@ import { refs } from './dom.js';
 import { currentView } from './currentView.js';
 import { getSearchMatches, isSearching, isStale } from './searchMatches.js';
 import { state } from './state.js';
+import { paintTagChip } from './tagColor.js';
 
 /** Non-null while the bar is asking for a name. `asNew` only changes the placeholder. */
 let naming: { asNew: boolean } | null = null;
@@ -213,7 +214,7 @@ export const renderViewBar = () => {
       refs.tagFilterChip.style.display = 'none';
     } else {
       refs.tagFilterChip.textContent = `#${tag.name} ✕`;
-      refs.tagFilterChip.style.background = tag.color;
+      paintTagChip(refs.tagFilterChip, tag.color);
       refs.tagFilterChip.style.display = 'inline-block';
     }
   }

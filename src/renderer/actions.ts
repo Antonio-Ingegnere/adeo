@@ -147,6 +147,7 @@ export const loadSettings = async () => {
     // only used to seed the Settings radio; the theme itself is applied in the main
     // process via nativeTheme.themeSource, which drives prefers-color-scheme here
     state.theme = settings.theme ?? 'system';
+    state.tagColors = settings.tagColors ?? true;
     state.shortcutOverrides = settings.shortcuts ?? {};
     setKeymap(state.shortcutOverrides);
     renderShortcutHints();

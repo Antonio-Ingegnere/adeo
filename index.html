@@ -385,8 +385,11 @@
     </div>
     <div id="tag-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2>Rename tag</h2>
+        <h2>Edit tag</h2>
         <input id="tag-input" type="text" class="text-input modal-input" placeholder="Tag name" />
+        <p class="modal-label" id="tag-color-label">Colour</p>
+        <!-- swatches are generated from TAG_PALETTE in tagColor.ts, which mirrors the server's -->
+        <div id="tag-color-swatches" class="tag-swatches" role="radiogroup" aria-labelledby="tag-color-label"></div>
         <div class="modal-actions">
           <button id="cancel-tag" class="btn icon-btn" aria-label="Cancel tag" title="Cancel">✕</button>
           <button id="save-tag" class="btn primary icon-btn" aria-label="Save tag" title="Save">
@@ -448,6 +451,13 @@
             <option value="DD MMM YYYY">DD MMM YYYY</option>
             <option value="YYYY.MM.DD">YYYY.MM.DD</option>
           </select>
+        </div>
+        <div class="settings-section">
+          <p class="modal-label">Tags</p>
+          <label class="checkbox-option">
+            <input id="tag-colors" type="checkbox" checked />
+            <span>Show tag colours</span>
+          </label>
         </div>
         <div class="settings-section">
           <p class="modal-label">Keyboard shortcuts</p>

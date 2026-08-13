@@ -6,6 +6,7 @@ import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
 import { repeatSummaryFromRule } from './repeat.js';
 import { setPriorityAttr } from './theme.js';
+import { paintTagChip } from './tagColor.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -338,7 +339,7 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
       chip.type = 'button';
       chip.className = 'task-tag-chip';
       chip.textContent = `#${tag.name}`;
-      chip.style.background = tag.color;
+      paintTagChip(chip, tag.color);
       chip.title = `Filter by #${tag.name}`;
       chip.addEventListener('click', (event) => {
         event.preventDefault();

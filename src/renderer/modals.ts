@@ -7,6 +7,7 @@ import { refs } from './dom.js';
 import { state } from './state.js';
 import { formatDate } from './helpers.js';
 import { asPriority, setPriorityAttr } from './theme.js';
+import { TAG_PALETTE, makeTagDot } from './tagColor.js';
 
 export const updatePriorityUI = (value: string | null) => {
   const priority = asPriority(value);
@@ -85,13 +86,11 @@ export const renderTagsMenu = () => {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'tags-menu-item';
-    const dot = document.createElement('span');
-    dot.className = 'tag-dot';
-    dot.style.background = tag.color;
+    const dot = makeTagDot(tag.color);
     const name = document.createElement('span');
     name.className = 'tags-menu-name';
     name.textContent = tag.name;
-    item.appendChild(dot);
+    if (dot) item.appendChild(dot);
     item.appendChild(name);
     if (state.modalTagIds.includes(tag.id)) {
       const check = document.createElement('span');
@@ -291,10 +290,63 @@ export const saveEdit = async () => {
   }
 };
 
+/** The colour picked in the modal, held until Save so Cancel really cancels. */
+let pendingTagColor: string | null = null;
+
+/**
+ * A radiogroup of swatches, one per palette entry. Rendered rather than written out so the
+ * palette stays a single list; roving tabindex and arrow keys make it one tab stop, the way a
+ * radiogroup is expected to behave.
+ */
+const renderTagSwatches = () => {
+  if (!refs.tagColorSwatches) return;
+  refs.tagColorSwatches.innerHTML = '';
+
+  TAG_PALETTE.forEach((entry, index) => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'tag-swatch';
+    swatch.style.background = entry.color;
+    swatch.dataset.color = entry.color;
+    swatch.setAttribute('role', 'radio');
+    swatch.title = entry.name;
+    swatch.setAttribute('aria-label', entry.name);
+
+    const selected = (pendingTagColor ?? '').toUpperCase() === entry.color.toUpperCase();
+    swatch.setAttribute('aria-checked', String(selected));
+    swatch.classList.toggle('selected', selected);
+    swatch.tabIndex = selected ? 0 : -1;
+
+    swatch.addEventListener('click', () => {
+      pendingTagColor = entry.color;
+      renderTagSwatches();
+      refs.tagColorSwatches?.querySelector<HTMLElement>('.tag-swatch.selected')?.focus();
+    });
+    swatch.addEventListener('keydown', (event) => {
+      const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+      if (!step) return;
+      event.preventDefault();
+      const next = (index + step + TAG_PALETTE.length) % TAG_PALETTE.length;
+      pendingTagColor = TAG_PALETTE[next].color;
+      renderTagSwatches();
+      refs.tagColorSwatches?.querySelector<HTMLElement>('.tag-swatch.selected')?.focus();
+    });
+
+    refs.tagColorSwatches?.appendChild(swatch);
+  });
+
+  // Nothing matched, so nothing holds tabindex 0 and the group would be unreachable by Tab.
+  if (!refs.tagColorSwatches.querySelector('.tag-swatch.selected')) {
+    refs.tagColorSwatches.querySelector<HTMLElement>('.tag-swatch')?.setAttribute('tabindex', '0');
+  }
+};
+
 export const openEditTagModal = (tagId: number) => {
   const tag = state.tags.find((t) => t.id === tagId);
   if (!tag || !refs.tagOverlay || !refs.tagInput) return;
   state.editingTagId = tagId;
+  pendingTagColor = tag.color;
+  renderTagSwatches();
   refs.tagOverlay.classList.add('open');
   refs.tagInput.value = tag.name;
   setTimeout(() => refs.tagInput?.focus(), 0);
@@ -304,30 +356,45 @@ export const closeTagModal = () => {
   if (!refs.tagOverlay || !refs.tagInput) return;
   refs.tagOverlay.classList.remove('open');
   refs.tagInput.value = '';
+  pendingTagColor = null;
   state.editingTagId = null;
 };
 
-export const saveTag = () => {
+export const saveTag = async () => {
   if (!refs.tagInput || !state.editingTagId) return;
+  const tagId = state.editingTagId;
   const name = refs.tagInput.value.trim();
   if (!name) return;
-  window.electronAPI
-    .updateTagName(state.editingTagId, name)
-    .then((updated) => {
-      if (!updated || (updated as any).error) return;
-      const idx = state.tags.findIndex((t) => t.id === state.editingTagId);
-      if (idx !== -1) {
-        state.tags[idx].name = (updated as { name: string }).name;
-        sortTags();
+  const tag = state.tags.find((t) => t.id === tagId);
+  const nextColor = pendingTagColor;
+
+  try {
+    const updated = await window.electronAPI.updateTagName(tagId, name);
+    if (!updated || (updated as any).error) return;
+    const idx = state.tags.findIndex((t) => t.id === tagId);
+    if (idx !== -1) {
+      state.tags[idx].name = (updated as { name: string }).name;
+    }
+
+    // Only when it actually changed: the server rejects anything outside the palette, so a
+    // pointless round trip is also a pointless chance to fail.
+    if (tag && nextColor && nextColor.toUpperCase() !== tag.color.toUpperCase()) {
+      const recolored = await window.electronAPI.updateTagColor(tagId, nextColor);
+      if (recolored && !(recolored as any).error && idx !== -1) {
+        state.tags[idx].color = (recolored as { color: string }).color;
       }
-      closeTagModal();
-      renderViewBar();
-      renderTags();
-      renderTasks();
-      renderTagsMenu();
-      updateTagsUI();
-    })
-    .catch((error) => console.error('Failed to update tag', error));
+    }
+
+    sortTags();
+    closeTagModal();
+    renderViewBar();
+    renderTags();
+    renderTasks();
+    renderTagsMenu();
+    updateTagsUI();
+  } catch (error) {
+    console.error('Failed to update tag', error);
+  }
 };
 
 export const openListModal = () => {

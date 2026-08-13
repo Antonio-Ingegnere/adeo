@@ -18,6 +18,8 @@ export type UIState = {
   smartListsExpanded: boolean;
   showCompleted: boolean;
   expandedDetails: Set<number>;
+  /** Tag colours on chips and dots; see tagColor.ts. */
+  tagColors: boolean;
   /**
    * The user's rebound shortcuts, by id — overrides only, never a full keymap (see Settings
    * in types.ts). Held here so the Settings modal can seed its rows without another IPC round
@@ -83,6 +85,7 @@ export const state: UIState = {
   smartListsExpanded: true,
   showCompleted: true,
   expandedDetails: new Set<number>(),
+  tagColors: true,
   shortcutOverrides: {},
   focusedTaskId: null,
   dragIndex: null,

@@ -58,8 +58,14 @@ import {
   type ShortcutHandler,
 } from './shortcuts.js';
 import { renderShortcutHints } from './shortcutHints.js';
+import {
+  focusActiveSettingsTab,
+  seedSettingsTabs,
+  setupSettingsTabs,
+} from './settingsTabs.js';
 import { closeShortcutsHelp, openShortcutsHelp } from './shortcutsHelp.js';
 import {
+  abortShortcutCapture,
   saveShortcutSettings,
   seedShortcutSettings,
   setupShortcutSettings,
@@ -139,6 +145,28 @@ const clearTagFilter = () => {
 
 // ---------- Settings modal ----------
 
+const showSettingsError = (message: string | null) => {
+  if (!refs.settingsError) return;
+  refs.settingsError.textContent = message ?? '';
+  refs.settingsError.style.display = message ? 'block' : 'none';
+};
+
+/**
+ * A raw pattern says nothing about what it produces, so each option leads with today's date
+ * in that format. Built on open rather than in the markup because "today" moves; the option
+ * *values* are untouched, since main.ts validates against exactly that list.
+ */
+const labelDateFormatOptions = () => {
+  if (!refs.dateFormatSelect) return;
+  const today = new Date();
+  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+    today.getDate()
+  ).padStart(2, '0')}`;
+  for (const option of Array.from(refs.dateFormatSelect.options)) {
+    option.textContent = `${formatDate(iso, option.value)} · ${option.value}`;
+  }
+};
+
 /** Seeds every control from state, since the modal keeps no scratch copy of its own. */
 const openSettingsModal = () => {
   if (!refs.settingsOverlay) return;
@@ -147,16 +175,25 @@ const openSettingsModal = () => {
   } else if (refs.settingsRadio12) {
     refs.settingsRadio12.checked = true;
   }
+  labelDateFormatOptions();
   if (refs.dateFormatSelect) {
     refs.dateFormatSelect.value = state.dateFormat;
   }
   seedThemeRadio();
   if (refs.tagColorsCheckbox) refs.tagColorsCheckbox.checked = state.tagColors;
+  if (refs.settingsShowCompleted) refs.settingsShowCompleted.checked = state.showCompleted;
+  showSettingsError(null);
+  seedSettingsTabs();
   seedShortcutSettings();
   refs.settingsOverlay.classList.add('open');
+  // The active tab, not the first control: it announces "General, tab, 1 of 3" and the arrow
+  // keys work immediately. Deferred a tick like the other modals, so the overlay is laid out.
+  setTimeout(() => focusActiveSettingsTab(), 0);
 };
 
 const closeSettingsModal = () => {
+  // Closing by mouse mid-capture would otherwise leave the one-shot key handler armed.
+  abortShortcutCapture();
   refs.settingsOverlay?.classList.remove('open');
 };
 
@@ -715,6 +752,11 @@ const setupEvents = () => {
 
   window.electronAPI.onShowCompletedChanged((value) => {
     state.showCompleted = value;
+    // The native menu stays clickable with the dialog open, and the dialog now has its own
+    // checkbox for this. Without re-seeding it, Save would quietly undo what the menu just did.
+    if (refs.settingsOverlay?.classList.contains('open') && refs.settingsShowCompleted) {
+      refs.settingsShowCompleted.checked = value;
+    }
     renderTasks();
   });
 
@@ -1288,14 +1330,18 @@ const setupEvents = () => {
     const selectedDateFormat = refs.dateFormatSelect?.value || state.dateFormat;
     const selectedTheme = readSelectedTheme();
     const tagColors = refs.tagColorsCheckbox?.checked ?? true;
+    const showCompleted = refs.settingsShowCompleted?.checked ?? true;
+    showSettingsError(null);
     try {
-      const [timeResult, dateResult, themeResult, tagColorResult] = await Promise.all([
-        window.electronAPI.updateTimeFormat(selected),
-        window.electronAPI.updateDateFormat(selectedDateFormat),
-        window.electronAPI.updateTheme(selectedTheme),
-        window.electronAPI.updateTagColors(tagColors),
-        saveShortcutSettings(),
-      ]);
+      const [timeResult, dateResult, themeResult, tagColorResult, showCompletedResult] =
+        await Promise.all([
+          window.electronAPI.updateTimeFormat(selected),
+          window.electronAPI.updateDateFormat(selectedDateFormat),
+          window.electronAPI.updateTheme(selectedTheme),
+          window.electronAPI.updateTagColors(tagColors),
+          window.electronAPI.updateShowCompleted(showCompleted),
+          saveShortcutSettings(),
+        ]);
       state.timeFormat = timeResult.timeFormat;
       state.dateFormat = dateResult.dateFormat;
       // no re-render needed: the main process sets nativeTheme.themeSource, which flips
@@ -1303,19 +1349,27 @@ const setupEvents = () => {
       state.theme = themeResult.theme;
       // every tag chip and dot in the app re-reads this, so the repaints below cover it
       state.tagColors = tagColorResult.tagColors;
+      // main rebuilt the View menu's checkbox to match; it deliberately does not echo
+      // show-completed-changed back, which would double-render
+      state.showCompleted = showCompletedResult.showCompleted;
       buildTimeOptions();
       updateReminderUI(state.modalReminderDate, state.modalReminderTime);
       renderTags();
       renderViewBar();
       renderTagsMenu();
       renderTasks();
+      // inside the try: a failed save used to close the dialog anyway, throwing the edits away
+      // with only a console message. Promise.all rejects before any state assignment, so the
+      // dialog stays open with everything the user typed still in it.
+      closeSettingsModal();
     } catch (error) {
       console.error('Failed to save settings', error);
+      showSettingsError("Couldn't save settings. Please try again.");
     }
-    closeSettingsModal();
   });
 
   setupShortcutSettings();
+  setupSettingsTabs();
   refs.settingsCancel?.addEventListener('click', closeSettingsModal);
 
   if (refs.settingsOverlay) {

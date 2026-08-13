@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-tag-color', id, color) as Promise<
       { id: number; color: string } | { error: string }
     >,
+  updateShowCompleted: (show: boolean) =>
+    ipcRenderer.invoke('update-show-completed', show) as Promise<{ showCompleted: boolean }>,
   updateTagColors: (enabled: boolean) =>
     ipcRenderer.invoke('update-tag-colors', enabled) as Promise<{ tagColors: boolean }>,
   setTaskTags: (id: number, tagIds: number[]) =>

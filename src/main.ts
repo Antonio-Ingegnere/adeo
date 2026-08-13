@@ -1252,6 +1252,20 @@ ipcMain.handle(
   }
 );
 
+ipcMain.handle('update-show-completed', async (_event, show: boolean) => {
+  showCompleted = Boolean(show);
+  appSettings = { ...appSettings, showCompleted };
+  writeSettings(appSettings);
+  // The View menu owns a checkbox for this, and setupMenu reads the module-level showCompleted
+  // for its `checked`, so rebuilding the menu *is* the two-way sync -- same as update-shortcuts.
+  // Deliberately no send('show-completed-changed'): the renderer initiated this and already
+  // knows, and echoing it back would re-render the task list twice.
+  if (mainWindow) {
+    setupMenu(mainWindow);
+  }
+  return { showCompleted };
+});
+
 ipcMain.handle('update-theme', async (_event, theme: Theme) => {
   const nextTheme = normalizeTheme(theme);
   nativeTheme.themeSource = nextTheme;

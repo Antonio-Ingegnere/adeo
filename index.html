@@ -401,80 +401,122 @@
         </div>
       </div>
     </div>
-    <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true">
-      <!-- modal-settings rather than modal-small: modal-small has no scroller, and the
-           shortcut list does not fit in its 460px. The sections scroll; the actions do not. -->
+    <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true"
+      aria-labelledby="settings-title">
       <div class="modal modal-settings">
-        <h2>Settings</h2>
-        <div class="settings-body">
-        <div class="settings-section">
-          <p class="modal-label">Theme</p>
-          <div class="settings-options">
-            <label class="radio-option">
-              <input id="theme-system" type="radio" name="theme" value="system" checked />
-              <span>System</span>
-            </label>
-            <label class="radio-option">
-              <input id="theme-light" type="radio" name="theme" value="light" />
-              <span>Light</span>
-            </label>
-            <label class="radio-option">
-              <input id="theme-dark" type="radio" name="theme" value="dark" />
-              <span>Dark</span>
-            </label>
+        <h2 id="settings-title">Settings</h2>
+        <div class="settings-shell">
+          <!-- Buttons with roving tabindex, not visually-hidden radios: the focus trap keys off
+               the first and last *tabbable* element, and only tabIndex distinguishes a
+               tabindex="-1" button. Radios all report 0 whether checked or not. -->
+          <div id="settings-rail" class="settings-rail" role="tablist" aria-orientation="vertical"
+            aria-label="Settings sections">
+            <button type="button" role="tab" class="settings-tab" id="settings-tab-general"
+              data-tab="general" aria-controls="settings-panel-general" aria-selected="true"
+              tabindex="0">General</button>
+            <button type="button" role="tab" class="settings-tab" id="settings-tab-tasks"
+              data-tab="tasks" aria-controls="settings-panel-tasks" aria-selected="false"
+              tabindex="-1">Tasks</button>
+            <button type="button" role="tab" class="settings-tab" id="settings-tab-shortcuts"
+              data-tab="shortcuts" aria-controls="settings-panel-shortcuts" aria-selected="false"
+              tabindex="-1">Shortcuts</button>
           </div>
-        </div>
-        <div class="settings-section">
-          <p class="modal-label">Time format</p>
-          <div class="settings-options">
-            <label class="radio-option">
-              <input id="time-12" type="radio" name="time-format" value="12h" checked />
-              <span>12 hour</span>
-            </label>
-            <label class="radio-option">
-              <input id="time-24" type="radio" name="time-format" value="24h" />
-              <span>24 hour</span>
-            </label>
+          <div class="settings-panels">
+            <section id="settings-panel-general" class="settings-panel" role="tabpanel"
+              aria-labelledby="settings-tab-general">
+              <div class="settings-panel-scroll">
+                <div class="settings-field">
+                  <p class="settings-field-label" id="theme-label">Theme</p>
+                  <div class="settings-segmented" role="radiogroup" aria-labelledby="theme-label">
+                    <label class="segmented-option">
+                      <input id="theme-system" type="radio" name="theme" value="system" class="visually-hidden" checked />
+                      <span>System</span>
+                    </label>
+                    <label class="segmented-option">
+                      <input id="theme-light" type="radio" name="theme" value="light" class="visually-hidden" />
+                      <span>Light</span>
+                    </label>
+                    <label class="segmented-option">
+                      <input id="theme-dark" type="radio" name="theme" value="dark" class="visually-hidden" />
+                      <span>Dark</span>
+                    </label>
+                  </div>
+                  <p class="settings-hint">System follows your operating system's appearance setting.</p>
+                </div>
+                <div class="settings-field">
+                  <p class="settings-field-label" id="time-format-label">Time format</p>
+                  <div class="settings-segmented" role="radiogroup" aria-labelledby="time-format-label">
+                    <label class="segmented-option">
+                      <input id="time-12" type="radio" name="time-format" value="12h" class="visually-hidden" checked />
+                      <span>12 hour</span>
+                    </label>
+                    <label class="segmented-option">
+                      <input id="time-24" type="radio" name="time-format" value="24h" class="visually-hidden" />
+                      <span>24 hour</span>
+                    </label>
+                  </div>
+                  <p class="settings-hint">Used wherever a reminder time is shown.</p>
+                </div>
+                <div class="settings-field">
+                  <label class="settings-field-label" for="date-format">Date format</label>
+                  <!-- option text is rewritten at open time to lead with today's date; the
+                       values are the source of truth and must not change -->
+                  <select id="date-format" class="select-input">
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+                    <option value="YYYY/MM/DD">YYYY/MM/DD</option>
+                    <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                    <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                    <option value="MMM DD, YYYY">MMM DD, YYYY</option>
+                    <option value="DD MMM YYYY">DD MMM YYYY</option>
+                    <option value="YYYY.MM.DD">YYYY.MM.DD</option>
+                  </select>
+                  <p class="settings-hint">Date pickers still use your system's own format.</p>
+                </div>
+              </div>
+            </section>
+            <section id="settings-panel-tasks" class="settings-panel" role="tabpanel"
+              aria-labelledby="settings-tab-tasks" hidden>
+              <div class="settings-panel-scroll">
+                <label class="settings-toggle">
+                  <input id="show-completed" type="checkbox" />
+                  <span class="settings-toggle-text">
+                    <span class="settings-toggle-label">Show completed tasks</span>
+                    <span class="settings-hint">Completed tasks stay in the list instead of
+                      disappearing. Also on the View menu.</span>
+                  </span>
+                </label>
+                <label class="settings-toggle">
+                  <input id="tag-colors" type="checkbox" checked />
+                  <span class="settings-toggle-text">
+                    <span class="settings-toggle-label">Show tag colours</span>
+                    <span class="settings-hint">Tag chips and dots carry the tag's colour. With
+                      this off they are outlined instead.</span>
+                  </span>
+                </label>
+              </div>
+            </section>
+            <section id="settings-panel-shortcuts" class="settings-panel" role="tabpanel"
+              aria-labelledby="settings-tab-shortcuts" hidden>
+              <!-- Rows are generated from the registry by renderShortcutSettings(). -->
+              <div class="settings-panel-scroll">
+                <div id="shortcut-list" class="shortcut-list"></div>
+              </div>
+              <!-- outside the scroller: "Reset all" should not be twenty-two rows down, and the
+                   error must not shift the rows when it appears -->
+              <div class="settings-panel-footer">
+                <p id="shortcut-error" class="shortcut-error" role="alert"></p>
+                <button id="reset-shortcuts" type="button" class="btn-link">Reset all to defaults</button>
+              </div>
+            </section>
           </div>
-        </div>
-        <div class="settings-section">
-          <p class="modal-label">Date format</p>
-          <select id="date-format" class="select-input">
-            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-            <option value="DD.MM.YYYY">DD.MM.YYYY</option>
-            <option value="YYYY/MM/DD">YYYY/MM/DD</option>
-            <option value="MM-DD-YYYY">MM-DD-YYYY</option>
-            <option value="DD-MM-YYYY">DD-MM-YYYY</option>
-            <option value="MMM DD, YYYY">MMM DD, YYYY</option>
-            <option value="DD MMM YYYY">DD MMM YYYY</option>
-            <option value="YYYY.MM.DD">YYYY.MM.DD</option>
-          </select>
-        </div>
-        <div class="settings-section">
-          <p class="modal-label">Tags</p>
-          <label class="checkbox-option">
-            <input id="tag-colors" type="checkbox" checked />
-            <span>Show tag colours</span>
-          </label>
-        </div>
-        <div class="settings-section">
-          <p class="modal-label">Keyboard shortcuts</p>
-          <!-- Rows are generated from the registry by renderShortcutSettings(). -->
-          <div id="shortcut-list" class="shortcut-list"></div>
-          <p id="shortcut-error" class="shortcut-error" role="alert"></p>
-          <button id="reset-shortcuts" type="button" class="btn-link">Reset all to defaults</button>
-        </div>
         </div>
         <div class="modal-actions">
-          <button id="cancel-settings" class="btn icon-btn" aria-label="Cancel settings" title="Cancel">✕</button>
-          <button id="save-settings" class="btn primary icon-btn" aria-label="Save settings" title="Save">
-            <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
-            </svg>
-          </button>
+          <p id="settings-error" class="settings-error" role="alert"></p>
+          <button id="cancel-settings" type="button" class="btn">Cancel</button>
+          <button id="save-settings" type="button" class="btn primary">Save</button>
         </div>
       </div>
     </div>

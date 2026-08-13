@@ -115,6 +115,7 @@ export type ElectronAPI = {
   deleteTag: (id: number) => Promise<{ id: number }>;
   updateTagOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
   updateTagColor: (id: number, color: string) => Promise<{ id: number; color: string } | { error: string }>;
+  updateShowCompleted: (show: boolean) => Promise<{ showCompleted: boolean }>;
   updateTagColors: (enabled: boolean) => Promise<{ tagColors: boolean }>;
   setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
   confirmDeleteTag: (name: string) => Promise<boolean>;

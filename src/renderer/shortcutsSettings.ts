@@ -130,6 +130,7 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   button.type = 'button';
   button.className = 'shortcut-binding-btn';
   button.dataset.id = def.id;
+  button.dataset.role = 'bind';
 
   const bindings = currentKeymap()[def.id] ?? [];
   if (capturingId === def.id) {
@@ -155,6 +156,8 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   const reset = document.createElement('button');
   reset.type = 'button';
   reset.className = 'shortcut-icon-btn';
+  reset.dataset.id = def.id;
+  reset.dataset.role = 'reset';
   reset.textContent = '↺';
   reset.title = 'Reset to default';
   reset.setAttribute('aria-label', `Reset ${def.label} to its default`);
@@ -168,6 +171,8 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   const unbind = document.createElement('button');
   unbind.type = 'button';
   unbind.className = 'shortcut-icon-btn';
+  unbind.dataset.id = def.id;
+  unbind.dataset.role = 'unbind';
   unbind.textContent = '✕';
   unbind.title = 'Unbind';
   unbind.setAttribute('aria-label', `Unbind ${def.label}`);
@@ -181,8 +186,59 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   return row;
 };
 
+/**
+ * Roving tabindex over the whole list: twenty-two rows of three buttons is sixty-six tab stops
+ * between the top of this panel and the Save button, which makes Tab useless here. Exactly one
+ * button is tabbable and the arrow keys move within the list instead.
+ *
+ * Deliberately no role="grid": the group headings are not rows, and a grid whose children are
+ * a mix of headings and rows is worse than no grid at all. These stay plain buttons, and the
+ * arrow keys are the same convention the tag swatches and the tab rail already use.
+ */
+const cellsByRow = (): HTMLElement[][] =>
+  Array.from(refs.shortcutList?.querySelectorAll<HTMLElement>('.shortcut-setting-row') ?? []).map(
+    (row) => Array.from(row.querySelectorAll<HTMLElement>('button'))
+  );
+
+/** Which button carries tabindex 0. Survives a rebuild; clamped when the list changes shape. */
+let cursor = { row: 0, col: 0 };
+
+const applyRovingTabindex = () => {
+  const rows = cellsByRow();
+  if (rows.length === 0) return;
+  cursor.row = Math.min(cursor.row, rows.length - 1);
+  cursor.col = Math.min(cursor.col, rows[cursor.row].length - 1);
+  rows.forEach((cells, rowIndex) =>
+    cells.forEach((cell, colIndex) => {
+      cell.tabIndex = rowIndex === cursor.row && colIndex === cursor.col ? 0 : -1;
+    })
+  );
+};
+
+const moveCursor = (rowDelta: number, colDelta: number) => {
+  const rows = cellsByRow();
+  if (rows.length === 0) return;
+  const row = Math.min(Math.max(cursor.row + rowDelta, 0), rows.length - 1);
+  const col = Math.min(Math.max(cursor.col + colDelta, 0), rows[row].length - 1);
+  cursor = { row, col };
+  applyRovingTabindex();
+  const target = rows[row][col];
+  target.focus();
+  target.scrollIntoView({ block: 'nearest' });
+};
+
 const render = () => {
   if (!refs.shortcutList) return;
+
+  // Every mutation rebuilds the whole list, which destroys the button that was just clicked --
+  // reset and unbind dropped focus to <body>. Remember which control it was and put focus back
+  // on its replacement.
+  const previous = document.activeElement;
+  const restore =
+    previous instanceof HTMLElement && refs.shortcutList.contains(previous)
+      ? { id: previous.dataset.id, role: previous.dataset.role }
+      : null;
+
   refs.shortcutList.innerHTML = '';
 
   for (const category of CATEGORY_ORDER) {
@@ -195,11 +251,20 @@ const render = () => {
     refs.shortcutList.appendChild(heading);
     for (const def of defs) refs.shortcutList.appendChild(buildRow(def));
   }
+
+  applyRovingTabindex();
+
+  if (restore?.id && restore.role) {
+    refs.shortcutList
+      .querySelector<HTMLElement>(`[data-id="${restore.id}"][data-role="${restore.role}"]`)
+      ?.focus();
+  }
 };
 
 /** Called when the Settings modal opens: reseed from state and discard any earlier editing. */
 export const seedShortcutSettings = () => {
   pending = {};
+  cursor = { row: 0, col: 0 };
   for (const [id, bindings] of Object.entries(state.shortcutOverrides)) {
     pending[id] = [...bindings];
   }
@@ -209,7 +274,65 @@ export const seedShortcutSettings = () => {
   render();
 };
 
+/**
+ * Disarm a pending "Press a key…" capture. Needed whenever the Shortcuts panel stops being
+ * visible -- switching tabs or closing the dialog -- because beginCapture installs a one-shot
+ * handler that swallows the *next* key pressed anywhere. Without this, clicking Cancel or
+ * another tab mid-capture leaves it armed and the next keystroke binds something.
+ */
+export const abortShortcutCapture = () => {
+  if (capturingId === null) return;
+  capturingId = null;
+  cancelCapture();
+  showError(null);
+  render();
+};
+
 export const setupShortcutSettings = () => {
+  // Keep the cursor wherever focus actually went -- a click, or the restore after a rebuild.
+  refs.shortcutList?.addEventListener('focusin', (event) => {
+    const button = (event.target as HTMLElement | null)?.closest('button');
+    if (!button) return;
+    const rows = cellsByRow();
+    const row = rows.findIndex((cells) => cells.includes(button as HTMLElement));
+    if (row === -1) return;
+    cursor = { row, col: rows[row].indexOf(button as HTMLElement) };
+    applyRovingTabindex();
+  });
+
+  refs.shortcutList?.addEventListener('keydown', (event) => {
+    // While a capture is armed the dispatcher swallows keys before this runs, which is correct:
+    // the next keypress is the new binding, not navigation.
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        moveCursor(1, 0);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        moveCursor(-1, 0);
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        moveCursor(0, 1);
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        moveCursor(0, -1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        cursor = { row: 0, col: cursor.col };
+        moveCursor(0, 0);
+        break;
+      case 'End':
+        event.preventDefault();
+        cursor = { row: cellsByRow().length - 1, col: cursor.col };
+        moveCursor(0, 0);
+        break;
+    }
+  });
+
   refs.resetShortcuts?.addEventListener('click', () => {
     pending = {};
     showError('All shortcuts reset to their defaults.');

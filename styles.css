@@ -1181,24 +1181,195 @@ body {
   padding: 20px;
 }
 
-/* Settings outgrew modal-small once it gained a shortcut list: modal-small is 380px with a
-   460px cap and no scroller. Four sections in one scrolling column, no tabs — that matches
-   the app's other modals and is far less machinery than a tab strip. */
+/* Fixed height, not auto: the dialog must not resize as you move between General and
+   Shortcuts, so short panels end early and leave space rather than shrinking the box.
+   .modal sets height:80vh AND max-height:900px, so both have to be overridden here.
+   calc(100vw - 32px) is the real room -- .overlay carries padding:16px. */
 .modal.modal-settings {
-  width: 460px;
-  height: auto;
-  max-width: 92vw;
-  max-height: min(84vh, 760px);
+  width: 720px;
+  height: 560px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
   padding: 20px;
 }
 
-.settings-body {
+.settings-shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.settings-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 0 0;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.settings-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-m);
+  color: var(--text-body);
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-tab:hover {
+  background: var(--surface-hover);
+}
+
+/* Selection is a fill plus weight, never an accent-filled row -- the accent is reserved for
+   the check glyph, the focus ring and the tag-swatch ring. Same recipe as .list-pill.selected.
+   Driven off [aria-selected] rather than a class, so the styling cannot drift from the ARIA. */
+.settings-tab[aria-selected='true'] {
+  background: var(--surface-selected);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+/* the rail is a scroller, so the ring goes inside the box */
+.settings-tab:focus-visible {
+  outline-offset: -2px;
+}
+
+.settings-panels {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* display:flex above would otherwise beat [hidden], and an inactive panel that still has a
+   box stays in the focus trap's cycle -- the trap tests getBoundingClientRect(). */
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   /* negative margin + matching padding so focus rings inside aren't clipped by the scroller */
   margin: 0 -4px;
   padding: 0 4px;
+}
+
+.settings-panel-footer {
+  flex: 0 0 auto;
+  padding-top: 10px;
+}
+
+.settings-field {
+  margin-bottom: 20px;
+}
+
+.settings-field:last-child {
+  margin-bottom: 0;
+}
+
+/* Not .modal-label: that rule carries width:11% for the repeat modal's inline rows, and
+   Settings used to carry a second rule whose only job was to undo that width. */
+.settings-field-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.settings-hint {
+  display: block;
+  margin: 6px 0 0;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* A dialog form control, not the header's 34px toolbar control -- and .search-mode-switch
+   carries margin-left:auto and a fixed flex-basis, so it gets a sibling rather than a rename.
+   The .segmented-option rules it relies on are unscoped and shared. */
+.settings-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  height: 30px;
+  max-width: 320px;
+  box-sizing: border-box;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.settings-segmented .segmented-option {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* scoped: .select-input's own height is commented out, and restoring it globally would also
+   move the repeat modal's selects */
+.settings-panel .select-input {
+  width: 100%;
+  max-width: 320px;
+  height: 30px;
+  font-size: var(--font-m);
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  margin-bottom: 18px;
+}
+
+.settings-toggle:last-child {
+  margin-bottom: 0;
+}
+
+/* the box sits on the label's cap height rather than its line box */
+.settings-toggle input[type='checkbox'] {
+  margin: 2px 0 0;
+  flex-shrink: 0;
+}
+
+.settings-toggle-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.settings-toggle-label {
+  font-size: var(--font-m);
+  color: var(--text);
+}
+
+/* pushed to the left so it never crowds the buttons, and visible from whichever tab is up */
+.settings-error {
+  margin: 0 auto 0 0;
+  align-self: center;
+  font-size: var(--font-xs);
+  color: var(--danger);
+  display: none;
 }
 
 .shortcut-list {
@@ -1208,11 +1379,13 @@ body {
 
 .shortcut-group-title {
   margin: 12px 0 2px;
-  font-size: 10px;
+  /* was 10px, below the file's stated 11px floor. Same recipe as .view-menu-group, so the app
+     has one uppercase group-title look rather than two that nearly match. */
+  font-size: var(--font-xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-faint);
 }
 
 .shortcut-group-title:first-child {
@@ -1223,13 +1396,19 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 0;
+  padding: 4px 6px;
+  border-radius: var(--radius-s);
+}
+
+/* the row reads as one thing rather than three loose controls */
+.shortcut-setting-row:hover {
+  background: var(--surface-hover);
 }
 
 .shortcut-setting-label {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--font-m);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1244,11 +1423,11 @@ body {
   justify-content: flex-end;
   padding: 2px 6px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--font-s);
   color: var(--text-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   cursor: pointer;
 }
 
@@ -1269,15 +1448,17 @@ body {
 
 .shortcut-icon-btn {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  /* 24 is this app's minimum target size -- see the .search-help-btn note; these were the
+     last 22px targets left */
+  width: 24px;
+  height: 24px;
   padding: 0;
-  font-size: 12px;
+  font-size: var(--font-s);
   line-height: 1;
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 
@@ -1287,17 +1468,17 @@ body {
 }
 
 .shortcut-error {
-  margin: 8px 0 0;
-  font-size: 11px;
+  margin: 0;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   display: none;
 }
 
 .btn-link {
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 0;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   background: none;
   border: none;
@@ -1892,11 +2073,6 @@ kbd {
 
 /* the 11% above is tuned for the repeat modal's inline rows; in Settings it forced
    "Time format" onto two lines */
-.settings-section .modal-label {
-  width: auto;
-  margin: 0 0 4px;
-}
-
 .repeat-line > .modal-right-side-fill{
   flex: 0 0 auto;
   margin-left: auto;
@@ -1927,18 +2103,23 @@ kbd {
   color: var(--text-placeholder);
 }
 
+/* No padding of its own: every modal but one sets its own padding on .modal, and adding 16px
+   on top of that pushed the buttons to 36px from the edge while the content sat at 20px. The
+   edit modal is the exception -- its .modal has padding:0 and .modal-content owns the insets --
+   so the 16px lives on that rule instead, below. */
 .modal-actions {
   margin-top: 14px;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 0 16px 16px 16px;
+  padding: 0;
   background: transparent;
   position: relative;
   z-index: 1;
 }
 
 .modal-content .modal-actions {
+  padding: 0 16px 16px 16px;
   background: linear-gradient(to right, var(--surface) calc(100% - 224px), var(--surface-sunken) calc(100% - 224px), var(--surface-sunken) 100%);
 }
 
@@ -1969,30 +2150,6 @@ kbd {
   height: 20px;
   fill: currentColor;
   display: block;
-}
-
-.settings-section {
-  margin-top: 8px;
-}
-
-.settings-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.radio-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--font-m);
-  color: var(--text);
-}
-
-.settings-section .select-input {
-  width: 100%;
-  margin-top: 6px;
 }
 
 .repeat-custom-section {
@@ -2530,14 +2687,6 @@ kbd {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 }
 
-.checkbox-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--font-m);
-  cursor: pointer;
-}
-
 .tag-dot {
   width: 10px;
   height: 10px;
@@ -3007,6 +3156,22 @@ kbd {
 
   .app-header-rail {
     flex-basis: 240px;
+  }
+}
+
+/* The window floor is 600px (src/main.ts), where the dialog is 568px wide. The rail gives up
+   the width rather than the panel: its labels are single words, the shortcut rows are not.
+   Its own breakpoint rather than the 860px one above, which is about the app's sidebar/header
+   alignment -- coupling two unrelated layouts to one number invites a confusing regression.
+   A minmax() track cannot do this: grid shrinks the minmax(0,1fr) sibling to zero first. */
+@media (max-width: 760px) {
+  .settings-shell {
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .settings-tab {
+    padding: 8px;
   }
 }
 

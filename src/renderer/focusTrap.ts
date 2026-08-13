@@ -17,6 +17,19 @@ const isVisible = (el: HTMLElement) => {
 };
 
 /**
+ * Matching FOCUSABLE is not the same as being reachable by Tab, and the difference decides
+ * whether this trap holds. `button:not([disabled])` matches a `tabindex="-1"` button, so a
+ * roving-tabindex widget — the settings tab rail, the tag swatches — puts an *unfocusable*
+ * element at the boundary. The handler below only intervenes when focus is exactly on the
+ * first or last item, so a bogus boundary means it never fires and Tab walks out of the modal.
+ *
+ * tabIndex reports -1 for tabindex="-1" and 0 for a plain button, which is exactly the
+ * distinction needed. (It does not describe radio groups, where only the checked input is
+ * tabbable though every one reports 0 — which is why the tab rail is buttons, not radios.)
+ */
+const isTabbable = (el: HTMLElement) => el.tabIndex >= 0 && isVisible(el);
+
+/**
  * The topmost open overlay — the repeat modal can open on top of the edit modal.
  * Exported because it is the app's single answer to "is a modal open, and which one":
  * Escape uses it to close only the topmost, and the shortcut dispatcher uses it to
@@ -35,7 +48,7 @@ export const installModalFocusTrap = () => {
       const overlay = activeOverlay();
       if (!overlay) return;
 
-      const items = Array.from(overlay.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isVisible);
+      const items = Array.from(overlay.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isTabbable);
       if (items.length === 0) return;
 
       const first = items[0];

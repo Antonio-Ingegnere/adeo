@@ -1,7 +1,12 @@
 import type { Task } from '../types.js';
 import { state } from './state.js';
 
-export const formatDate = (date: string | null): string => {
+/**
+ * The format defaults to the user's setting, which is how every caller but one uses it. The
+ * Settings dialog passes an explicit pattern to show what each option produces — the map here
+ * stays the only place the patterns are spelled out.
+ */
+export const formatDate = (date: string | null, format: string = state.dateFormat): string => {
   if (!date) return '';
   const [y, m, d] = date.split('-');
   const map: Record<string, string> = {
@@ -24,7 +29,7 @@ export const formatDate = (date: string | null): string => {
     }),
     'YYYY.MM.DD': `${y}.${m}.${d}`,
   };
-  return map[state.dateFormat] ?? `${y}-${m}-${d}`;
+  return map[format] ?? `${y}-${m}-${d}`;
 };
 
 const scrollParent = (el: HTMLElement): HTMLElement | null => {

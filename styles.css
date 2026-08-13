@@ -636,6 +636,16 @@ body {
   border-radius: 6px;
 }
 
+/* The row separator is an absolutely positioned pseudo-element and the ring is an inset
+   outline, so they claim the same bottom 1px — and a positioned descendant paints above
+   its parent's outline, which left the bottom of the ring looking half as thick as the
+   other three sides. The ring already delineates the row, so the divider under it is
+   redundant; hiding it shifts nothing, since ::after is out of flow. Same idiom as
+   .task-row:last-child::after above. */
+.task-row.focused::after {
+  display: none;
+}
+
 /* .focused is the ring; without this the UA would draw a second one just outside it. */
 .task-row:focus,
 .task-row:focus-visible {
@@ -1126,6 +1136,17 @@ body {
 
 .expand-btn:hover {
   color: var(--accent);
+}
+
+/* The expander is the row's last child and .task-row has no horizontal padding, so this
+   button's right edge *is* the row's right edge — deliberately, since it lines the chevrons
+   up with the + button above. The app-wide ring (outline-offset: 2px, top of file) therefore
+   landed 2-4px past the row, outside .task-row.focused's inset ring, and read as the
+   highlight breaking out of the task. Inset it instead, the same way .list-pill:focus-visible
+   does. Specificity beats the global rule, so this does not depend on source order. */
+.expand-btn:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-xs);
 }
 
 .expand-chevrons {

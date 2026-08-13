@@ -19,6 +19,10 @@
   --border-subtle: #e0e0e0;
   --border-strong: #a6a6a6;
   --border-selected: #c8c8c8;
+  /* The edge of a checked segment. Its own token because no existing border reaches the 3:1
+     WCAG wants of a state indicator against the sunken track -- the fill cannot get there
+     (adjacent greys cap out near 1.2:1), so this line is what makes the selection visible. */
+  --border-segmented: #8a8a8a;
   --border-control: #b0b0b0;
   --border-chip: rgba(0, 0, 0, 0.06);
   --border-chip-strong: rgba(0, 0, 0, 0.08);
@@ -2966,9 +2970,15 @@ kbd {
   color: var(--text-body);
 }
 
+/* Selection was --surface on a --surface-sunken track: 1.07:1 in light, 1.08:1 in dark, so
+   only the text colour said which segment was picked. The fill now matches the app's other
+   selected things (.list-pill.selected, the settings tab rail) and the inset ring supplies the
+   contrast a fill of adjacent greys never can. No weight change on purpose -- the segments are
+   content-sized, so bolding the checked one would resize the control as the selection moves. */
 .segmented-option input:checked + span {
-  background: var(--surface);
-  color: var(--text);
+  background: var(--surface-selected);
+  color: var(--text-strong);
+  box-shadow: inset 0 0 0 1px var(--border-segmented);
 }
 
 /* the radio itself is clipped by .visually-hidden, so the ring has to be drawn on the label */
@@ -3248,6 +3258,7 @@ kbd {
     --border-subtle: #2e2e2e;
     --border-strong: #5e5e5e;
     --border-selected: #4a4a4a;
+    --border-segmented: #7d7d7d;
     --border-control: #5a5a5a;
     --border-chip: rgba(0, 0, 0, 0.25);
     --border-chip-strong: rgba(0, 0, 0, 0.3);

@@ -1,0 +1,577 @@
+{
+  "schemaVersion": 1,
+  "baseline": "P0.5 current application",
+  "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+  "visualSourcesCleanAtCapture": true,
+  "worktreeDirtyAtCapture": true,
+  "worktreeStatusAtCapture": [
+    "M .claude/agents/git.md",
+    " D .claude/agents/planner.md",
+    " M CLAUDE.md",
+    " M package-lock.json",
+    " M package.json",
+    " M src/main.ts",
+    "?? .claude/agents/architect.md",
+    "?? .claude/plans/",
+    "?? scripts/test-isolation-selftest.mjs",
+    "?? ui-ux/"
+  ],
+  "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+  "capturedAt": "2026-08-22T10:27:00.270Z",
+  "fixedRendererTime": "2026-08-22T10:00:00.000Z",
+  "runtime": {
+    "platform": "darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "node": "v26.7.0",
+    "electron": "39.2.6",
+    "playwrightCore": "1.62.1"
+  },
+  "expectedScreenshotCount": 32,
+  "screenshots": [
+    {
+      "file": "images/light/800x600/empty.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "empty",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/empty.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "empty",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/populated.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "populated",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/valid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "valid-query",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/invalid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "invalid-query",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/edit-dialog.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "edit-dialog",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/settings-general.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "settings-general",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/settings-tasks.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "settings-tasks",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/800x600/settings-shortcuts.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "settings-shortcuts",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/populated.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "populated",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/valid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "valid-query",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/invalid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "invalid-query",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/edit-dialog.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "edit-dialog",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/settings-general.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "settings-general",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/settings-tasks.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "settings-tasks",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/light/1280x800/settings-shortcuts.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "light",
+      "fixture": "settings-shortcuts",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/empty.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "empty",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/empty.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "empty",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/populated.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "populated",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/valid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "valid-query",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/invalid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "invalid-query",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/edit-dialog.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "edit-dialog",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/settings-general.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "settings-general",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/settings-tasks.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "settings-tasks",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/800x600/settings-shortcuts.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "settings-shortcuts",
+      "windowSize": {
+        "width": 800,
+        "height": 600
+      },
+      "rendererViewport": {
+        "width": 800,
+        "height": 568
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/populated.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "populated",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/valid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "valid-query",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/invalid-query.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "invalid-query",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/edit-dialog.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "edit-dialog",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/settings-general.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "settings-general",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/settings-tasks.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "settings-tasks",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    },
+    {
+      "file": "images/dark/1280x800/settings-shortcuts.png",
+      "sourceCommit": "99dab6e602edefd3975e1cbe7defb72a24786c64",
+      "visualSourcesCleanAtCapture": true,
+      "theme": "dark",
+      "fixture": "settings-shortcuts",
+      "windowSize": {
+        "width": 1280,
+        "height": 800
+      },
+      "rendererViewport": {
+        "width": 1280,
+        "height": 768
+      },
+      "captureCommand": "npm run build && node ui-ux/ux/baselines/capture-baseline.mjs",
+      "capturedAt": "2026-08-22T10:27:00.270Z"
+    }
+  ]
+}

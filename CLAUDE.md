@@ -40,10 +40,11 @@ npm run package:linux
 ```
 `package:win` expects a bundled Windows embeddable Python under `python/python-3.12.10-embed-amd64/` with site-packages populated; `package:mac` expects standalone Python runtimes under `python/mac-arm64/` and `python/mac-x64/` (from [python-build-standalone](https://github.com/astral-sh/python-build-standalone)) with site-packages populated — see README.md for the full steps. Without these, the packaged app falls back to the system `python3`, which typically lacks `fastapi` and fails to start (now surfaced via an error dialog instead of a silent windowless hang, see `src/main.ts`'s `app.whenReady()` handler).
 
-There is no configured test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are two self-test scripts over the pure, dom-free modules, both run with plain `node` after `npm run build`:
+There is no general test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are two self-test scripts over the pure, dom-free modules plus one isolated Electron safety test:
 ```
 node scripts/query-selftest.mjs      # query parsing/compilation, smart-list templates
 node scripts/shortcuts-selftest.mjs  # shortcut key grammar, default keymap integrity
+npm run test:isolation               # builds, uses temp data, proves real data unchanged
 ```
 
 ## Architecture
@@ -67,7 +68,9 @@ Renderer calls `window.electronAPI.xyz(...)` → preload's `ipcRenderer.invoke` 
 ### Ports and environment variables
 - `ADEO_API_URL` — if set, Electron skips spawning its own API process and talks to this URL instead (used by `dev-start.sh` to point at the manually-started dev server).
 - `ADEO_API_HOST` / `ADEO_API_PORT` — host/port the spawned API process binds to (main process picks a free port automatically when packaged).
-- `ADEO_DB_PATH` — SQLite file location; defaults to a platform-specific path under the OS's application-support directory (see `default_db_path()` in `server/app.py`).
+- `ADEO_DB_PATH` — SQLite file location honored by both the Python server and Electron's spawned API; Electron defaults to `<userData>/tasks.db` when it starts the API.
+- `ADEO_UI_TEST=1` — enables fail-closed automated-UI safety. It requires absolute `ADEO_USER_DATA_DIR` and `ADEO_DB_PATH` values, rejects `ADEO_API_URL`, and suppresses protocol registration, normal single-instance routing, reminder polling/notifications, the running lock, and OS background-reminder installation. Never set it without both isolated paths.
+- `ADEO_USER_DATA_DIR` — Electron settings/cache directory used only with `ADEO_UI_TEST=1`; it must not be Adeo's normal user-data directory.
 - `ADEO_PYTHON_BIN` — override which Python interpreter the Electron main process spawns (bundled Python vs. system `python3`).
 
 ### The view
@@ -135,6 +138,10 @@ App settings (`showCompleted`, `timeFormat`, `dateFormat`, `theme`) are stored s
 `theme` (`'system' | 'light' | 'dark'`, chosen in the Settings modal) is applied entirely in the main process by assigning `nativeTheme.themeSource`. That drives the `prefers-color-scheme` media query in the renderer, so the dark token set at the bottom of `styles.css` needs no switch of its own and there is no renderer-side theme class or attribute — do not add one. It is set in `app.whenReady()` *before* `createWindow()`, because the window's `backgroundColor` is derived from `nativeTheme.shouldUseDarkColors` and applying the theme later would flash the wrong scheme at launch.
 
 Testing note: under `playwright-core`, `nativeTheme.themeSource` appears to do nothing, because Playwright emulates `prefers-color-scheme: light` by default and that overrides what Electron reports. Call `page.emulateMedia({ colorScheme: null })` first to hand control back to the app.
+
+Never drive the Electron UI with ad-hoc Playwright settings. Use `npm run test:isolation`
+or reproduce its complete `ADEO_UI_TEST` environment so a test cannot fall back to the
+development database, settings, protocol handler, or background reminder services.
 
 ### Smart lists
 A smart list (`smart_lists` table, `/smart-lists` endpoints) is **only a named query string** — the server never parses it. Running one (from the sidebar or the view picker) loads its text into the search field and switches to Query mode, so there is no separate filtering path: `parseQuery`/`compilePredicate`/`getSearchMatches` do all the work.

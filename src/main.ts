@@ -7,6 +7,72 @@ import os from 'os';
 
 const APP_NAME = 'Adeo';
 
+const isUiTest = process.env.ADEO_UI_TEST === '1';
+const defaultUserDataPath = path.resolve(app.getPath('userData'));
+const normalAdeoUserDataPath = path.resolve(
+  process.platform === 'darwin'
+    ? path.join(os.homedir(), 'Library', 'Application Support', APP_NAME)
+    : process.platform === 'win32'
+      ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), APP_NAME)
+      : path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), APP_NAME),
+);
+const normalDatabasePath = path.join(normalAdeoUserDataPath, 'tasks.db');
+
+const samePath = (left: string, right: string): boolean => {
+  const normalizedLeft = path.resolve(left);
+  const normalizedRight = path.resolve(right);
+  return process.platform === 'win32'
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+    : normalizedLeft === normalizedRight;
+};
+
+const failUiTestConfiguration = (message: string): never => {
+  // Electron may discard an asynchronously buffered console message when process.exit follows
+  // immediately. The self-test relies on this diagnostic to name the rejected variable, so
+  // write it synchronously before terminating.
+  fs.writeSync(2, `[Adeo UI test] ${message}\n`);
+  // A top-level throw can leave Electron's browser process alive with no window. Invalid
+  // isolation must terminate before settings, IPC, API or app lifecycle work.
+  process.exit(1);
+};
+
+const requiredAbsoluteTestPath = (name: 'ADEO_USER_DATA_DIR' | 'ADEO_DB_PATH'): string => {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    return failUiTestConfiguration(`${name} is required when ADEO_UI_TEST=1`);
+  }
+  if (!path.isAbsolute(value)) {
+    return failUiTestConfiguration(`${name} must be an absolute path when ADEO_UI_TEST=1`);
+  }
+  return path.resolve(value);
+};
+
+let configuredDatabasePath = process.env.ADEO_DB_PATH?.trim()
+  ? path.resolve(process.env.ADEO_DB_PATH)
+  : null;
+
+if (isUiTest) {
+  if (process.env.ADEO_API_URL?.trim()) {
+    failUiTestConfiguration('ADEO_API_URL must be unset when ADEO_UI_TEST=1');
+  }
+
+  const isolatedUserDataPath = requiredAbsoluteTestPath('ADEO_USER_DATA_DIR');
+  configuredDatabasePath = requiredAbsoluteTestPath('ADEO_DB_PATH');
+
+  if (
+    samePath(isolatedUserDataPath, defaultUserDataPath) ||
+    samePath(isolatedUserDataPath, normalAdeoUserDataPath)
+  ) {
+    failUiTestConfiguration('ADEO_USER_DATA_DIR must not use the normal Adeo userData path');
+  }
+  if (samePath(configuredDatabasePath, normalDatabasePath)) {
+    failUiTestConfiguration('ADEO_DB_PATH must not use the normal Adeo database path');
+  }
+
+  // This must run before settingsPath, appSettings and lockFilePath are initialized.
+  app.setPath('userData', isolatedUserDataPath);
+}
+
 
 let mainWindow: BrowserWindow | null = null;
 let showCompleted = true;
@@ -144,7 +210,9 @@ if (process.platform === 'win32') {
 // Registers the adeo:// scheme so background reminder notifications (fired by
 // server/reminder_notifier.py while the app itself isn't running) can launch
 // Adeo straight into a task's edit modal, matching in-app notification clicks.
-app.setAsDefaultProtocolClient('adeo');
+if (!isUiTest) {
+  app.setAsDefaultProtocolClient('adeo');
+}
 
 const findAdeoUrlInArgv = (argv: string[]): string | null =>
   argv.find((arg) => arg.startsWith('adeo://')) ?? null;
@@ -165,10 +233,10 @@ const tryHandlePendingAdeoUrl = () => {
   }
 };
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+const gotSingleInstanceLock = isUiTest || app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
-} else {
+} else if (!isUiTest) {
   const launchUrl = findAdeoUrlInArgv(process.argv);
   if (launchUrl) {
     pendingAdeoUrl = launchUrl;
@@ -186,11 +254,13 @@ if (!gotSingleInstanceLock) {
   });
 }
 
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  pendingAdeoUrl = url;
-  tryHandlePendingAdeoUrl();
-});
+if (!isUiTest) {
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    pendingAdeoUrl = url;
+    tryHandlePendingAdeoUrl();
+  });
+}
 
 let apiBaseUrl: string | null = null;
 let apiProcess: ChildProcess | null = null;
@@ -289,7 +359,7 @@ const resolveServerScript = (scriptName: string): string | null => {
 
 const startApiProcess = async () => {
   const port = await getFreePort();
-  const dbPath = path.join(app.getPath('userData'), 'tasks.db');
+  const dbPath = configuredDatabasePath ?? path.join(app.getPath('userData'), 'tasks.db');
   const pythonBin = resolvePythonBin();
   const apiScript = resolveServerScript('app.py');
   if (!apiScript) {
@@ -1309,9 +1379,11 @@ app.whenReady().then(async () => {
   if (mainWindow) {
     setupMenu(mainWindow);
   }
-  startReminderPolling();
-  writeRunningLock();
-  ensureBackgroundReminderService();
+  if (!isUiTest) {
+    startReminderPolling();
+    writeRunningLock();
+    ensureBackgroundReminderService();
+  }
 
   // A cold launch's deep link can't be applied immediately after createWindow():
   // the renderer hasn't loaded its tasks yet (openEditModal silently no-ops if
@@ -1336,8 +1408,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  stopReminderPolling();
-  removeRunningLock();
+  if (!isUiTest) {
+    stopReminderPolling();
+    removeRunningLock();
+  }
   if (apiProcess) {
     apiProcess.kill();
     apiProcess = null;

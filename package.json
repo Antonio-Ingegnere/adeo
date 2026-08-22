@@ -9,6 +9,7 @@
     "api": "python3 server/app.py",
     "prestart": "bash -lc 'PY=.venv/bin/python; if [ -x \"$PY\" ]; then $PY -c \"import fastapi\"; else python3 -c \"import fastapi\"; fi'",
     "start": "bash scripts/dev-start.sh",
+    "test:isolation": "npm run build && node scripts/test-isolation-selftest.mjs",
     "package:mac": "bash scripts/package-mac.sh",
     "package:win": "npm run build && electron-builder --win --x64",
     "package:linux": "npm run build && electron-builder --linux"
@@ -66,6 +67,7 @@
     "@types/node": "^22.7.4",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
+    "playwright-core": "1.62.1",
     "typescript": "^5.6.3"
   },
   "license": "MIT",

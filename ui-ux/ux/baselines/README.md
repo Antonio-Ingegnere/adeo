@@ -53,8 +53,26 @@ cleanliness, theme, fixture, requested Electron window size, measured renderer v
 capture command, timestamp, and runtime versions.
 
 The source commit identifies the checked-in visual implementation. If the broader worktree
-is dirty, the manifest records that separately. The capture must stop if tracked visual
-source files differ from `HEAD` so a baseline is never mislabeled with the wrong commit.
+is dirty, the manifest records that separately. The default capture must stop if tracked or
+untracked visual source files differ from `HEAD` so a baseline is never mislabeled with the
+wrong commit.
+
+## Comparing an implementation candidate
+
+To capture expected visual-source changes without touching the committed baseline, provide
+an absolute, not-yet-existing directory below Node's `os.tmpdir()`:
+
+```text
+npm run build
+ADEO_BASELINE_OUTPUT_DIR=<absolute-os-temp-path>/adeo-candidate \
+  node ui-ux/ux/baselines/capture-baseline.mjs
+```
+
+Candidate mode writes its own `images/` and `manifest.json`, records that visual sources are
+dirty, and never relaxes the default destination's fail-closed guard. Compare the candidate
+images with `images/`, then remove only the explicitly created temporary directory. The
+harness parks the pointer on an inert corner before each screenshot so candidate-to-candidate
+comparisons do not depend on hover state left by the preceding interaction.
 
 ## Directory layout
 

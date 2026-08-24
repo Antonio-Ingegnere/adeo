@@ -71,5 +71,7 @@ product direction.>
 - [ ] Every blocking claim has reproducible evidence.
 - [ ] Expected visual changes link to the approved UX decision.
 - [ ] No baseline was regenerated merely to hide a regression.
+- [ ] Every new/touched component spacing declaration uses `--space-*` or records an inline
+  `spacing-exception` and repeats its rationale in this review.
 - [ ] No production files, tests, dependencies, plans, or Git state were modified by the
   Product Design Agent during this review.

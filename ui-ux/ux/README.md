@@ -45,6 +45,12 @@ Use the templates in `briefs/`, `decisions/`, and `reviews/`. A brief may be rev
 without approval. A decision is not approved until its status, approver, and approval
 date are filled in by, or at the explicit direction of, the user.
 
+## Storybook
+
+Run `npm run storybook` from the repository root for the local design-system workspace,
+or `npm run storybook:build` to verify the static build. Storybook imports production
+`styles.css`; its theme control derives light and dark values from the production token files.
+
 ## Evidence rules
 
 - Reference production files relative to this workspace, for example
@@ -73,6 +79,7 @@ ux/
     template.md
   reviews/
     template.md
+  stories/        # Storybook design-system smoke and future UX stories
   concepts/       # added with the Storybook Design Lab in Phase 2
   baselines/      # reproducible visual baseline capture, images, and manifest
 ```

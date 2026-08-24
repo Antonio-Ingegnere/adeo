@@ -242,9 +242,12 @@ A task is complete only when:
 | P0.3 | DONE — 2026-08-21 | `ux/component-inventory.md` records source-backed classifications, the missing spacing tokens, and pointer-dependent sidebar ordering. |
 | P0.4 | DONE — 2026-08-22 | The user approved the production plan; `npm run test:isolation` passes 34 checks across fail-closed configuration, isolated task/settings persistence, and byte-for-byte protected-file comparison. See `ux/reviews/p0-4-test-isolation-review.md`. |
 | P0.5 | DONE — 2026-08-22 | After the user's formal approval, the isolated capture produced the complete 32-image matrix and per-image provenance manifest. See `ux/reviews/p0-5-visual-baseline-review.md` and `ux/baselines/README.md`. |
+| P1.1 | DONE — 2026-08-22 | Base and dark token declarations are imported from `styles/tokens.css` and `styles/themes.css`; all declared/computed values match, the build and regression suites pass, and the 32-state comparison is within the measured unchanged-renderer noise envelope. See `ux/reviews/p1-1-token-extraction-review.md`. |
+| P1.2 | DONE — 2026-08-22 | `styles/tokens.css` and `ux/patterns.md` define the value-named 0/2/4/6/8/10/12/16/20/24/32px scale and forward-only exception policy. Existing tokens, visuals, and regressions are unchanged. See `ux/reviews/p1-2-spacing-scale-review.md`. |
+| P1.3 | DONE — 2026-08-24 | Chrome exercised all eight light/dark and 1440/1024/768/390 combinations through rendered Storybook controls with correct markers, computed production tokens, and canvas widths. Builds and regressions pass. See `ux/reviews/p1-3-storybook-setup-review.md`. |
 
 **Phase 0 status:** DONE — 2026-08-22. All five tasks and all three phase-exit
-criteria are satisfied. Phase 1 remains gated on the user's phase-boundary review.
+criteria are satisfied. The user authorized Phase 1 by instructing the work to continue.
 
 Use these statuses in this file when execution begins:
 

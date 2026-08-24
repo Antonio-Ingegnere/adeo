@@ -1,0 +1,15 @@
+body.sb-show-main {
+  display: block;
+  align-items: initial;
+  justify-content: initial;
+  min-height: 100vh;
+  height: auto;
+  overflow: auto;
+  padding: var(--space-0);
+  background: var(--bg);
+  color: var(--text);
+}
+
+#storybook-root {
+  min-height: 100vh;
+}

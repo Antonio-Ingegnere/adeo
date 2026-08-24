@@ -5,8 +5,9 @@ request to freeze known problems or mechanically refactor production CSS.
 
 ## Design tokens
 
-The current source is `../../styles.css` under `:root`, with dark values overridden
-by `@media (prefers-color-scheme: dark)`.
+The production sources are `../../styles/tokens.css` for the base `:root` values and
+`../../styles/themes.css` for dark values under `@media (prefers-color-scheme: dark)`.
+`../../styles.css` imports both before all component and layout rules.
 
 | Category | Current tokens / behavior |
 |---|---|
@@ -16,17 +17,42 @@ by `@media (prefers-color-scheme: dark)`.
 | Status | Accent, focus, drop, danger, success, and priority-specific palettes |
 | Typography | System sans and mono; 11, 12, 13, 14, 18, and 28px only |
 | Radius | 4, 6, 8, 10, and 12px |
+| Spacing | Value-named 0, 2, 4, 6, 8, 10, 12, 16, 20, 24, and 32px scale |
 | Elevation | Card, menu, popover, modal, and scrim tokens |
 | Tag color | Eight server-validated pastel data colors from `tagColor.ts` and `server/app.py` |
 
 Dark mode is driven by Electron `nativeTheme` and `prefers-color-scheme`; do not add a
 renderer theme class. Tag and priority chip ink intentionally stays dark on pastel fills.
 
-### Known token gap
+### Spacing scale
 
-Spacing is hard-coded throughout `styles.css`; no spacing tokens exist. Until Phase P1.2
-defines a scale, reuse the spacing of the nearest existing pattern and record exceptions.
-Do not perform a wholesale spacing rewrite.
+The scale reflects the dominant padding, margin, and gap values already used by Adeo's
+compact desktop UI. Token suffixes are literal pixel values rather than ordinal steps.
+
+| Token | Value | Default use |
+|---|---:|---|
+| `--space-0` | 0 | Explicit reset |
+| `--space-2` | 2px | Micro separation |
+| `--space-4` | 4px | Tight inline spacing |
+| `--space-6` | 6px | Compact control spacing |
+| `--space-8` | 8px | Default compact gap |
+| `--space-10` | 10px | Compact control inset |
+| `--space-12` | 12px | Grouped content spacing |
+| `--space-16` | 16px | Section or component inset |
+| `--space-20` | 20px | Dialog or content inset |
+| `--space-24` | 24px | Major layout separation |
+| `--space-32` | 32px | Outer desktop inset |
+
+Use these variables for component-owned `margin`, `padding`, `gap`, and spacing insets in
+every new or materially touched component. Do not mechanically replace literals in untouched
+legacy rules: the current file contains optical offsets and coupled geometry that require an
+intentional component review.
+
+Spacing tokens do not replace border widths, control/icon dimensions, typography, transforms,
+or shadow geometry. If a new/touched component genuinely needs a raw spacing value, place an
+adjacent comment in the form `/* spacing-exception: <reason> */` and repeat the exception in
+its UX implementation review. Negative spacing always requires this exception; the scale
+contains positive magnitudes only.
 
 ## Layout
 

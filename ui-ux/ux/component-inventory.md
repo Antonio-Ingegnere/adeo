@@ -15,7 +15,7 @@ Classifications:
 
 | Element or behavior | Source | Class | Evidence and next step |
 |---|---|---|---|
-| Design tokens and theme | `../../styles.css` | Extraction candidate | Complete color/type/radius/elevation tokens and dark override exist in one file; move values unchanged to importable design CSS in P1.1. Spacing is not tokenized. |
+| Design tokens and theme | `../../styles/tokens.css`; `../../styles/themes.css` | Reusable | P1.1 extracted the color/type/radius/elevation and dark tokens; P1.2 adds a value-named spacing scale for new/touched components. Legacy spacing remains intentionally literal. |
 | Global focus ring and visually-hidden utility | `../../styles.css` | Reusable | Shared `:focus-visible` and clipping utility; include in Storybook design CSS. |
 | Tag palette, chip paint, and dot | `../../src/renderer/tagColor.ts`; `../../server/app.py` | Reusable | `paintTagChip`/`makeTagDot` centralize color-on/off behavior. Palette must remain mirrored with server validation. |
 | Priority visual mapping | `../../src/renderer/theme.ts`; `../../styles.css` | Reusable | `setPriorityAttr` maps none/low/medium/high to CSS token palettes without Electron access. |
@@ -42,7 +42,8 @@ Classifications:
 
 ## CSS and layout findings
 
-- Tokens cover color, type, radius, and elevation but not spacing.
+- Tokens cover color, type, radius, elevation, and the forward-only spacing scale. Legacy
+  component spacing remains literal until its owning component is intentionally touched.
 - Light/dark values are centralized; two baked visual details require dark-specific rules.
 - Desktop layout has only 860px and 760px compression breakpoints.
 - Dialog, menu, and picker dimensions include many fixed pixel widths.

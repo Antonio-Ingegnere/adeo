@@ -11,3 +11,4 @@ __pycache__/
 tasks.db
 python
 vendor
+storybook-static

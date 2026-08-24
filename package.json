@@ -5,10 +5,12 @@
   "description": "Adeo todo app",
   "main": "dist/main.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server && cp index.html dist/index.html && cp styles.css dist/styles.css && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
+    "build": "rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server dist/styles && cp index.html dist/index.html && cp styles.css dist/styles.css && cp styles/*.css dist/styles/ && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
     "api": "python3 server/app.py",
     "prestart": "bash -lc 'PY=.venv/bin/python; if [ -x \"$PY\" ]; then $PY -c \"import fastapi\"; else python3 -c \"import fastapi\"; fi'",
     "start": "bash scripts/dev-start.sh",
+    "storybook": "storybook dev -p 6006 --no-open --disable-telemetry --no-version-updates",
+    "storybook:build": "storybook build --output-dir storybook-static --disable-telemetry",
     "test:isolation": "npm run build && node scripts/test-isolation-selftest.mjs",
     "package:mac": "bash scripts/package-mac.sh",
     "package:win": "npm run build && electron-builder --win --x64",
@@ -56,20 +58,31 @@
     },
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "extraResources": [
-        { "from": "python/staged", "to": "python" },
-        { "from": "vendor/mac/terminal-notifier.app", "to": "terminal-notifier.app" }
+        {
+          "from": "python/staged",
+          "to": "python"
+        },
+        {
+          "from": "vendor/mac/terminal-notifier.app",
+          "to": "terminal-notifier.app"
+        }
       ]
     }
   },
   "devDependencies": {
+    "@storybook/html-vite": "10.5.10",
     "@types/node": "^22.7.4",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "playwright-core": "1.62.1",
-    "typescript": "^5.6.3"
+    "storybook": "10.5.10",
+    "typescript": "^5.6.3",
+    "vite": "8.2.2"
   },
-  "license": "MIT",
-  "dependencies": {}
+  "license": "MIT"
 }

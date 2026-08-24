@@ -2,7 +2,7 @@
 // Run from the repository root after `npm run build`:
 //   node ui-ux/ux/baselines/capture-baseline.mjs
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -15,9 +15,14 @@ const electronExecutable = require('electron');
 const playwrightVersion = require('playwright-core/package.json').version;
 const baselineDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(baselineDir, '../../..');
-const imagesDir = path.join(baselineDir, 'images');
-const manifestPath = path.join(baselineDir, 'manifest.json');
-const captureCommand = 'npm run build && node ui-ux/ux/baselines/capture-baseline.mjs';
+const requestedOutputDir = process.env.ADEO_BASELINE_OUTPUT_DIR?.trim() || null;
+const isCandidateCapture = requestedOutputDir !== null;
+const captureRoot = requestedOutputDir ? path.resolve(requestedOutputDir) : baselineDir;
+const imagesDir = path.join(captureRoot, 'images');
+const manifestPath = path.join(captureRoot, 'manifest.json');
+const captureCommand = isCandidateCapture
+  ? `ADEO_BASELINE_OUTPUT_DIR=${JSON.stringify(captureRoot)} node ui-ux/ux/baselines/capture-baseline.mjs`
+  : 'npm run build && node ui-ux/ux/baselines/capture-baseline.mjs';
 const fixedNow = '2026-08-22T10:00:00.000Z';
 
 const themes = ['light', 'dark'];
@@ -36,26 +41,66 @@ const fixtureNames = [
   'settings-shortcuts',
 ];
 
+const cssSourcePaths = [path.join(repoRoot, 'styles.css')];
+const designStylesDir = path.join(repoRoot, 'styles');
+if (fs.existsSync(designStylesDir)) {
+  cssSourcePaths.push(
+    ...fs
+      .readdirSync(designStylesDir)
+      .filter((name) => name.endsWith('.css'))
+      .sort()
+      .map((name) => path.join(designStylesDir, name)),
+  );
+}
+const tokenNames = [
+  ...new Set(
+    cssSourcePaths.flatMap((filePath) =>
+      [...fs.readFileSync(filePath, 'utf8').matchAll(/(--[a-z0-9-]+)\s*:/gi)].map(
+        (match) => match[1],
+      ),
+    ),
+  ),
+].sort();
+
 const git = (args, options = {}) =>
   execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', ...options }).trim();
 
 const sourceCommit = git(['rev-parse', 'HEAD']);
 const worktreeStatus = git(['status', '--porcelain']).split('\n').filter(Boolean);
-const visualDiff = spawnSync(
-  'git',
-  ['diff', '--quiet', 'HEAD', '--', 'index.html', 'styles.css', 'src/renderer'],
-  { cwd: repoRoot },
-);
-if (visualDiff.status !== 0) {
+const visualSourceStatus = git([
+  'status',
+  '--porcelain',
+  '--',
+  'index.html',
+  'styles.css',
+  'styles',
+  'src/renderer',
+])
+  .split('\n')
+  .filter(Boolean);
+const visualSourcesCleanAtCapture = visualSourceStatus.length === 0;
+if (!visualSourcesCleanAtCapture && !isCandidateCapture) {
   throw new Error(
-    'Tracked visual sources differ from HEAD. Commit/restore them or record a new source revision before capture.',
+    'Visual sources differ from HEAD. Use an OS-temporary ADEO_BASELINE_OUTPUT_DIR for comparison or commit/restore them before regenerating the baseline.',
   );
 }
 if (!fs.existsSync(path.join(repoRoot, 'dist', 'main.js'))) {
   throw new Error('dist/main.js is missing. Run `npm run build` before capturing the baseline.');
 }
 
-if (path.dirname(imagesDir) !== baselineDir) {
+if (isCandidateCapture) {
+  if (!path.isAbsolute(requestedOutputDir)) {
+    throw new Error('ADEO_BASELINE_OUTPUT_DIR must be an absolute path.');
+  }
+  const tempBase = `${path.resolve(os.tmpdir())}${path.sep}`;
+  if (!captureRoot.startsWith(tempBase)) {
+    throw new Error('ADEO_BASELINE_OUTPUT_DIR must be a child of os.tmpdir().');
+  }
+  if (fs.existsSync(captureRoot)) {
+    throw new Error('ADEO_BASELINE_OUTPUT_DIR must not already exist.');
+  }
+  fs.mkdirSync(captureRoot, { recursive: true });
+} else if (path.dirname(imagesDir) !== baselineDir) {
   throw new Error('Refusing to regenerate images outside the baseline directory.');
 }
 fs.rmSync(imagesDir, { recursive: true, force: true });
@@ -92,7 +137,7 @@ const applyFixedRendererTime = async (page) => {
 };
 
 const setTheme = async (page, theme) => {
-  await page.emulateMedia({ colorScheme: null });
+  await page.emulateMedia({ colorScheme: null, reducedMotion: 'reduce' });
   await page.evaluate(async (nextTheme) => {
     await window.electronAPI.updateTheme(nextTheme);
   }, theme);
@@ -178,14 +223,20 @@ const openSettings = async (electronApp, page) => {
 };
 
 const entries = [];
+const computedTokensByTheme = {};
 let electronVersion = null;
 const capturedAt = new Date().toISOString();
 
 const capture = async (page, theme, size, fixture) => {
   const sizeName = `${size.width}x${size.height}`;
   const relativePath = path.posix.join('images', theme, sizeName, `${fixture}.png`);
-  const absolutePath = path.join(baselineDir, relativePath);
+  const absolutePath = path.join(captureRoot, relativePath);
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  // Hover-only affordances otherwise depend on the pointer position left by the preceding
+  // interaction (for example a task drag handle or modal picker background). Park it on the
+  // inert window corner so repeated candidate captures compare deterministically.
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(60);
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({
     path: absolutePath,
@@ -200,7 +251,7 @@ const capture = async (page, theme, size, fixture) => {
   entries.push({
     file: relativePath,
     sourceCommit,
-    visualSourcesCleanAtCapture: true,
+    visualSourcesCleanAtCapture,
     theme,
     fixture,
     windowSize: size,
@@ -249,6 +300,10 @@ for (const theme of themes) {
     await page.locator('.task-row').first().waitFor({ state: 'visible' });
     await applyFixedRendererTime(page);
     await setTheme(page, theme);
+    computedTokensByTheme[theme] = await page.evaluate((names) => {
+      const computed = getComputedStyle(document.documentElement);
+      return Object.fromEntries(names.map((name) => [name, computed.getPropertyValue(name).trim()]));
+    }, tokenNames);
 
     for (const size of windowSizes) {
       await setWindowSize(electronApp, page, size);
@@ -263,8 +318,9 @@ for (const theme of themes) {
       await page.locator('#lists-search-input').fill('priority:high');
       await page.waitForTimeout(220);
       await page.locator('.lists-search-field.is-valid').waitFor({ state: 'visible' });
-      await page.locator('#message-input').click();
+      await page.locator('#lists-search-input').blur();
       await page.locator('#query-suggest-menu').waitFor({ state: 'hidden' });
+      await page.locator('#message-input').focus();
       if ((await page.locator('#lists-search-input').inputValue()) !== 'priority:high') {
         throw new Error('Valid query changed while closing its suggestion menu.');
       }
@@ -273,9 +329,10 @@ for (const theme of themes) {
       await page.locator('#lists-search-input').fill('priority~high ');
       await page.waitForTimeout(220);
       await page.locator('.lists-search-field.is-invalid').waitFor({ state: 'visible' });
-      await page.locator('#message-input').click();
+      await page.locator('#lists-search-input').blur();
       await page.locator('#query-suggest-menu').waitFor({ state: 'hidden' });
       await page.locator('#search-status-line').waitFor({ state: 'visible' });
+      await page.locator('#message-input').focus();
       if ((await page.locator('#lists-search-input').inputValue()) !== 'priority~high ') {
         throw new Error('Invalid query changed while closing its suggestion menu.');
       }
@@ -313,14 +370,15 @@ if (entries.length !== expectedCount) {
 
 const manifest = {
   schemaVersion: 1,
-  baseline: 'P0.5 current application',
+  baseline: isCandidateCapture ? 'P0.5 comparison candidate' : 'P0.5 current application',
   sourceCommit,
-  visualSourcesCleanAtCapture: true,
+  visualSourcesCleanAtCapture,
   worktreeDirtyAtCapture: worktreeStatus.length > 0,
   worktreeStatusAtCapture: worktreeStatus,
   captureCommand,
   capturedAt,
   fixedRendererTime: fixedNow,
+  computedTokensByTheme,
   runtime: {
     platform: os.platform(),
     release: os.release(),
@@ -334,4 +392,6 @@ const manifest = {
 };
 
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-console.log(`Captured ${entries.length} baseline screenshots at ${sourceCommit}.`);
+console.log(
+  `Captured ${entries.length} ${isCandidateCapture ? 'candidate' : 'baseline'} screenshots at ${sourceCommit}.`,
+);

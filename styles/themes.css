@@ -1,0 +1,70 @@
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171717;
+    --surface: #202020;
+    --surface-sunken: #191919;
+    --surface-hover: #2a2a2a;
+    --surface-hover-alt: #2e2e2e;
+    --surface-active: #333333;
+    --surface-active-alt: #3a3a3a;
+    --surface-selected: #383838;
+    --surface-query: #232320;
+    --danger-bg: #3d1f26;
+
+    --border: #3a3a3a;
+    --border-alt: #3a3a3a;
+    --border-menu: #3a3a3a;
+    --border-faint: #2b2b2b;
+    --border-subtle: #2e2e2e;
+    --border-strong: #5e5e5e;
+    --border-selected: #4a4a4a;
+    --border-segmented: #7d7d7d;
+    --border-control: #5a5a5a;
+    --border-chip: rgba(0, 0, 0, 0.25);
+    --border-chip-strong: rgba(0, 0, 0, 0.3);
+
+    --text-strong: #f5f5f5;
+    --text: #e9e9e9;
+    --text-heading: #dedede;
+    --text-body: #d2d2d2;
+    --text-secondary: #c0c0c0;
+    --text-muted: #ababab;
+    --text-faint: #9c9c9c;
+    --text-hint: #9c9c9c;
+    --text-ghost: #7d7d7d;
+    /* tag and priority chips keep their light pastel fills, so their text stays dark */
+    --text-chip: #2a2a2a;
+    --text-placeholder: #6b6b6b;
+    --text-disabled: #5e5e5e;
+    --text-disabled-alt: #565656;
+    --text-on-accent: #ffffff;
+
+    --accent: #3d8bfd;
+    --accent-drop: #4a8ef7;
+    --accent-focus: #6ab4ff;
+    --danger: #ff7b8a;
+    --success: #6cc46c;
+
+    /* same hues, dialled back so they do not glare against a dark surface */
+    --priority-chip-none: #6a6a6a;
+    --priority-chip-low: #5fae43;
+    --priority-chip-medium: #c98b3e;
+    --priority-chip-high: #d95757;
+
+    --priority-border-none: #5a5a5a;
+    --priority-border-low: #55a03c;
+    --priority-border-medium: #bd8038;
+    --priority-border-high: #cc4f4f;
+
+    --priority-fill-none: transparent;
+    --priority-fill-low: #2f4526;
+    --priority-fill-medium: #4a3821;
+    --priority-fill-high: #4a2727;
+
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-popover: 0 6px 20px rgba(0, 0, 0, 0.55);
+    --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.65);
+  }
+}

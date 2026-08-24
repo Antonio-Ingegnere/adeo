@@ -75,6 +75,7 @@
     }
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "10.5.10",
     "@storybook/html-vite": "10.5.10",
     "@types/node": "^22.7.4",
     "electron": "^39.2.6",

@@ -16,7 +16,7 @@ import { FIELDS, compilePredicate, parseQuery, queryUsesField, tokenize } from '
 import type { FieldSpec, ParseError, Token } from './query.js';
 import { renderTasks } from './tasks.js';
 import { state } from './state.js';
-import { makeTagDot } from './tagColor.js';
+import { createComboboxSuggestionItem } from './uiElements.js';
 
 const RENDER_DEBOUNCE_MS = 150;
 
@@ -488,29 +488,18 @@ const renderSuggestMenu = () => {
   if (!menu || !input) return;
   menu.innerHTML = '';
   suggestItems.forEach((item, index) => {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `tag-suggest-item query-suggest-item${index === activeIndex ? ' active' : ''}`;
-    el.id = `query-suggest-option-${index}`;
-    el.setAttribute('role', 'option');
-    el.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
-    el.tabIndex = -1; // the input keeps focus; the listbox is driven by aria-activedescendant
-    if (item.color) {
-      const dot = makeTagDot(item.color);
-      if (dot) el.appendChild(dot);
-    }
-    el.appendChild(document.createTextNode(item.label));
-    if (item.hint) {
-      const hint = document.createElement('span');
-      hint.className = 'query-suggest-hint';
-      hint.textContent = item.hint;
-      el.appendChild(hint);
-    }
-    el.addEventListener('mousedown', (event) => {
-      // mousedown, not click: fires before the input loses focus
-      event.preventDefault();
-      event.stopPropagation();
-      selectSuggestion(index);
+    const el = createComboboxSuggestionItem({
+      id: `query-suggest-option-${index}`,
+      label: item.label,
+      hint: item.hint,
+      color: item.color,
+      colorsEnabled: state.tagColors,
+      variant: 'query',
+      active: index === activeIndex,
+      onSelect: () => {
+        // mousedown, not click: fires before the input loses focus
+        selectSuggestion(index);
+      },
     });
     menu.appendChild(el);
   });

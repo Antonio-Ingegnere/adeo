@@ -27,6 +27,7 @@ import {
 } from './shortcutRegistry.js';
 import { IS_MAC, beginCapture, cancelCapture, setKeymap } from './shortcuts.js';
 import { renderShortcutHints } from './shortcutHints.js';
+import { createShortcutKeycaps } from './uiElements.js';
 
 /**
  * Keys the native Edit and app menus own by role. A renderer binding could never win against
@@ -61,14 +62,8 @@ const showError = (message: string | null) => {
 };
 
 const keycaps = (binding: Binding): HTMLElement => {
-  const wrap = document.createElement('span');
-  wrap.className = 'shortcut-keys';
-  for (const token of formatBinding(binding, IS_MAC)) {
-    const kbd = document.createElement('kbd');
-    kbd.textContent = token;
-    wrap.appendChild(kbd);
-  }
-  return wrap;
+  const tokens = formatBinding(binding, IS_MAC);
+  return createShortcutKeycaps({ tokens });
 };
 
 const labelFor = (id: string) => SHORTCUTS.find((def) => def.id === id)?.label ?? id;

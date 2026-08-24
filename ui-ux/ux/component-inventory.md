@@ -17,11 +17,11 @@ Classifications:
 |---|---|---|---|
 | Design tokens and theme | `../../styles/tokens.css`; `../../styles/themes.css` | Reusable | P1.1 extracted the color/type/radius/elevation and dark tokens; P1.2 adds a value-named spacing scale for new/touched components. Legacy spacing remains intentionally literal. |
 | Global focus ring and visually-hidden utility | `../../styles.css` | Reusable | Shared `:focus-visible` and clipping utility; include in Storybook design CSS. |
-| Tag palette, chip paint, and dot | `../../src/renderer/tagColor.ts`; `../../server/app.py` | Reusable | `paintTagChip`/`makeTagDot` centralize color-on/off behavior. Palette must remain mirrored with server validation. |
+| Tag palette, chip paint, and dot | `../../src/renderer/uiElements.ts`; `../../src/renderer/tagColor.ts`; `../../server/app.py` | Reusable | P1.4 added explicit chip/dot factories; renderer features supply color visibility and callbacks, while `tagColor.ts` retains state-aware compatibility helpers. Palette must remain mirrored with server validation. |
 | Priority visual mapping | `../../src/renderer/theme.ts`; `../../styles.css` | Reusable | `setPriorityAttr` maps none/low/medium/high to CSS token palettes without Electron access. |
 | Shortcut key grammar and formatting | `../../src/renderer/shortcutKeys.ts` | Reusable | Pure, DOM-free binding normalization and platform formatting; already covered by Node self-test. |
-| Shortcut keycap presentation | `../../src/renderer/shortcutsHelp.ts`; `../../src/renderer/shortcutsSettings.ts`; `../../styles.css` | Extraction candidate | Presentation is duplicated inside feature renderers; extract a DOM factory accepting formatted keys and state. |
-| Query/tag suggestion row | `../../src/renderer/querySearch.ts`; `../../src/renderer/tagInput.ts`; `../../styles.css` | Extraction candidate | Similar listbox row/active styling; extract explicit label, metadata, active/disabled state, and selection callback. |
+| Shortcut keycap presentation | `../../src/renderer/uiElements.ts`; `../../src/renderer/shortcutsHelp.ts`; `../../src/renderer/shortcutsSettings.ts`; `../../styles.css` | Reusable | P1.4 replaced duplicated markup with a DOM factory that accepts explicit formatted tokens and preserves one `<kbd>` per key. |
+| Query/tag suggestion row | `../../src/renderer/uiElements.ts`; `../../src/renderer/querySearch.ts`; `../../src/renderer/tagInput.ts`; `../../styles.css` | Reusable | P1.4 added one factory for explicit label, metadata, color, active/disabled state, variant, and selection callback inputs. |
 | Combobox ARIA synchronization | `../../src/renderer/helpers.ts` | Reusable | `syncComboboxAria` owns expanded and active-descendant synchronization. |
 | Sidebar list/smart-list/tag pill | `../../src/renderer/lists.ts`; `../../src/renderer/smartLists.ts`; `../../src/renderer/tags.ts`; `../../src/renderer/helpers.ts` | Extraction candidate | Shared visual/activation pattern, but construction and state are split across three feature modules. Preserve `aria-pressed`. |
 | Sidebar pill reorder | `../../src/renderer/pillDnD.ts` | Extraction candidate | Generic across three pill kinds, but pointer drag-only. Add keyboard/touch alternative before responsive approval. |
@@ -61,9 +61,8 @@ Classifications:
 
 ## First extraction order
 
-1. Tag chip/dot and priority marker (already isolated).
-2. Shortcut keycap.
-3. Suggestion item.
-4. Date picker and one sidebar pill only after Storybook is available.
-5. Keep task rows, dialogs, view bar, and Settings production-only until service/state
+1. Tag chip/dot, shortcut keycap, and suggestion item are reusable after P1.4.
+2. Priority marker remains isolated through token-driven production CSS.
+3. Date picker and one sidebar pill only after Storybook is available.
+4. Keep task rows, dialogs, view bar, and Settings production-only until service/state
    boundaries are explicitly planned.

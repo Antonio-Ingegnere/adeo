@@ -71,6 +71,9 @@ const preview: Preview = {
     viewport: { value: 'adeo1440', isRotated: false },
   },
   parameters: {
+    a11y: {
+      test: 'error',
+    },
     layout: 'fullscreen',
     viewport: {
       options: {

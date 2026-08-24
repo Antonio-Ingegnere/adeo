@@ -245,6 +245,8 @@ A task is complete only when:
 | P1.1 | DONE — 2026-08-22 | Base and dark token declarations are imported from `styles/tokens.css` and `styles/themes.css`; all declared/computed values match, the build and regression suites pass, and the 32-state comparison is within the measured unchanged-renderer noise envelope. See `ux/reviews/p1-1-token-extraction-review.md`. |
 | P1.2 | DONE — 2026-08-22 | `styles/tokens.css` and `ux/patterns.md` define the value-named 0/2/4/6/8/10/12/16/20/24/32px scale and forward-only exception policy. Existing tokens, visuals, and regressions are unchanged. See `ux/reviews/p1-2-spacing-scale-review.md`. |
 | P1.3 | DONE — 2026-08-24 | Chrome exercised all eight light/dark and 1440/1024/768/390 combinations through rendered Storybook controls with correct markers, computed production tokens, and canvas widths. Builds and regressions pass. See `ux/reviews/p1-3-storybook-setup-review.md`. |
+| P1.4 | DONE — 2026-08-24 | Shared dependency-free factories now back tag chips/dots, shortcut keycaps, and query/tag suggestion rows. Three stories cover required states and passed 12 Chrome theme/viewport cases plus builds and regressions. See `ux/reviews/p1-4-low-risk-elements-review.md`. |
+| P1.5 | DONE — 2026-08-24 | Storybook loads the axe-based accessibility addon with project-wide `a11y.test: 'error'`. Chrome ran all four Phase 1 stories in light/dark; Storybook-only issues were fixed and three inherited production-token findings remain failing, fingerprinted, owned, and due by Phase 1 exit. See `ux/reviews/p1-5-accessibility-policy-review.md`. |
 
 **Phase 0 status:** DONE — 2026-08-22. All five tasks and all three phase-exit
 criteria are satisfied. The user authorized Phase 1 by instructing the work to continue.

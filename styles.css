@@ -2675,6 +2675,13 @@ kbd {
   filter: brightness(0.95);
 }
 
+.task-tag-chip:disabled,
+.tag-filter-chip:disabled {
+  cursor: not-allowed;
+  filter: none;
+  opacity: 0.6;
+}
+
 .tag-filter-chip {
   border: 1px solid var(--border-chip);
   cursor: pointer;
@@ -2761,6 +2768,16 @@ kbd {
 .tag-suggest-item:hover,
 .tag-suggest-item.active {
   background: var(--surface-hover-alt);
+}
+
+.tag-suggest-item:disabled {
+  cursor: not-allowed;
+  color: var(--text-disabled);
+}
+
+.tag-suggest-item:disabled .tag-dot,
+.tag-suggest-item:disabled .query-suggest-hint {
+  opacity: 0.55;
 }
 
 .add-task-tags {

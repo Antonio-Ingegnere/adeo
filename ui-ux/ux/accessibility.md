@@ -58,8 +58,20 @@ approved plan.
 | Date picker exposes a grid of buttons without calendar/grid semantics or explicit previous/next labels | `../../src/renderer/datepicker.ts` | Medium | P1.6 story and accessibility review |
 | Task drag handle is a hover-revealed draggable span | `../../src/renderer/tasks.ts` and `../../styles.css` | Medium | P4 keyboard/visual coverage; responsive redesign |
 | Focus restoration is flow-specific and not centralized for every overlay | Modal open/close functions in `modals.ts`, `index.ts`, and `shortcutsHelp.ts` | Medium | Review per dialog after rollback |
-| Automated axe and browser/Electron keyboard suites do not exist | `package.json` contains no UI test scripts | High | Phase 4 |
+| Story axe scans are local-only; renderer/Electron keyboard suites and accessibility CI do not exist | `.storybook/main.ts` loads the axe-based addon, but `package.json` has no renderer/Electron UI test command | High | P4.1, P4.4, and P4.6 |
 | Narrow/mobile layout has no complete navigation model | Only 860px and 760px compression rules in `styles.css` | High for web/mobile | P5.4 after approved concept |
+
+## Initial Storybook axe baseline
+
+P1.5 ran every Phase 1 story in light and dark. Story-owned contrast and semantics issues
+were fixed immediately. These inherited production-token pairings remain visible under
+`a11y.test: 'error'`; no axe rule, story, element, or theme is excluded.
+
+| Finding | Story/theme | Axe rule / impact | Stable fingerprint and measured result | Owner | Due phase |
+|---|---|---|---|---|---|
+| AXE-P1.5-01 | Combobox suggestion item / light | `color-contrast` / Serious | `#story-suggestion-active > .query-suggest-hint`; `--text-hint` on `--surface-hover-alt` is 4.47:1, below 4.5:1 | Implementer + Product Design Agent | Phase 1 exit |
+| AXE-P1.5-02 | Design-system smoke / light | `color-contrast` / Serious | `.design-smoke__status--success`; `--success` on `--surface` is 4.23:1, below 4.5:1 | Architect + Implementer | Phase 1 exit |
+| AXE-P1.5-03 | Design-system smoke / light and dark | `color-contrast` / Serious | `.design-smoke__bar--8`, `--16`, `--24`, and `--32`; `--text-on-accent` on `--accent` is 4.41:1 light and 3.32:1 dark, below 4.5:1. Axe marks the one-character `--8` sample inconclusive; manual calculation gives the same failing pair. | Architect + Implementer | Phase 1 exit |
 
 ## Review method
 
@@ -74,3 +86,16 @@ For each critical flow:
 
 New axe violations fail. Existing violations need a specific fingerprint, owner, and due
 task; broad exclusions and global rule disabling require explicit user approval.
+
+## Story accessibility policy
+
+- Storybook loads `@storybook/addon-a11y` for every story and runs axe automatically
+  when the story is visited.
+- The project-level `a11y.test: 'error'` policy applies to every current and new story.
+  Story files must not weaken it to `todo` or `off` without a recorded finding, owner,
+  due phase, and explicit user approval.
+- A passing automated scan is necessary but does not replace keyboard, focus, zoom,
+  contrast, motion, or assistive-technology review.
+- An inherited violation remains visible. Record its axe rule, affected story and state,
+  selector or stable fingerprint, severity, owner, and due phase; do not silence the rule
+  globally or exclude the affected markup from the scan.

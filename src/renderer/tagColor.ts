@@ -7,6 +7,7 @@
  */
 
 import { state } from './state.js';
+import { createTagDot, styleTagChip } from './uiElements.js';
 
 /**
  * Hand-mirrored from TAG_PALETTE in server/app.py, the same way src/types.ts mirrors the
@@ -35,13 +36,7 @@ export const paletteName = (color: string): string =>
  * it would be unreadable. The same goes for its border, which is black-on-transparent.
  */
 export const paintTagChip = (el: HTMLElement, color: string) => {
-  if (state.tagColors) {
-    el.classList.remove('tag-plain');
-    el.style.background = color;
-    return;
-  }
-  el.classList.add('tag-plain');
-  el.style.background = '';
+  styleTagChip(el, color, state.tagColors);
 };
 
 /**
@@ -49,9 +44,5 @@ export const paintTagChip = (el: HTMLElement, color: string) => {
  * beside every tag would carry no information, and the row reads better without it.
  */
 export const makeTagDot = (color: string): HTMLSpanElement | null => {
-  if (!state.tagColors) return null;
-  const dot = document.createElement('span');
-  dot.className = 'tag-dot';
-  dot.style.background = color;
-  return dot;
+  return createTagDot({ color, colorsEnabled: state.tagColors });
 };

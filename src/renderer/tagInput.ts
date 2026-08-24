@@ -3,7 +3,7 @@ import { refs } from './dom.js';
 import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { mergeTag, renderTags } from './tags.js';
 import { state } from './state.js';
-import { makeTagDot, paintTagChip } from './tagColor.js';
+import { createComboboxSuggestionItem, createTagChip } from './uiElements.js';
 
 const TOKEN_RE = /(^|\s)#([A-Za-z0-9_-]*)$/;
 
@@ -33,18 +33,19 @@ export const renderPendingTags = () => {
   state.pendingTagIds.forEach((tagId) => {
     const tag = state.tags.find((t) => t.id === tagId);
     if (!tag) return;
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'task-tag-chip add-task-tag-chip';
-    paintTagChip(chip, tag.color);
-    chip.title = 'Remove tag';
-    chip.textContent = `#${tag.name} ✕`;
-    chip.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      state.pendingTagIds = state.pendingTagIds.filter((id) => id !== tagId);
-      renderPendingTags();
-      refs.input?.focus();
+    const chip = createTagChip({
+      label: `#${tag.name} ✕`,
+      color: tag.color,
+      colorsEnabled: state.tagColors,
+      variant: 'pending',
+      title: 'Remove tag',
+      onActivate: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        state.pendingTagIds = state.pendingTagIds.filter((id) => id !== tagId);
+        renderPendingTags();
+        refs.input?.focus();
+      },
     });
     container.appendChild(chip);
   });
@@ -55,25 +56,16 @@ const renderSuggestMenu = () => {
   const menu = refs.tagSuggestMenu;
   menu.innerHTML = '';
   suggestItems.forEach((item, index) => {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `tag-suggest-item${index === activeIndex ? ' active' : ''}`;
-    el.id = `tag-suggest-option-${index}`;
-    el.setAttribute('role', 'option');
-    el.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
-    el.tabIndex = -1; // the input keeps focus; the listbox is driven by aria-activedescendant
-    if (item.kind === 'tag') {
-      const dot = makeTagDot(item.tag.color);
-      if (dot) el.appendChild(dot);
-      el.appendChild(document.createTextNode(`#${item.tag.name}`));
-    } else {
-      el.appendChild(document.createTextNode(`Create "#${item.name}"`));
-    }
-    el.addEventListener('mousedown', (event) => {
-      // mousedown, not click: fires before the input loses focus
-      event.preventDefault();
-      event.stopPropagation();
-      selectSuggestion(index);
+    const el = createComboboxSuggestionItem({
+      id: `tag-suggest-option-${index}`,
+      label: item.kind === 'tag' ? `#${item.tag.name}` : `Create "#${item.name}"`,
+      color: item.kind === 'tag' ? item.tag.color : undefined,
+      colorsEnabled: state.tagColors,
+      active: index === activeIndex,
+      onSelect: () => {
+        // mousedown, not click: fires before the input loses focus
+        selectSuggestion(index);
+      },
     });
     menu.appendChild(el);
   });

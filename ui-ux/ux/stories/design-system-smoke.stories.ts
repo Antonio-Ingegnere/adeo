@@ -74,7 +74,7 @@ export const Tokens: Story = {
 
         <article class="design-smoke__card">
           <h2>Spacing and radius</h2>
-          <div class="design-smoke__rhythm" aria-label="Spacing token rhythm">
+          <div class="design-smoke__rhythm">
             <span class="design-smoke__bar design-smoke__bar--8">8</span>
             <span class="design-smoke__bar design-smoke__bar--16">16</span>
             <span class="design-smoke__bar design-smoke__bar--24">24</span>

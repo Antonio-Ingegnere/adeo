@@ -39,7 +39,7 @@
 
 .design-smoke__eyebrow {
   margin-bottom: var(--space-6) !important;
-  color: var(--accent);
+  color: var(--text-secondary);
   font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.08em;

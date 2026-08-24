@@ -16,17 +16,12 @@ import {
   type ShortcutDef,
 } from './shortcutRegistry.js';
 import { IS_MAC, getBindingsFor } from './shortcuts.js';
+import { createShortcutKeycaps } from './uiElements.js';
 
 /** One <kbd> per keycap, so ⌘F reads as two keys rather than one wide blob. */
 const keycaps = (binding: string): HTMLElement => {
-  const wrap = document.createElement('span');
-  wrap.className = 'shortcut-keys';
-  for (const token of formatBinding(binding, IS_MAC)) {
-    const kbd = document.createElement('kbd');
-    kbd.textContent = token;
-    wrap.appendChild(kbd);
-  }
-  return wrap;
+  const tokens = formatBinding(binding, IS_MAC);
+  return createShortcutKeycaps({ tokens });
 };
 
 const renderBindings = (id: string, displayAs: ShortcutDef['displayAs']): HTMLElement => {

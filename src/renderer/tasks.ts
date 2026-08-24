@@ -6,7 +6,7 @@ import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
 import { repeatSummaryFromRule } from './repeat.js';
 import { setPriorityAttr } from './theme.js';
-import { paintTagChip } from './tagColor.js';
+import { createTagChip } from './uiElements.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -335,16 +335,16 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
     task.tagIds.forEach((tagId) => {
       const tag = state.tags.find((t) => t.id === tagId);
       if (!tag) return;
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'task-tag-chip';
-      chip.textContent = `#${tag.name}`;
-      paintTagChip(chip, tag.color);
-      chip.title = `Filter by #${tag.name}`;
-      chip.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        document.dispatchEvent(new CustomEvent('filter-by-tag', { detail: { tagId } }));
+      const chip = createTagChip({
+        label: `#${tag.name}`,
+        color: tag.color,
+        colorsEnabled: state.tagColors,
+        title: `Filter by #${tag.name}`,
+        onActivate: (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          document.dispatchEvent(new CustomEvent('filter-by-tag', { detail: { tagId } }));
+        },
       });
       tagsRow.appendChild(chip);
     });

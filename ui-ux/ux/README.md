@@ -50,6 +50,11 @@ date are filled in by, or at the explicit direction of, the user.
 Run `npm run storybook` from the repository root for the local design-system workspace,
 or `npm run storybook:build` to verify the static build. Storybook imports production
 `styles.css`; its theme control derives light and dark values from the production token files.
+Concept stories live under `concepts/` and appear only beneath Storybook's top-level
+`Concepts` hierarchy. `npm run check:ux-boundary` rejects production imports from this UX
+workspace, and both production and Storybook builds run that guard first.
+The deterministic fixture catalog has the stable story ID
+`concepts-fixture-catalog--deterministic-states`.
 
 ## Evidence rules
 
@@ -80,7 +85,7 @@ ux/
   reviews/
     template.md
   stories/        # Storybook design-system smoke and future UX stories
-  concepts/       # added with the Storybook Design Lab in Phase 2
+  concepts/       # deterministic fixtures and non-production Storybook explorations
   baselines/      # reproducible visual baseline capture, images, and manifest
 ```
 

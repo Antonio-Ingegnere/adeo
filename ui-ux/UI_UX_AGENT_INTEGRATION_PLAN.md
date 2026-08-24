@@ -246,14 +246,23 @@ A task is complete only when:
 | P1.2 | DONE — 2026-08-22 | `styles/tokens.css` and `ux/patterns.md` define the value-named 0/2/4/6/8/10/12/16/20/24/32px scale and forward-only exception policy. Existing tokens, visuals, and regressions are unchanged. See `ux/reviews/p1-2-spacing-scale-review.md`. |
 | P1.3 | DONE — 2026-08-24 | Chrome exercised all eight light/dark and 1440/1024/768/390 combinations through rendered Storybook controls with correct markers, computed production tokens, and canvas widths. Builds and regressions pass. See `ux/reviews/p1-3-storybook-setup-review.md`. |
 | P1.4 | DONE — 2026-08-24 | Shared dependency-free factories now back tag chips/dots, shortcut keycaps, and query/tag suggestion rows. Three stories cover required states and passed 12 Chrome theme/viewport cases plus builds and regressions. See `ux/reviews/p1-4-low-risk-elements-review.md`. |
-| P1.5 | DONE — 2026-08-24 | Storybook loads the axe-based accessibility addon with project-wide `a11y.test: 'error'`. Chrome ran all four Phase 1 stories in light/dark; Storybook-only issues were fixed and three inherited production-token findings remain failing, fingerprinted, owned, and due by Phase 1 exit. See `ux/reviews/p1-5-accessibility-policy-review.md`. |
+| P1.5 | DONE — 2026-08-24 | Storybook loads the axe-based accessibility addon with project-wide `a11y.test: 'error'`. The three inherited production-token findings recorded by P1.5 were resolved at the Phase 1 exit, and all six Phase 1 stories now pass axe in both themes. See `ux/reviews/p1-5-accessibility-policy-review.md` and `ux/reviews/phase-1-exit-review.md`. |
 | P1.6 | DONE — 2026-08-24 | Production-backed date-picker and sidebar-pill stories cover closed/open, deterministic boundary values, selected/unselected, long-label, and keyboard-focus states. Eight Chrome theme/desktop/mobile cases have no axe violations or overflow; builds and regressions pass. See `ux/reviews/p1-6-date-picker-sidebar-pill-review.md`. |
+| P2.1 | DONE — 2026-08-24 | `Concepts/Fixture catalog` renders frozen populated, empty, and recoverable-error fixtures with production tokens/components. Both builds enforce the one-way UX dependency guard; Chrome passed eight theme/viewport cases without overflow and both theme axe scans have zero violations. See `ux/reviews/p2-1-concept-fixtures-review.md`. |
 
 **Phase 0 status:** DONE — 2026-08-22. All five tasks and all three phase-exit
 criteria are satisfied. The user authorized Phase 1 by instructing the work to continue.
 
-**Phase 1 task status:** P1.1–P1.6 are DONE. The phase-exit review remains pending until
-AXE-P1.5-01 through AXE-P1.5-03 are resolved and the three exit criteria are revalidated.
+**Phase 1 status:** DONE — 2026-08-24. P1.1–P1.6 and all three phase-exit criteria are
+satisfied. AXE-P1.5-01 through AXE-P1.5-03 are resolved, the 12-case Chrome story/theme
+matrix has zero violations, the build and regression suites pass, and isolated automation
+left protected user data unchanged. See `ux/reviews/phase-1-exit-review.md`. Review this
+completed phase with the user before beginning P2.1. The user authorized Phase 2 by
+instructing the next item to continue on 2026-08-24.
+
+**Phase 2 task status:** P2.1 is DONE — 2026-08-24. P2.2 is the next gate: create and
+compare the compact/current-direction, command-style, and touch-first Quick Add concepts
+without changing production code. Phase 2 remains in progress.
 
 Use these statuses in this file when execution begins:
 

@@ -16,6 +16,7 @@ Classifications:
 | Element or behavior | Source | Class | Evidence and next step |
 |---|---|---|---|
 | Design tokens and theme | `../../styles/tokens.css`; `../../styles/themes.css` | Reusable | P1.1 extracted the color/type/radius/elevation and dark tokens; P1.2 adds a value-named spacing scale for new/touched components. Legacy spacing remains intentionally literal. |
+| Concept fixture catalog | `concepts/fixtures.ts`; `concepts/fixture-catalog.stories.ts`; `../../scripts/check-ux-boundary.mjs` | Storybook-only design-lab infrastructure | P2.1 provides frozen populated, empty, and recoverable-error data with a fixed clock. Concepts may consume production tokens/components; the build guard prevents production code from importing the UX workspace. |
 | Global focus ring and visually-hidden utility | `../../styles.css` | Reusable | Shared `:focus-visible` and clipping utility; include in Storybook design CSS. |
 | Tag palette, chip paint, and dot | `../../src/renderer/uiElements.ts`; `../../src/renderer/tagColor.ts`; `../../server/app.py` | Reusable | P1.4 added explicit chip/dot factories; renderer features supply color visibility and callbacks, while `tagColor.ts` retains state-aware compatibility helpers. Palette must remain mirrored with server validation. |
 | Priority visual mapping | `../../src/renderer/theme.ts`; `../../styles.css` | Reusable | `setPriorityAttr` maps none/low/medium/high to CSS token palettes without Electron access. |

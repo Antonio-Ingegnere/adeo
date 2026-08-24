@@ -61,17 +61,24 @@ approved plan.
 | Story axe scans are local-only; renderer/Electron keyboard suites and accessibility CI do not exist | `.storybook/main.ts` loads the axe-based addon, but `package.json` has no renderer/Electron UI test command | High | P4.1, P4.4, and P4.6 |
 | Narrow/mobile layout has no complete navigation model | Only 860px and 760px compression rules in `styles.css` | High for web/mobile | P5.4 after approved concept |
 
-## Initial Storybook axe baseline
+## Initial Storybook axe baseline and resolution
 
-P1.5 ran every Phase 1 story in light and dark. Story-owned contrast and semantics issues
-were fixed immediately. These inherited production-token pairings remain visible under
-`a11y.test: 'error'`; no axe rule, story, element, or theme is excluded.
+P1.5 ran every then-existing Phase 1 story in light and dark. Story-owned contrast and
+semantics issues were fixed immediately, while three inherited production-token pairings
+were kept visible under `a11y.test: 'error'` until the Phase 1 exit. The exit review changed
+only the failing semantic tokens and reran all six Phase 1 stories in both themes. No axe
+rule, story, element, or theme was excluded.
 
-| Finding | Story/theme | Axe rule / impact | Stable fingerprint and measured result | Owner | Due phase |
-|---|---|---|---|---|---|
-| AXE-P1.5-01 | Combobox suggestion item / light | `color-contrast` / Serious | `#story-suggestion-active > .query-suggest-hint`; `--text-hint` on `--surface-hover-alt` is 4.47:1, below 4.5:1 | Implementer + Product Design Agent | Phase 1 exit |
-| AXE-P1.5-02 | Design-system smoke / light | `color-contrast` / Serious | `.design-smoke__status--success`; `--success` on `--surface` is 4.23:1, below 4.5:1 | Architect + Implementer | Phase 1 exit |
-| AXE-P1.5-03 | Design-system smoke / light and dark | `color-contrast` / Serious | `.design-smoke__bar--8`, `--16`, `--24`, and `--32`; `--text-on-accent` on `--accent` is 4.41:1 light and 3.32:1 dark, below 4.5:1. Axe marks the one-character `--8` sample inconclusive; manual calculation gives the same failing pair. | Architect + Implementer | Phase 1 exit |
+| Finding | Initial fingerprint and result | Phase 1 exit result | Status |
+|---|---|---|---|
+| AXE-P1.5-01 | `#story-suggestion-active > .query-suggest-hint`; `--text-hint` on `--surface-hover-alt` was 4.47:1 in light | `#6d6d6d` on `#f0f0f0` is 4.54:1 | RESOLVED — 2026-08-24 |
+| AXE-P1.5-02 | `.design-smoke__status--success`; `--success` on `--surface` was 4.23:1 in light | `#388338` on `#ffffff` is 4.70:1 | RESOLVED — 2026-08-24 |
+| AXE-P1.5-03 | `.design-smoke__bar--8`, `--16`, `--24`, and `--32`; `--text-on-accent` on `--accent` was 4.41:1 light and 3.32:1 dark | `#000000` on `#1d72f3` is 4.75:1 light; `#111111` on `#3d8bfd` is 5.67:1 dark | RESOLVED — 2026-08-24 |
+
+The final 12-case Chrome matrix reports zero violations. The shortcut-keycap and
+date-picker stories each retain one documented axe inconclusive result that manual review
+has already verified as a passing token pair and a valid `aria-controls` relationship,
+respectively. See `reviews/phase-1-exit-review.md`.
 
 ## Review method
 

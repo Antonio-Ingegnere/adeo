@@ -8,6 +8,8 @@ export const createComponentStoryShell = (
   page.className = 'component-story';
   page.dataset.p14Component = componentId;
   page.dataset.storybookP14 = 'ready';
+  page.dataset.productionComponent = componentId;
+  page.dataset.storybookComponent = 'ready';
   page.innerHTML = `
     <header class="component-story__header">
       <div>

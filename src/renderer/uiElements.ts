@@ -40,6 +40,15 @@ export type ComboboxSuggestionItemOptions = {
   onSelect?: (event: MouseEvent) => void;
 };
 
+export type SidebarPillOptions = {
+  label: string;
+  selected: boolean;
+  count?: number;
+  className?: string;
+  maxLabelLength?: number;
+  onActivate?: (event: MouseEvent) => void;
+};
+
 export const styleTagChip = (
   element: HTMLElement,
   color: string,
@@ -152,6 +161,48 @@ export const createComboboxSuggestionItem = ({
       onSelect(event);
     });
   }
+
+  return item;
+};
+
+export const createSidebarPill = ({
+  label,
+  selected,
+  count,
+  className = '',
+  maxLabelLength = 30,
+  onActivate,
+}: SidebarPillOptions): HTMLDivElement => {
+  const item = document.createElement('div');
+  item.className = `list-pill${className ? ` ${className}` : ''}${selected ? ' selected' : ''}`;
+  item.setAttribute('role', 'button');
+  item.tabIndex = 0;
+  item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+
+  const visibleLabel =
+    label.length > maxLabelLength ? `${label.slice(0, maxLabelLength)}...` : label;
+  const labelElement = document.createElement('span');
+  labelElement.className = 'list-pill-label';
+  labelElement.textContent = visibleLabel;
+  if (visibleLabel !== label) {
+    labelElement.title = label;
+    item.setAttribute('aria-label', count === undefined ? label : `${label}, ${count}`);
+  }
+  item.appendChild(labelElement);
+
+  if (count !== undefined) {
+    const countElement = document.createElement('span');
+    countElement.className = 'tag-count';
+    countElement.textContent = String(count);
+    item.appendChild(countElement);
+  }
+
+  if (onActivate) item.addEventListener('click', onActivate);
+  item.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    item.click();
+  });
 
   return item;
 };

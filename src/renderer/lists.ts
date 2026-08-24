@@ -13,8 +13,9 @@ const selectView = (listId: number | null) => {
   document.dispatchEvent(new CustomEvent('select-list', { detail: { listId } }));
 };
 import { state } from './state.js';
-import { makePillActivatable, revealInScroller } from './helpers.js';
+import { revealInScroller } from './helpers.js';
 import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
+import { createSidebarPill } from './uiElements.js';
 
 const truncateListName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -22,17 +23,6 @@ const truncateListName = (text: string) => {
     label: truncated,
     title: truncated !== text ? text : '',
   };
-};
-
-const makeLabel = (text: string) => {
-  const span = document.createElement('span');
-  span.className = 'list-pill-label';
-  const { label, title } = truncateListName(text);
-  span.textContent = label;
-  if (title) {
-    span.title = title;
-  }
-  return span;
 };
 
 const saveListOrder = async () => {
@@ -112,14 +102,14 @@ export const renderLists = () => {
     return;
   }
   container.style.display = 'flex';
-  const allItem = document.createElement('div');
   // the *view*, not the raw selection: while a search is running nothing here is lit, because
   // what is on screen is the search rather than any list
   const allSelected = isListInView(null);
-  allItem.className = `list-pill${allSelected ? ' selected' : ''}`;
-  makePillActivatable(allItem, allSelected);
-  allItem.appendChild(makeLabel('All lists'));
-  allItem.addEventListener('click', () => selectView(null));
+  const allItem = createSidebarPill({
+    label: 'All lists',
+    selected: allSelected,
+    onActivate: () => selectView(null),
+  });
   container.appendChild(allItem);
 
   if (state.lists.length === 0) {
@@ -130,10 +120,12 @@ export const renderLists = () => {
   }
 
   state.lists.forEach((list) => {
-    const item = document.createElement('div');
     const isSelected = isListInView(list.id);
-    item.className = `list-pill${isSelected ? ' selected' : ''}`;
-    makePillActivatable(item, isSelected);
+    const item = createSidebarPill({
+      label: list.name,
+      selected: isSelected,
+      count: state.tasks.filter((task) => !task.done && task.listId === list.id).length,
+    });
     const index = state.lists.findIndex((l) => l.id === list.id);
     attachPillDnD({
       kind: 'list',
@@ -148,15 +140,7 @@ export const renderLists = () => {
       },
     });
 
-    const label = makeLabel(list.name);
-    item.appendChild(makeDragHandle());
-    item.appendChild(label);
-
-    // matches the tags panel, which has always shown a count
-    const count = document.createElement('span');
-    count.className = 'tag-count';
-    count.textContent = String(state.tasks.filter((t) => !t.done && t.listId === list.id).length);
-    item.appendChild(count);
+    item.insertBefore(makeDragHandle(), item.firstChild);
 
     const menuBtn = document.createElement('button');
     menuBtn.className = 'list-menu-btn';

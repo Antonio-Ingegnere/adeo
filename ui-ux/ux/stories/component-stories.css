@@ -112,6 +112,36 @@
   box-shadow: var(--shadow-popover);
 }
 
+.component-story__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(100%, 320px);
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface-sunken);
+}
+
+.component-story__date-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 180px;
+  color: var(--text-body);
+  font-size: var(--font-m);
+}
+
+.component-story__date-field .repeat-date-input {
+  max-width: none;
+  width: 180px;
+}
+
+.component-story__date-picker-stage {
+  min-height: 360px;
+  align-items: flex-start;
+}
+
 .component-story__dot-label {
   display: inline-flex;
   align-items: center;

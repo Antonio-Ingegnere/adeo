@@ -42,9 +42,11 @@
   --text-disabled: #b0b0b0;
   --text-disabled-alt: #bbb;
   --text-on-accent: #fff;
+  --text-on-bright-accent: #111;
 
   /* ---- Accent & status ---- */
   --accent: #1d72f3;
+  --accent-text: #1768d8;
   --accent-drop: #4a8ef7;
   --accent-focus: #4c9ffe;
   --danger: #b00020;

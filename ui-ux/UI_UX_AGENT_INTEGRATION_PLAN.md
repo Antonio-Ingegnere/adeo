@@ -247,9 +247,13 @@ A task is complete only when:
 | P1.3 | DONE — 2026-08-24 | Chrome exercised all eight light/dark and 1440/1024/768/390 combinations through rendered Storybook controls with correct markers, computed production tokens, and canvas widths. Builds and regressions pass. See `ux/reviews/p1-3-storybook-setup-review.md`. |
 | P1.4 | DONE — 2026-08-24 | Shared dependency-free factories now back tag chips/dots, shortcut keycaps, and query/tag suggestion rows. Three stories cover required states and passed 12 Chrome theme/viewport cases plus builds and regressions. See `ux/reviews/p1-4-low-risk-elements-review.md`. |
 | P1.5 | DONE — 2026-08-24 | Storybook loads the axe-based accessibility addon with project-wide `a11y.test: 'error'`. Chrome ran all four Phase 1 stories in light/dark; Storybook-only issues were fixed and three inherited production-token findings remain failing, fingerprinted, owned, and due by Phase 1 exit. See `ux/reviews/p1-5-accessibility-policy-review.md`. |
+| P1.6 | DONE — 2026-08-24 | Production-backed date-picker and sidebar-pill stories cover closed/open, deterministic boundary values, selected/unselected, long-label, and keyboard-focus states. Eight Chrome theme/desktop/mobile cases have no axe violations or overflow; builds and regressions pass. See `ux/reviews/p1-6-date-picker-sidebar-pill-review.md`. |
 
 **Phase 0 status:** DONE — 2026-08-22. All five tasks and all three phase-exit
 criteria are satisfied. The user authorized Phase 1 by instructing the work to continue.
+
+**Phase 1 task status:** P1.1–P1.6 are DONE. The phase-exit review remains pending until
+AXE-P1.5-01 through AXE-P1.5-03 are resolved and the three exit criteria are revalidated.
 
 Use these statuses in this file when execution begins:
 

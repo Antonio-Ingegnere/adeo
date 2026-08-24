@@ -2221,12 +2221,23 @@ kbd {
 }
 
 .date-picker-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.date-picker-week {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: var(--space-2);
+}
+
+.date-picker-cell {
+  min-width: 0;
 }
 
 .date-picker-day {
+  width: 100%;
   border: none;
   background: transparent;
   padding: 6px 0;
@@ -2246,12 +2257,12 @@ kbd {
 
 .date-picker-day.today {
   font-weight: 700;
-  color: var(--accent-focus);
+  color: var(--accent-text);
 }
 
 .date-picker-day.selected {
   background: var(--accent-focus);
-  color: var(--text-on-accent);
+  color: var(--text-on-bright-accent);
 }
 
 .date-picker-footer {
@@ -2265,7 +2276,7 @@ kbd {
 .date-picker-footer-btn {
   border: none;
   background: transparent;
-  color: var(--accent-focus);
+  color: var(--accent-text);
   font-size: var(--font-xs);
   cursor: pointer;
   padding: 4px 6px;
@@ -2639,6 +2650,10 @@ kbd {
   color: var(--text-hint);
   padding-right: 4px;
   flex-shrink: 0;
+}
+
+.list-pill.selected .tag-count {
+  color: var(--text-secondary);
 }
 
 /* Wherever a pill carries a count, the count owns the auto margin: two auto margins in one

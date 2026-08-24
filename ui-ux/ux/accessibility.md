@@ -55,7 +55,7 @@ approved plan.
 |---|---|---|---|
 | Sidebar list/smart-list/tag order depends on pointer drag-and-drop | `../../src/renderer/pillDnD.ts` sets `draggable` and handles drag events; no keyboard reorder API | High | Responsive work / first touched reorder feature |
 | Several overlays have `role="dialog"` and `aria-modal` but no explicit accessible-name relationship | `../../index.html`: edit, list, smart-list, tag, and repeat overlays | High | First approved dialog accessibility task after rollback |
-| Date picker exposes a grid of buttons without calendar/grid semantics or explicit previous/next labels | `../../src/renderer/datepicker.ts` | Medium | P1.6 story and accessibility review |
+| Date-picker day and footer targets remain below the documented 44px primary touch target | `../../styles.css`: `.date-picker-day` and `.date-picker-footer-btn` | Medium | P5.4 responsive implementation |
 | Task drag handle is a hover-revealed draggable span | `../../src/renderer/tasks.ts` and `../../styles.css` | Medium | P4 keyboard/visual coverage; responsive redesign |
 | Focus restoration is flow-specific and not centralized for every overlay | Modal open/close functions in `modals.ts`, `index.ts`, and `shortcutsHelp.ts` | Medium | Review per dialog after rollback |
 | Story axe scans are local-only; renderer/Electron keyboard suites and accessibility CI do not exist | `.storybook/main.ts` loads the axe-based addon, but `package.json` has no renderer/Electron UI test command | High | P4.1, P4.4, and P4.6 |

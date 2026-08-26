@@ -1,0 +1,269 @@
+/* Concept-only styling for the overdue-task exploration.
+   Nothing here is production CSS: every rule is scoped under an `.ovd-*` concept class so the
+   production `.task-row` markup rendered by `production-task-preview.ts` stays byte-identical
+   until a treatment class is added on top of it. Spacing uses the token scale. */
+
+/* ---------------------------------------------------------------- board chrome */
+
+.ovd-board {
+  min-height: 100vh;
+  padding: var(--space-32);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ovd-board__inner {
+  max-width: 1180px;
+  margin: var(--space-0) auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.ovd-board h1,
+.ovd-board h2,
+.ovd-board h3,
+.ovd-board p,
+.ovd-board ul {
+  margin: var(--space-0);
+}
+
+.ovd-board ul {
+  padding-left: var(--space-20);
+}
+
+.ovd-eyebrow {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ovd-board__header h1 {
+  margin-top: var(--space-4);
+  font-size: var(--font-2xl);
+}
+
+.ovd-board__header p {
+  max-width: 720px;
+  margin-top: var(--space-8);
+  color: var(--text-muted);
+  font-size: var(--font-m);
+  line-height: 1.5;
+}
+
+.ovd-notice {
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--font-s);
+  line-height: 1.5;
+}
+
+.ovd-card {
+  min-width: 0;
+  padding: var(--space-20);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.ovd-card > * + * {
+  margin-top: var(--space-16);
+}
+
+.ovd-card h2 {
+  color: var(--text-heading);
+  font-size: var(--font-xl);
+}
+
+.ovd-card h3 {
+  color: var(--text-heading);
+  font-size: var(--font-m);
+}
+
+.ovd-card p,
+.ovd-card li {
+  color: var(--text-secondary);
+  font-size: var(--font-s);
+  line-height: 1.5;
+}
+
+.ovd-notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-16);
+}
+
+.ovd-notes section {
+  min-width: 0;
+  padding: var(--space-12);
+  border-radius: var(--radius-s);
+  background: var(--surface-sunken);
+}
+
+.ovd-notes section > * + * {
+  margin-top: var(--space-6);
+}
+
+.ovd-states {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.ovd-state {
+  min-width: 0;
+  padding: var(--space-12);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+
+.ovd-state > * + * {
+  margin-top: var(--space-10);
+}
+
+.ovd-state__meta {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
+.ovd-compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-16);
+}
+
+.ovd-compare > * {
+  min-width: 0;
+}
+
+/* ------------------------------------------------- A: overdue meta emphasis (text level) */
+
+/* The date itself carries the state: it turns danger-colored and is preceded by a literal
+   "Overdue" word plus a glyph, so the meaning survives without hue. */
+.ovd--meta .task-row.ovd-overdue .task-reminder-text {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.ovd-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  color: var(--danger);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ovd-flag svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.ovd-flag::after {
+  content: '·';
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ------------------------------------------------------- B: overdue chip (chip vocabulary) */
+
+/* Metrics copied from .tag-filter-chip / .template-chip so the chip reads as the same family. */
+.ovd-chip {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border: 1px solid var(--danger);
+  border-radius: 9px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------- C: row rail and tint (row level) */
+
+/* Every row in this variant is indented by the rail width so overdue and normal rows keep one
+   text baseline; only overdue rows paint the rail. Production `.task-row` has no left padding,
+   so adopting this would be a real geometry change and is called out as such in the notes. */
+.ovd--rail .task-row {
+  padding-left: var(--space-8);
+}
+
+.ovd--rail .task-row.ovd-overdue {
+  background: var(--danger-bg);
+  border-radius: var(--radius-s);
+}
+
+.ovd--rail .task-row.ovd-overdue::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  width: 3px;
+  border-radius: 999px;
+  background: var(--danger);
+}
+
+/* The tint already separates the row, and the divider would cut across it. */
+.ovd--rail .task-row.ovd-overdue::after {
+  display: none;
+}
+
+/* --------------------------------------------------------- shared meta-line correction */
+
+/* Verified, not assumed: production `.task-reminder` is `inline-flex` and its children are
+   `flex-shrink: 0` with `white-space: nowrap`, so the line cannot wrap. Measured at 1440px in
+   the three-column "Compare" story, treatment A's overdue rows overflowed their column
+   (`.task-row` scrollWidth 375 vs clientWidth 315; `.task-reminder` 327 vs 267). Any
+   alternative that adds to that line therefore needs this wrap in production too — it is a
+   cost of A and B, not a free concept fix. C does not need it and is left in scope only so the
+   three alternatives are compared under identical container rules. */
+.ovd-board .task-reminder {
+  flex-wrap: wrap;
+  row-gap: var(--space-4);
+}
+
+/* -------------------------------------------------------------------- responsive board */
+
+@media (max-width: 1024px) {
+  .ovd-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .ovd-board {
+    padding: var(--space-16);
+  }
+
+  .ovd-notes {
+    grid-template-columns: 1fr;
+  }
+
+  .ovd-card {
+    padding: var(--space-16);
+  }
+}
+
+@media (max-width: 480px) {
+  .ovd-board {
+    padding: var(--space-12);
+  }
+
+  .ovd-card {
+    padding: var(--space-12);
+  }
+}

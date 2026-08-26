@@ -252,6 +252,11 @@ A task is complete only when:
 | P2.2 | DONE — REOPENED AND REVALIDATED 2026-08-25 | All three alternatives start from production view, compose, input, suggestion, metadata, Add-control, task, expandable-details, and Markdown styles; only explicitly proposed interaction surfaces diverge. Reopened again the same day, after the user reviewed the P2.1 app-shell rebuild, to mount all three alternatives inside that same shell (real sidebar, view picker, drag-reorder) instead of an isolated card — `app-shell-preview.ts` gained an injectable-composer option for this. Verified with a headless-Chromium pass (claude-in-chrome unavailable in this environment): structure, zero overflow, and interaction checks (view-picker, submit/blank, sidebar drag-reorder with a composer mounted) passed across all four viewport/theme cases for all three alternatives, plus zero axe violations across six light/dark scans and all six build/regression commands. See `ux/reviews/p2-2-quick-add-pilot-review.md`. |
 | P2.3 | DONE — 2026-08-25 | The user reviewed the shell-based P2.2 evidence for all three alternatives and reconfirmed Compact/current-direction. Decision `ux/decisions/0001-quick-add-direction.md` is `APPROVED`, approver Antonio Ingegnere, chosen story ID `concepts-quick-add-pilot--compact-current-direction`. |
 | P2.4 | DONE — 2026-08-26 | The Architect Agent investigated the real compose row and found most of decision 0001 already ships; the gap is a Task list/Priority/Reminder Options disclosure (list first, per the user's explicit answer), two silent-failure fixes (blank submit, save error), and narrow/touch CSS. No production or concept code was copied in; no backend/schema change is required. The user reviewed the plan in a full walkthrough and approved it on 2026-08-26. See `.claude/plans/current.md` (`Implementation Status: APPROVED`). |
+| P3.1 | DONE — 2026-08-26 | `.claude/agents/product-designer.md` defines five modes (requirement review, explore, specify, implementation review, audit), required reading, output paths per mode, and states "only the user approves concepts" explicitly. |
+| P3.2 | DONE — 2026-08-26 | Enforced by two `PreToolUse` hooks (Write/Edit confined to `ui-ux/ux/` inside the repo; Bash default-denies `git` except a read-only allowlist and blocks dependency installs, packaging, launching Electron/the API, and touching any `.db` file) — verified with 26 Bash and 7 Write-path negative-test cases, all passing, after fixing two bugs (scratchpad writes, a heredoc false-positive) surfaced by the P3.3 live dry run. |
+| P3.3 | DONE — 2026-08-26 | Tool list set (Read/Grep/Glob/Write/Edit/Bash plus Chrome MCP tools for Storybook/viewport/console evidence; no deployment/install/DB/git-write tools). A live dry run through the real `product-designer` agent type opened a Storybook concept story, resized to 390px with zero overflow, read real production DOM, read a diff read-only, and was correctly blocked editing `src/`, `git commit`, and `npm run start`. |
+| P3.4 | DONE — 2026-08-26 | Three fixed scenarios (incomplete requirement review, multi-concept exploration, implementation audit) run against the real agent; each independently re-verified against repo state, not taken on the agent's report. All three scored 14/14 against a 12/14 (≥80%) threshold with no hard-gate violation (no production write, no self-approval, no false claim found). Two real accessibility findings (keyboard-inoperable priority menu, `role="menu"` without owned children) and one real layout bug (315px overflow) came out of the scenarios. See `ux/reviews/p3-4-agent-evaluation.md`. The user approved the evaluation on 2026-08-26. |
+| P3.5 | DONE — 2026-08-26 | No rubric item was weak enough to justify a revision per P3.5's own rule, so no prompt change was made. The user approved freezing `.claude/agents/product-designer.md` at v1.0 as-is on 2026-08-26 (evaluated version: the P3.2 hook fixes for scratchpad writes and the heredoc false-positive, verified before P3.4 ran). |
 
 **Phase 0 status:** DONE — 2026-08-22. All five tasks and all three phase-exit
 criteria are satisfied. The user authorized Phase 1 by instructing the work to continue.
@@ -277,6 +282,17 @@ walked through it and approved it. **Phase 2 is complete; both phase-exit criter
 code stayed out of the production bundle throughout, guarded by `npm run check:ux-boundary`).
 Production implementation now proceeds through the existing Implementer Agent workflow, outside
 this UX plan.
+
+**Phase 3 status:** DONE — 2026-08-26. P3.1–P3.5 and both phase-exit criteria are satisfied.
+`.claude/agents/product-designer.md` is frozen at v1.0: five explicit modes, a technical
+(not just prompt-text) boundary via `PreToolUse` hooks restricting writes to `ui-ux/ux/` and
+Bash to a read-only-git/no-install/no-launch/no-database allowlist, verified with 33 negative-test
+cases and a live dry run through the registered agent type. The evaluation suite (P3.4) scored
+14/14 on all three fixed scenarios against a 12/14 threshold, with no hard-gate violation and two
+real production findings (F-01/F-02 in `ux/reviews/p3-4-scenario3-quick-add-audit.md`) surfaced
+and independently re-verified rather than taken on trust. The user approved the evaluation and the
+v1.0 freeze on 2026-08-26. See `ux/reviews/p3-4-agent-evaluation.md`. Phase 4 (automated visual,
+interaction, and accessibility QA) can begin next.
 
 Use these statuses in this file when execution begins:
 

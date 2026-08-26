@@ -51,6 +51,8 @@ import { state } from './state.js';
 import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
+import { setupComposeOptions } from './composeOptions.js';
+import { clearComposeFeedback } from './composeFeedback.js';
 import { activeOverlay, installModalFocusTrap } from './focusTrap.js';
 import {
   installShortcuts,
@@ -735,6 +737,8 @@ const setupEvents = () => {
       addTask();
     }
   });
+  // A stale "Enter a task before adding." should not survive the user starting to fix it.
+  refs.input?.addEventListener('input', () => clearComposeFeedback());
   setupTagInput();
 
   refs.cancelEditBtn?.addEventListener('click', () => closeEditModal());
@@ -1502,6 +1506,14 @@ const setupEvents = () => {
     if (refs.modalListMenu) {
       refs.modalListMenu.style.display = 'none';
     }
+    if (refs.composeListMenu) {
+      refs.composeListMenu.style.display = 'none';
+      refs.composeListPicker?.setAttribute('aria-expanded', 'false');
+    }
+    if (refs.composePriorityMenu) {
+      refs.composePriorityMenu.style.display = 'none';
+      refs.composePriorityPicker?.setAttribute('aria-expanded', 'false');
+    }
     if (refs.tagsMenu) {
       refs.tagsMenu.style.display = 'none';
     }
@@ -1590,6 +1602,7 @@ const init = async () => {
   attachDatePicker(refs.reminderDateInput);
   attachDatePicker(refs.repeatStartDate);
   attachDatePicker(refs.repeatEndDate);
+  setupComposeOptions();
   renderLists();
   renderModalLists();
   renderViewBar();

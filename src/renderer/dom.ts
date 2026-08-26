@@ -124,6 +124,18 @@ export const refs = {
   shortcutsOverlay: byId<HTMLDivElement>('shortcuts-overlay'),
   shortcutsBody: byId<HTMLDivElement>('shortcuts-body'),
   shortcutsClose: byId<HTMLButtonElement>('close-shortcuts'),
+  composeOptionsToggle: byId<HTMLButtonElement>('compose-options-toggle'),
+  composeOptionsPanel: byId<HTMLDivElement>('compose-options-panel'),
+  composeError: byId<HTMLParagraphElement>('compose-error'),
+  composeStatus: byId<HTMLSpanElement>('compose-status'),
+  composeListPicker: byId<HTMLButtonElement>('compose-list-picker'),
+  composeListMenu: byId<HTMLDivElement>('compose-list-menu'),
+  composeListValue: byId<HTMLSpanElement>('compose-list-value'),
+  composePriorityPicker: byId<HTMLButtonElement>('compose-priority-picker'),
+  composePriorityMenu: byId<HTMLDivElement>('compose-priority-menu'),
+  composePriorityChip: byId<HTMLSpanElement>('compose-priority-chip'),
+  composePriorityValue: byId<HTMLSpanElement>('compose-priority-value'),
+  composeReminderDate: byId<HTMLInputElement>('compose-reminder-date'),
 };
 
 export const dropIndicator = (() => {

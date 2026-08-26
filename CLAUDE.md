@@ -40,12 +40,14 @@ npm run package:linux
 ```
 `package:win` expects a bundled Windows embeddable Python under `python/python-3.12.10-embed-amd64/` with site-packages populated; `package:mac` expects standalone Python runtimes under `python/mac-arm64/` and `python/mac-x64/` (from [python-build-standalone](https://github.com/astral-sh/python-build-standalone)) with site-packages populated — see README.md for the full steps. Without these, the packaged app falls back to the system `python3`, which typically lacks `fastapi` and fails to start (now surfaced via an error dialog instead of a silent windowless hang, see `src/main.ts`'s `app.whenReady()` handler).
 
-There is no general test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are two self-test scripts over the pure, dom-free modules plus one isolated Electron safety test:
+There is no general test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are two self-test scripts over the pure, dom-free modules plus two isolated Electron safety tests:
 ```
 node scripts/query-selftest.mjs      # query parsing/compilation, smart-list templates
 node scripts/shortcuts-selftest.mjs  # shortcut key grammar, default keymap integrity
 npm run test:isolation               # builds, uses temp data, proves real data unchanged
+npm run test:quick-add               # builds, uses temp data, exercises the compose row's Options disclosure
 ```
+Both isolated Electron runs share one definition of "safe launch" — `scripts/lib/isolated-electron.mjs` — rather than each hand-rolling the `ADEO_UI_TEST` environment and the byte-for-byte protected-file guarantee.
 
 ## Architecture
 
@@ -159,3 +161,16 @@ Adding a task while a query is in the bar seeds the new task from **the query on
 Where the task lands when the query does not name exactly one list: `state.selectedListId`, i.e. the list the view was in underneath the smart list (All lists ⇒ unfiled). A list named in the query that no longer exists is never recreated — it is reported and the fallback applies. A *tag* named in the query that does not exist yet **is** created, the same way typing `#todo` in the add-task input would, so a smart list written before its tag exists still produces a task that lands in it.
 
 `POST /tasks` accepts optional `priority`/`reminderDate`/`reminderTime`/`repeatRule`/`repeatStart` for this; they were previously hardcoded to defaults.
+
+### Quick Add options
+The compose row's **Options** disclosure (`#compose-options-toggle` / `#compose-options-panel`, `src/renderer/composeOptions.ts`) exposes Task list, Priority and Reminder date for the *next* task, without turning the add field into a command syntax. It is collapsed static markup in `index.html`, not generated — `refs` in `dom.ts` resolves at import (`byId` runs once), so anything not present at load time is `null` forever.
+
+`state.composeListId` is tri-state (`undefined | null | number`), unlike the edit dialog's `modalSelectedListId`: `undefined` means untouched (inherit whatever the view/template would already send the task to), `null` means the user explicitly chose "No list", and a number is an explicit list. Two states are not enough — the picker needs the same explicit "No list" the edit dialog's list field offers, and that has to stay distinguishable from never having opened Options at all. While untouched, the trigger reads **Current list** rather than calling `renderListOptions` (which only knows `number | null` and would show "No list" as if it had already been chosen).
+
+Compose values beat everything else: `addTask()` (`actions.ts`) resolves the destination list as `state.composeListId ?? resolved.listId ?? state.selectedListId` (compose beats the running smart list's `list:` term beats the sidebar selection — each a more specific statement of intent than the last), and builds the task's seed as `{ ...templateSeed(template), ...composeSeed() }` so an explicit priority/reminder wins field-by-field over what the query would have derived.
+
+`renderTemplateHints()` (`activeSmartList.ts`) stays the **only** "what will the next task get" summary — no second one was added. It already hid itself when there was no search and no template, reasoning that the view picker above names the destination; that reasoning only holds for priority and reminder, which never change the destination. A compose list override does change it, silently, the same way a running search already does, so the row now also shows itself — with a destination chip — whenever `composeListId !== undefined`, even with nothing running.
+
+Escape closes exactly one surface per press, each layer `stopPropagation()`-ing so only one thing closes: the tag suggestion menu, then the reminder date popover (owned entirely by `datepicker.ts`), then the compose list menu, then the compose priority menu, then the Options panel itself — in that order, each restoring focus to its own trigger. Enter never opens or is swallowed by Options; it only ever submits from `#message-input` or activates a control inside the panel.
+
+Blank submit (`actions.ts`) is checked **before** any tag is created — reordered from the original behaviour, where submitting only `#tag` text created the tag and silently added nothing. A blank submit is now a true no-op: `Enter a task before adding.`, plus focus back to the field even when Add was clicked. A recoverable save failure (`{ error }` or a thrown IPC error) preserves the whole draft — text, pending tags, chosen Options — and shows `Couldn't add the task. Your draft is kept — try Add again.`; the server's own error text is never surfaced. Both messages live in `#compose-error` (`role="alert"`); success is announced only to assistive tech via `#compose-status` (`role="status"`), since the new task row is already the visible confirmation.

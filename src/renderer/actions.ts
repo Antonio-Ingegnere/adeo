@@ -1,4 +1,4 @@
-import type { Tag, Task } from '../types';
+import type { Tag, Task, TaskSeed } from '../types';
 import {
   activeTemplate,
   missingTemplateTagNames,
@@ -15,6 +15,8 @@ import { renderShortcutHints } from './shortcutHints.js';
 import { renderTasks } from './tasks.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
+import { composeSeed, resetComposeOptions } from './composeOptions.js';
+import { announceComposeSuccess, showComposeError } from './composeFeedback.js';
 
 const INLINE_TAG_RE = /(^|\s)#([A-Za-z0-9_-]+)/g;
 
@@ -23,12 +25,22 @@ export const addTask = async () => {
   if (!input) return;
   const raw = input.value;
 
-  const tagIds = [...state.pendingTagIds];
   const tokenNames: string[] = [];
   const stripped = raw.replace(INLINE_TAG_RE, (_match, lead: string, name: string) => {
     tokenNames.push(name);
     return lead;
   });
+  const text = stripped.replace(/\s+/g, ' ').trim();
+
+  // Checked before anything is created: a blank submit must be a true no-op, not a task that
+  // silently fails to appear alongside a tag that silently does.
+  if (!text) {
+    showComposeError('Enter a task before adding.');
+    input.focus();
+    return;
+  }
+
+  const tagIds = [...state.pendingTagIds];
 
   // a smart list can name a tag that does not exist yet; create it the same way an inline
   // #token would, so "add a task to this smart list" works on one written ahead of time
@@ -54,34 +66,34 @@ export const addTask = async () => {
     }
   }
 
-  const text = stripped.replace(/\s+/g, ' ').trim();
-  if (!text) {
-    if (tokenNames.length) {
-      renderTags();
-    }
-    return;
-  }
-
-  // the smart list's list wins over the sidebar selection: it is the more specific statement of
-  // where the user means this task to go
+  // the smart list's list wins over the sidebar selection, and an explicit compose choice wins
+  // over both -- each is a more specific statement of where the user means this task to go
   const resolved = template ? resolveTemplateNames(template) : null;
   const listId =
-    resolved && resolved.listId !== undefined
-      ? resolved.listId
-      : state.selectedListId;
+    state.composeListId !== undefined
+      ? state.composeListId
+      : resolved && resolved.listId !== undefined
+        ? resolved.listId
+        : state.selectedListId;
   // tags the smart list names that already existed; the rest were just created above
   resolved?.tagIds.forEach((id) => {
     if (!tagIds.includes(id)) tagIds.push(id);
   });
 
+  // an explicit Options value beats the template-derived one, field by field
+  const mergedSeed: TaskSeed = { ...templateSeed(template), ...composeSeed() };
+  if (mergedSeed.repeatRule && mergedSeed.reminderDate) {
+    // templateSeed derives repeatStart from *its own* reminderDate/today; if a compose
+    // reminder date just overrode that field, repeatStart has to follow it or the two disagree.
+    mergedSeed.repeatStart = mergedSeed.reminderDate;
+  }
+  const seed = Object.keys(mergedSeed).length ? mergedSeed : undefined;
+
   try {
-    const createdTask = await window.electronAPI.addTask(
-      text,
-      listId,
-      tagIds,
-      templateSeed(template)
-    );
+    const createdTask = await window.electronAPI.addTask(text, listId, tagIds, seed);
     if (!createdTask || (createdTask as any).error) {
+      showComposeError('Couldn’t add the task. Your draft is kept — try Add again.');
+      input.focus();
       return;
     }
 
@@ -93,15 +105,20 @@ export const addTask = async () => {
     state.pendingTagIds = [];
     renderPendingTags();
     // forced: creating a named-but-missing tag changes what is still unapplied, and the query
-    // the hints memoize on has not moved
+    // the hints memoize on has not moved; resetComposeOptions() below repaints once more with
+    // the options cleared, so this is the pre-reset state and that is the post-reset state.
     renderTemplateHints(true);
+    resetComposeOptions();
     input.value = '';
     input.focus();
+    announceComposeSuccess(text);
     // the title carries the search result count, which is now one out of date
     renderViewBar();
     renderTasks();
   } catch (error) {
     console.error('Failed to add task', error);
+    showComposeError('Couldn’t add the task. Your draft is kept — try Add again.');
+    input.focus();
   }
 };
 

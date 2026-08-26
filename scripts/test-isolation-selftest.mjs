@@ -8,10 +8,17 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
+import {
+  normalUserDataDir,
+  createProtectedFilesGuard,
+  resolvePythonBin,
+  createIsolatedPaths,
+  isolatedEnvironment as buildIsolatedEnvironment,
+  cleanupTempRoot,
+} from './lib/isolated-electron.mjs';
 
 const require = createRequire(import.meta.url);
 const electronExecutable = require('electron');
@@ -24,53 +31,7 @@ const check = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
-const normalUserDataDir = () => {
-  if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support', 'Adeo');
-  }
-  if (process.platform === 'win32') {
-    return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Adeo');
-  }
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'Adeo');
-};
-
-const protectedPaths = (() => {
-  const userData = normalUserDataDir();
-  const database = path.join(userData, 'tasks.db');
-  return [
-    database,
-    `${database}-wal`,
-    `${database}-shm`,
-    `${database}-journal`,
-    path.join(userData, 'settings.json'),
-  ];
-})();
-
-const snapshotFile = (filePath) =>
-  fs.existsSync(filePath)
-    ? { exists: true, bytes: fs.readFileSync(filePath) }
-    : { exists: false, bytes: null };
-
-const protectedBefore = new Map(protectedPaths.map((filePath) => [filePath, snapshotFile(filePath)]));
-
-const assertProtectedFilesUnchanged = () => {
-  for (const filePath of protectedPaths) {
-    const before = protectedBefore.get(filePath);
-    const after = snapshotFile(filePath);
-    check(before.exists === after.exists, `Protected file existence changed: ${filePath}`);
-    if (before.exists && after.exists) {
-      check(before.bytes.equals(after.bytes), `Protected file bytes changed: ${filePath}`);
-    }
-  }
-};
-
-const cleanEnvironment = () => {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter((entry) => typeof entry[1] === 'string'),
-  );
-  delete env.ADEO_API_URL;
-  return env;
-};
+const assertProtectedFilesUnchanged = createProtectedFilesGuard();
 
 const runElectronProcess = (env, bootstrapUserData, timeoutMs = 10_000) =>
   new Promise((resolve, reject) => {
@@ -100,28 +61,12 @@ const runElectronProcess = (env, bootstrapUserData, timeoutMs = 10_000) =>
     });
   });
 
-const pythonBin = fs.existsSync(path.join(repoRoot, '.venv', 'bin', 'python'))
-  ? path.join(repoRoot, '.venv', 'bin', 'python')
-  : process.platform === 'win32'
-    ? 'python'
-    : 'python3';
+const pythonBin = resolvePythonBin(repoRoot);
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'adeo-ui-test-'));
-const isolatedUserData = path.join(tempRoot, 'user data');
-const isolatedDataDir = path.join(tempRoot, 'data');
-const isolatedDatabase = path.join(isolatedDataDir, 'tasks.db');
-const bootstrapUserData = path.join(tempRoot, 'electron bootstrap');
-fs.mkdirSync(isolatedUserData, { recursive: true });
-fs.mkdirSync(isolatedDataDir, { recursive: true });
-fs.mkdirSync(bootstrapUserData, { recursive: true });
+const { tempRoot, isolatedUserData, isolatedDatabase, bootstrapUserData } = createIsolatedPaths();
 
-const isolatedEnvironment = () => ({
-  ...cleanEnvironment(),
-  ADEO_UI_TEST: '1',
-  ADEO_USER_DATA_DIR: isolatedUserData,
-  ADEO_DB_PATH: isolatedDatabase,
-  ADEO_PYTHON_BIN: pythonBin,
-});
+const isolatedEnvironment = () =>
+  buildIsolatedEnvironment({ isolatedUserData, isolatedDatabase, pythonBin });
 
 let electronApp = null;
 let failure = null;
@@ -247,18 +192,13 @@ try {
   }
 
   try {
-    assertProtectedFilesUnchanged();
+    assertProtectedFilesUnchanged(check);
   } catch (protectedError) {
     failure ??= protectedError;
   }
 
   try {
-    const resolvedTemp = path.resolve(tempRoot);
-    const tempBase = `${path.resolve(os.tmpdir())}${path.sep}`;
-    if (!resolvedTemp.startsWith(tempBase)) {
-      throw new Error('Refusing to clean a temp path outside os.tmpdir()');
-    }
-    fs.rmSync(resolvedTemp, { recursive: true, force: true });
+    cleanupTempRoot(tempRoot);
   } catch (cleanupError) {
     failure ??= cleanupError;
   }

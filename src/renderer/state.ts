@@ -71,6 +71,22 @@ export type UIState = {
   timeFormat: '12h' | '24h';
   dateFormat: string;
   theme: Theme;
+  /**
+   * The compose row's own draft metadata (Quick Add "Options"), distinct from the edit dialog's
+   * modal* fields above: these describe the *next* task to be created from #message-input, not a
+   * task being edited. Cleared on a successful add (resetComposeOptions), preserved on a blank
+   * submit or a save failure so the draft is not lost.
+   */
+  composePriority: Task['priority'];
+  composeReminderDate: string | null;
+  /**
+   * Tri-state, unlike modalSelectedListId: undefined means "not overridden" -- inherit whatever
+   * the view/template would already send the task to. null means the user explicitly picked
+   * "No list" in Options. A number means the user explicitly picked that list. Collapsing
+   * undefined into null would make an explicit "No list" indistinguishable from never having
+   * opened Options at all.
+   */
+  composeListId: number | null | undefined;
 };
 
 export const state: UIState = {
@@ -116,4 +132,7 @@ export const state: UIState = {
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
   theme: 'system',
+  composePriority: 'none',
+  composeReminderDate: null,
+  composeListId: undefined,
 };

@@ -224,6 +224,62 @@
                 </svg>
               </button>
             </div>
+            <!-- Static markup: `refs` in dom.ts resolves at import (`byId` runs once), so any
+                 element not present in this file at load time would be null forever. -->
+            <div class="compose-options">
+              <button id="compose-options-toggle" type="button" class="view-bar-action compose-options-toggle"
+                aria-expanded="false" aria-controls="compose-options-panel">Options</button>
+              <p id="compose-error" class="compose-error" role="alert"></p>
+              <span id="compose-status" class="visually-hidden" role="status" aria-live="polite"></span>
+            </div>
+            <div id="compose-options-panel" class="compose-options-panel" hidden>
+              <div class="compose-option">
+                <p class="compose-option-label" id="compose-list-label">Task list</p>
+                <div class="modal-list-select-wrap reminder-select-wrap">
+                  <button id="compose-list-picker" class="reminder-picker" type="button"
+                    aria-haspopup="menu" aria-expanded="false"
+                    aria-labelledby="compose-list-label compose-list-value">
+                    <span id="compose-list-value">Current list</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
+                  <div id="compose-list-menu" class="modal-list-menu" role="menu"></div>
+                </div>
+              </div>
+              <div class="compose-option">
+                <p class="compose-option-label" id="compose-priority-label">Priority</p>
+                <div class="priority-select-wrap">
+                  <button id="compose-priority-picker" class="priority-picker" type="button"
+                    aria-haspopup="menu" aria-expanded="false"
+                    aria-labelledby="compose-priority-label compose-priority-value">
+                    <span id="compose-priority-chip" class="priority-chip" aria-hidden="true"></span>
+                    <span id="compose-priority-value">None</span>
+                    <span class="priority-caret">▾</span>
+                  </button>
+                  <div id="compose-priority-menu" class="priority-menu" role="menu">
+                    <div class="priority-menu-item" data-value="none">
+                      <span class="priority-chip priority-chip--none" aria-hidden="true"></span>
+                      <span>None</span>
+                    </div>
+                    <div class="priority-menu-item" data-value="low">
+                      <span class="priority-chip priority-chip--low" aria-hidden="true"></span>
+                      <span>Low</span>
+                    </div>
+                    <div class="priority-menu-item" data-value="medium">
+                      <span class="priority-chip priority-chip--medium" aria-hidden="true"></span>
+                      <span>Medium</span>
+                    </div>
+                    <div class="priority-menu-item" data-value="high">
+                      <span class="priority-chip priority-chip--high" aria-hidden="true"></span>
+                      <span>High</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="compose-option">
+                <label for="compose-reminder-date" class="compose-option-label">Reminder</label>
+                <input id="compose-reminder-date" type="date" class="reminder-date-input" />
+              </div>
+            </div>
           </div>
           <div id="add-task-tags" class="add-task-tags"></div>
           <!-- non-tag defaults derived from the running smart list, plus the note listing

@@ -2751,6 +2751,77 @@ kbd {
   border-color: var(--border-strong);
 }
 
+/* Quick Add "Options" disclosure -- see CLAUDE.md "Quick Add options" for why the panel is
+   static markup and why the compose row's own values beat the smart-list template. */
+.compose-options {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.compose-options-toggle[data-active='true'] {
+  background: var(--surface-selected);
+  color: var(--text-body);
+}
+
+.compose-options-panel {
+  display: flex;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+  padding: var(--space-8) var(--space-0);
+}
+
+/* load-bearing: .compose-options-panel's own flex display beats [hidden] on specificity, so a
+   collapsed panel would otherwise stay laid out and in the tab order. */
+.compose-options-panel[hidden] {
+  display: none;
+}
+
+.compose-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.compose-option-label {
+  font-size: var(--font-xs);
+  color: var(--text-hint);
+  margin: 0;
+}
+
+.compose-error {
+  color: var(--danger);
+  font-size: var(--font-xs);
+  margin: 0;
+}
+
+.compose-error:empty {
+  display: none;
+}
+
+/* Scoped to Quick Add's own controls only -- whole-app narrow/touch layout is P5.4's. */
+@media (max-width: 480px) {
+  #add-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .compose-options-toggle,
+  .compose-options-panel .priority-picker,
+  .compose-options-panel .reminder-picker,
+  .compose-options-panel .date-picker-trigger {
+    min-height: 44px;
+  }
+
+  .compose-options-panel {
+    flex-direction: column;
+  }
+
+  .add-task-template {
+    flex-wrap: wrap;
+  }
+}
+
 .tag-suggest-menu {
   position: absolute;
   top: calc(100% + 4px);

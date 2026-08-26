@@ -7,6 +7,7 @@ import { deriveTemplate } from './smartListTemplate.js';
 import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
 import { paintTagChip } from './tagColor.js';
+import { formatDate } from './helpers.js';
 
 /**
  * Derived, never stored. A smart list is *running* iff the search bar currently holds exactly
@@ -199,13 +200,17 @@ export const renderTemplateHints = (force = false) => {
   const container = refs.addTaskTemplate;
   if (!container) return;
   const searching = Boolean(state.searchQuery.trim());
-  const key = `${state.searchMode}|${searching ? state.searchQuery.trim() : ''}|${state.selectedListId}`;
+  const key = `${state.searchMode}|${searching ? state.searchQuery.trim() : ''}|${state.selectedListId}|${state.composePriority}|${state.composeReminderDate}|${state.composeListId}`;
   if (!force && key === lastHintQuery) return;
   lastHintQuery = key;
   container.innerHTML = '';
 
   const template = activeTemplate();
-  if (!template && !searching) {
+  const hasComposeMetadata =
+    state.composePriority !== 'none' ||
+    state.composeReminderDate !== null ||
+    state.composeListId !== undefined;
+  if (!template && !searching && !hasComposeMetadata) {
     // the view is a plain list, and the picker above already names it
     container.style.display = 'none';
     return;
@@ -214,39 +219,59 @@ export const renderTemplateHints = (force = false) => {
 
   const { missing } = template ? resolveTemplateNames(template) : { missing: [] as string[] };
 
-  // While a search is up the picker names the search, not a list, so this is the only place
-  // left that can say where the next task will land -- and it always says it.
-  if (template?.listName === null) {
-    container.appendChild(chip('No list'));
-  } else if (template?.listName !== undefined && !missing.length) {
-    container.appendChild(chip(template.listName));
-  } else {
-    const fallback = state.lists.find((l) => l.id === state.selectedListId);
-    container.appendChild(chip(fallback ? fallback.name : 'No list'));
+  // Destination: unchanged while a search/template is running -- the picker names the search,
+  // not a list, so this stays the only place that can say where the task will land. A compose
+  // override (the more specific statement of intent) replaces the template-derived value for
+  // the same field. With nothing running, the picker still names the destination correctly
+  // *unless* composeListId has been explicitly set, in which case the picker is now wrong and
+  // this row has to say so instead.
+  if (template || searching || state.composeListId !== undefined) {
+    if (state.composeListId !== undefined) {
+      const list = state.composeListId === null ? null : state.lists.find((l) => l.id === state.composeListId);
+      container.appendChild(chip(state.composeListId === null ? 'No list' : list ? list.name : 'No list'));
+    } else if (template?.listName === null) {
+      container.appendChild(chip('No list'));
+    } else if (template?.listName !== undefined && !missing.length) {
+      container.appendChild(chip(template.listName));
+    } else if (template || searching) {
+      const fallback = state.lists.find((l) => l.id === state.selectedListId);
+      container.appendChild(chip(fallback ? fallback.name : 'No list'));
+    }
   }
-  if (!template) return;
-  // every tag the query names, whether it exists yet or not — addTask creates missing ones,
-  // so leaving them out would understate what the new task is about to get
-  template.tagNames.forEach((name) => {
-    const known = state.tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
-    // the tag-chip ink assumes a pastel fill; a tag that does not exist yet has none, so it
-    // keeps the plain chip styling until it is created
-    const el = chip(`#${name}`, known ? 'template-chip-tag' : '');
-    if (known) paintTagChip(el, known.color);
-    container.appendChild(el);
-  });
-  if (template.priority) {
-    const el = chip(template.priority[0].toUpperCase() + template.priority.slice(1));
-    el.dataset.priority = template.priority;
+
+  if (template) {
+    // every tag the query names, whether it exists yet or not — addTask creates missing ones,
+    // so leaving them out would understate what the new task is about to get
+    template.tagNames.forEach((name) => {
+      const known = state.tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+      // the tag-chip ink assumes a pastel fill; a tag that does not exist yet has none, so it
+      // keeps the plain chip styling until it is created
+      const el = chip(`#${name}`, known ? 'template-chip-tag' : '');
+      if (known) paintTagChip(el, known.color);
+      container.appendChild(el);
+    });
+  }
+
+  // Priority and reminder: a compose value replaces the template-derived chip for the same
+  // field -- never both.
+  const effectivePriority = state.composePriority !== 'none' ? state.composePriority : template?.priority;
+  if (effectivePriority && effectivePriority !== 'none') {
+    const el = chip(effectivePriority[0].toUpperCase() + effectivePriority.slice(1));
+    el.dataset.priority = effectivePriority;
     container.appendChild(el);
   }
-  if (template.due) container.appendChild(chip(`Due ${resolveDue(template.due)}`));
-  if (template.repeat) container.appendChild(chip(`Repeats ${template.repeat}`));
+  if (state.composeReminderDate) {
+    container.appendChild(chip(`Reminder ${formatDate(state.composeReminderDate)}`));
+  } else if (template?.due) {
+    container.appendChild(chip(`Due ${resolveDue(template.due)}`));
+  }
+
+  if (template?.repeat) container.appendChild(chip(`Repeats ${template.repeat}`));
   // a task created already complete vanishes on the spot while Show completed is off, so this
   // is the one chip that has to be there before the fact rather than explaining it after
-  if (template.done) container.appendChild(chip('Done'));
+  if (template?.done) container.appendChild(chip('Done'));
 
-  const notApplied = [...template.skipped, ...missing];
+  const notApplied = template ? [...template.skipped, ...missing] : [];
   if (notApplied.length) {
     const note = document.createElement('span');
     note.className = 'template-warning';

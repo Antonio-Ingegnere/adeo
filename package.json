@@ -13,6 +13,7 @@
     "storybook": "storybook dev -p 6006 --no-open --disable-telemetry --no-version-updates",
     "storybook:build": "npm run check:ux-boundary && storybook build --output-dir storybook-static --disable-telemetry",
     "test:isolation": "npm run build && node scripts/test-isolation-selftest.mjs",
+    "test:quick-add": "npm run build && node scripts/quick-add-selftest.mjs",
     "package:mac": "bash scripts/package-mac.sh",
     "package:win": "npm run build && electron-builder --win --x64",
     "package:linux": "npm run build && electron-builder --linux"

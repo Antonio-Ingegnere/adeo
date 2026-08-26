@@ -147,57 +147,11 @@
   font-size: var(--font-m);
 }
 
-.concept-fixture__tasks ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.concept-fixture__tasks li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-4) var(--space-8);
-  padding: var(--space-8);
-  border: 1px solid var(--border-faint);
-  border-left: 3px solid var(--priority-border-none);
-  border-radius: var(--radius-s);
-  background: var(--surface-sunken);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-.concept-fixture__tasks li[data-priority='low'] {
-  border-left-color: var(--priority-border-low);
-}
-
-.concept-fixture__tasks li[data-priority='medium'] {
-  border-left-color: var(--priority-border-medium);
-}
-
-.concept-fixture__tasks li[data-priority='high'] {
-  border-left-color: var(--priority-border-high);
-}
-
-.concept-fixture__task-title {
-  color: var(--text);
-  font-size: var(--font-s);
-  font-weight: 700;
-}
-
-.concept-fixture__empty,
 .concept-fixture__error {
   padding: var(--space-10);
   border-radius: var(--radius-s);
   font-size: var(--font-s);
   line-height: 1.4;
-}
-
-.concept-fixture__empty {
-  border: 1px dashed var(--border);
-  color: var(--text-muted);
 }
 
 .concept-fixture__error {
@@ -206,9 +160,44 @@
   color: var(--danger);
 }
 
+.concept-shell-frame {
+  max-width: 1180px;
+  height: 640px;
+  margin: var(--space-0) auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.concept-shell-frame .content-grid {
+  height: 100%;
+}
+
+/* Lets the composer-slot wrapper in app-shell-preview.ts participate in .compose-block's own
+   layout instead of introducing an extra box; loaded here since both fixture-catalog and the
+   Quick Add pilot mount the shared shell. */
+.compose-block-composer-slot {
+  display: contents;
+}
+
 @media (max-width: 1024px) {
   .concept-catalog__grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .concept-shell-frame {
+    height: auto;
+    max-height: 720px;
+    overflow-y: auto;
+  }
+
+  .concept-shell-frame .content-grid {
+    grid-template-columns: 1fr;
+    height: auto;
   }
 }
 

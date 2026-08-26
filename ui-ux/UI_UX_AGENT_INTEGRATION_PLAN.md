@@ -248,7 +248,10 @@ A task is complete only when:
 | P1.4 | DONE — 2026-08-24 | Shared dependency-free factories now back tag chips/dots, shortcut keycaps, and query/tag suggestion rows. Three stories cover required states and passed 12 Chrome theme/viewport cases plus builds and regressions. See `ux/reviews/p1-4-low-risk-elements-review.md`. |
 | P1.5 | DONE — 2026-08-24 | Storybook loads the axe-based accessibility addon with project-wide `a11y.test: 'error'`. The three inherited production-token findings recorded by P1.5 were resolved at the Phase 1 exit, and all six Phase 1 stories now pass axe in both themes. See `ux/reviews/p1-5-accessibility-policy-review.md` and `ux/reviews/phase-1-exit-review.md`. |
 | P1.6 | DONE — 2026-08-24 | Production-backed date-picker and sidebar-pill stories cover closed/open, deterministic boundary values, selected/unselected, long-label, and keyboard-focus states. Eight Chrome theme/desktop/mobile cases have no axe violations or overflow; builds and regressions pass. See `ux/reviews/p1-6-date-picker-sidebar-pill-review.md`. |
-| P2.1 | DONE — 2026-08-24 | `Concepts/Fixture catalog` renders frozen populated, empty, and recoverable-error fixtures with production tokens/components. Both builds enforce the one-way UX dependency guard; Chrome passed eight theme/viewport cases without overflow and both theme axe scans have zero violations. See `ux/reviews/p2-1-concept-fixtures-review.md`. |
+| P2.1 | DONE — REOPENED AND REVALIDATED 2026-08-25 | P2.1 and P2.2 share one production-aligned task preview, including circular priorities, task order, tags, completion, empty state, deterministic expanded/collapsed details, and visible production Markdown formatting. Reopened again the same day because the catalog still under-represented Adeo's feature surface: added a new `AppShell` story with the real Lists/Smart lists/Tags sidebar, multiple lists, a smart list, an "All lists" aggregate, recurring-task/reminder badges, working sidebar drag-reorder, a view-picker dropdown, and arrow-key task navigation. Verified with a headless-Chromium pass (the claude-in-chrome tool was unavailable in this environment): zero overflow, zero axe violations, and passing structure/interaction checks across all four required viewport/theme cases, plus all six build/regression commands. Task-row drag-and-drop stays a documented, deliberate gap. See `ux/reviews/p2-1-concept-fixtures-review.md`. |
+| P2.2 | DONE — REOPENED AND REVALIDATED 2026-08-25 | All three alternatives start from production view, compose, input, suggestion, metadata, Add-control, task, expandable-details, and Markdown styles; only explicitly proposed interaction surfaces diverge. Reopened again the same day, after the user reviewed the P2.1 app-shell rebuild, to mount all three alternatives inside that same shell (real sidebar, view picker, drag-reorder) instead of an isolated card — `app-shell-preview.ts` gained an injectable-composer option for this. Verified with a headless-Chromium pass (claude-in-chrome unavailable in this environment): structure, zero overflow, and interaction checks (view-picker, submit/blank, sidebar drag-reorder with a composer mounted) passed across all four viewport/theme cases for all three alternatives, plus zero axe violations across six light/dark scans and all six build/regression commands. See `ux/reviews/p2-2-quick-add-pilot-review.md`. |
+| P2.3 | DONE — 2026-08-25 | The user reviewed the shell-based P2.2 evidence for all three alternatives and reconfirmed Compact/current-direction. Decision `ux/decisions/0001-quick-add-direction.md` is `APPROVED`, approver Antonio Ingegnere, chosen story ID `concepts-quick-add-pilot--compact-current-direction`. |
+| P2.4 | DONE — 2026-08-26 | The Architect Agent investigated the real compose row and found most of decision 0001 already ships; the gap is a Task list/Priority/Reminder Options disclosure (list first, per the user's explicit answer), two silent-failure fixes (blank submit, save error), and narrow/touch CSS. No production or concept code was copied in; no backend/schema change is required. The user reviewed the plan in a full walkthrough and approved it on 2026-08-26. See `.claude/plans/current.md` (`Implementation Status: APPROVED`). |
 
 **Phase 0 status:** DONE — 2026-08-22. All five tasks and all three phase-exit
 criteria are satisfied. The user authorized Phase 1 by instructing the work to continue.
@@ -260,9 +263,20 @@ left protected user data unchanged. See `ux/reviews/phase-1-exit-review.md`. Rev
 completed phase with the user before beginning P2.1. The user authorized Phase 2 by
 instructing the next item to continue on 2026-08-24.
 
-**Phase 2 task status:** P2.1 is DONE — 2026-08-24. P2.2 is the next gate: create and
-compare the compact/current-direction, command-style, and touch-first Quick Add concepts
-without changing production code. Phase 2 remains in progress.
+**Phase 2 task status:** P2.1 is DONE — REOPENED AND REVALIDATED 2026-08-25 (twice the same day:
+once for production-style fidelity, once to add app-shell/sidebar, list variety,
+recurring/reminder states, and interaction coverage). P2.2 is DONE — REOPENED AND REVALIDATED
+2026-08-25 (twice the same day: once for production-style fidelity, once to adopt P2.1's expanded
+app-shell context so all three alternatives render inside the real sidebar/view-picker instead of
+an isolated card). P2.3 is DONE — 2026-08-25: the user reviewed the shell-based evidence and
+reconfirmed Compact/current-direction; decision 0001 is `APPROVED`. P2.4 is DONE — 2026-08-26: the
+Architect Agent produced `.claude/plans/current.md` (Task list/Priority/Reminder Options
+disclosure, list-first per the user's answer, plus the blank-submit and save-error fixes), the user
+walked through it and approved it. **Phase 2 is complete; both phase-exit criteria are met**
+(the Quick Add direction moved through concept, user approval, and technical planning; concept
+code stayed out of the production bundle throughout, guarded by `npm run check:ux-boundary`).
+Production implementation now proceeds through the existing Implementer Agent workflow, outside
+this UX plan.
 
 Use these statuses in this file when execution begins:
 

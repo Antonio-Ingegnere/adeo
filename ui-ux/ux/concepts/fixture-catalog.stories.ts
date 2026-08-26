@@ -5,7 +5,9 @@ import {
   createSidebarPill,
   createTagChip,
 } from '../../../src/renderer/uiElements';
-import { conceptFixtureCatalog, type ConceptUiFixture } from './fixtures';
+import { conceptFixtureCatalog, conceptShellFixture, type ConceptUiFixture } from './fixtures';
+import { createProductionTaskPreview } from './production-task-preview';
+import { createAppShellPreview } from './app-shell-preview';
 import './fixture-catalog.css';
 
 const meta: Meta = {
@@ -63,44 +65,29 @@ const createFixtureCard = (fixture: ConceptUiFixture): HTMLElement => {
   const tags = document.createElement('div');
   tags.className = 'concept-fixture__tags';
   tags.setAttribute('role', 'group');
-  tags.setAttribute('aria-label', 'Available tags');
+  tags.setAttribute('aria-label', 'Production task tag samples');
   fixture.availableTags.forEach((tag) => {
     tags.append(
       createTagChip({
-        label: tag.label,
+        label: `#${tag.label}`,
         color: tag.color,
         colorsEnabled: true,
-        ariaLabel: `${tag.label} fixture tag`,
+        ariaLabel: `#${tag.label} fixture tag`,
       }),
     );
   });
 
   const taskSection = document.createElement('section');
-  taskSection.className = 'concept-fixture__tasks';
+  taskSection.className = 'concept-fixture__tasks tasks-section';
   const taskHeading = document.createElement('h3');
-  taskHeading.textContent = 'Task data';
-  taskSection.append(taskHeading);
-
-  if (fixture.tasks.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'concept-fixture__empty';
-    empty.textContent = 'No tasks in this deterministic state.';
-    taskSection.append(empty);
-  } else {
-    const list = document.createElement('ul');
-    fixture.tasks.forEach((task) => {
-      const item = document.createElement('li');
-      item.dataset.priority = task.priority;
-      item.innerHTML = `
-        <span class="concept-fixture__task-title">${task.title}</span>
-        <span>${task.dueLabel}</span>
-        <span>${task.tags.join(', ')}</span>
-        <span>${task.completed ? 'Completed' : 'Open'}</span>
-      `;
-      list.append(item);
-    });
-    taskSection.append(list);
-  }
+  taskHeading.textContent = 'Production task preview';
+  taskSection.append(
+    taskHeading,
+    createProductionTaskPreview({
+      tasks: fixture.tasks,
+      availableTags: fixture.availableTags,
+    }),
+  );
 
   if (fixture.errorMessage) {
     const error = document.createElement('p');
@@ -137,6 +124,43 @@ export const DeterministicStates: Story = {
 
     const grid = page.querySelector<HTMLElement>('.concept-catalog__grid');
     conceptFixtureCatalog.forEach((fixture) => grid?.append(createFixtureCard(fixture)));
+    return page;
+  },
+};
+
+/**
+ * P2.1 reopened 2026-08-25: the flat fixtures above only ever show one list's worth of tasks in
+ * an isolated card, so it never reads as "inside Adeo." This story adds the real sidebar
+ * (Lists/Smart lists/Tags), multiple lists, a smart list, an "All lists" aggregate, and
+ * recurring/reminder task states, with working view switching and sidebar drag-reorder. See
+ * `ui-ux/ux/reviews/p2-1-concept-fixtures-review.md` for the reopened findings.
+ */
+export const AppShell: Story = {
+  render: () => {
+    const theme = document.documentElement.dataset.adeoTheme ?? 'light';
+    const page = document.createElement('main');
+    page.className = 'concept-catalog concept-shell-page';
+    page.dataset.storybookConcept = 'ready';
+    page.innerHTML = `
+      <header class="concept-catalog__header">
+        <div>
+          <p class="concept-catalog__eyebrow">Storybook design lab · not part of Adeo</p>
+          <h1>App shell fixture</h1>
+          <p>
+            The real Adeo sidebar and task view, driven by deterministic fixture data: multiple
+            lists, a smart list, an "All lists" aggregate, recurring tasks, active reminders,
+            sidebar drag-reorder, a working view picker, and arrow-key task navigation.
+          </p>
+        </div>
+        <span class="concept-catalog__theme" data-testid="active-theme">${theme} theme</span>
+      </header>
+    `;
+    const frame = document.createElement('div');
+    frame.className = 'concept-shell-frame';
+    frame.setAttribute('role', 'region');
+    frame.setAttribute('aria-label', 'Adeo app shell preview');
+    frame.append(createAppShellPreview(conceptShellFixture).element);
+    page.append(frame);
     return page;
   },
 };

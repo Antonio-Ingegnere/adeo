@@ -54,7 +54,27 @@ Concept stories live under `concepts/` and appear only beneath Storybook's top-l
 `Concepts` hierarchy. `npm run check:ux-boundary` rejects production imports from this UX
 workspace, and both production and Storybook builds run that guard first.
 The deterministic fixture catalog has the stable story ID
-`concepts-fixture-catalog--deterministic-states`.
+`concepts-fixture-catalog--deterministic-states`. A second story,
+`concepts-fixture-catalog--app-shell`, adds the real Lists/Smart lists/Tags sidebar, multiple
+lists, a smart list, an "All lists" aggregate, recurring-task/reminder states, and working sidebar
+drag-reorder, view-picker switching, and keyboard task navigation — added when P2.1 was reopened a
+second time on 2026-08-25 because the flat catalog didn't represent enough of Adeo's real feature
+surface. See `ux/reviews/p2-1-concept-fixtures-review.md` for the reopened findings.
+The P2.2 Quick Add pilot has three stable review IDs:
+`concepts-quick-add-pilot--compact-current-direction`,
+`concepts-quick-add-pilot--command-style`, and
+`concepts-quick-add-pilot--touch-first`. P2.1 and P2.2 were revalidated after migrating task
+context to one shared production-aligned preview and replacing P2.2's custom task-view shell with
+production view, compose, input, suggestion, metadata, Add, and task classes. Storybook fixture
+controls are explicitly labelled outside Adeo. Tasks with details demonstrate production expanded
+and collapsed double-chevron states plus visible Markdown heading, emphasis, inline-code, list,
+rule, and paragraph rendering. All three alternatives now mount inside the same P2.1 app-shell
+(real Lists/Smart lists/Tags sidebar, working view picker, sidebar drag-reorder) via
+`createAppShellPreview`'s injectable-composer option, added when P2.2 was reopened a second time on
+2026-08-25 — see `ux/reviews/p2-2-quick-add-pilot-review.md` (findings P2.2-F06/F07).
+[UX decision 0001](decisions/0001-quick-add-direction.md) remains `PROPOSED` until the (now
+shell-based) evidence is reviewed. The earlier Compact/current-direction selection is retained as
+history, not active approval.
 
 ## Evidence rules
 

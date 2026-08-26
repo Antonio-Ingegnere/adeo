@@ -1,0 +1,430 @@
+.quick-add-pilot {
+  min-height: 100vh;
+  padding: var(--space-32);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.quick-add-pilot__header,
+.quick-add-pilot__layout {
+  width: min(1280px, 100%);
+  margin: var(--space-0) auto;
+}
+
+.quick-add-pilot__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-24);
+  margin-bottom: var(--space-24);
+}
+
+.quick-add-pilot__header h1,
+.quick-add-pilot__header p,
+.quick-add-notes h2,
+.quick-add-notes h3,
+.quick-add-notes p,
+.quick-add-notes ul,
+.quick-add-notes dl,
+.quick-add-feedback p {
+  margin: var(--space-0);
+}
+
+.quick-add-pilot__eyebrow {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quick-add-pilot__header h1 {
+  margin-top: var(--space-4);
+  color: var(--text-strong);
+  font-size: var(--font-2xl);
+}
+
+.quick-add-pilot__header h1 + p {
+  max-width: 680px;
+  margin-top: var(--space-8);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.quick-add-pilot__theme {
+  flex: none;
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--font-s);
+}
+
+.quick-add-pilot__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+  align-items: start;
+  gap: var(--space-20);
+}
+
+.quick-add-preview,
+.quick-add-notes {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.quick-add-preview {
+  padding: var(--space-20);
+}
+
+.quick-add-state-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-16);
+}
+
+.quick-add-fixture-label {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.quick-add-state-button,
+.quick-add-option,
+.quick-add-touch-control,
+.quick-add-submit {
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.quick-add-state-button {
+  padding: var(--space-6) var(--space-10);
+  font-size: var(--font-s);
+}
+
+.quick-add-state-button[aria-pressed='true'],
+.quick-add-option[aria-pressed='true'],
+.quick-add-touch-control[aria-pressed='true'] {
+  border-color: var(--border-segmented);
+  background: var(--surface-selected);
+  box-shadow: inset 0 0 0 1px var(--border-segmented);
+  font-weight: 700;
+}
+
+/* Frames the shared P2.1 app-shell (sidebar + view-bar + task list) inside the existing
+   .quick-add-preview card. No border/shadow of its own -- the outer card already provides that,
+   and a second boxed edge here would read as two nested cards. */
+.quick-add-shell-frame {
+  min-width: 0;
+  height: 560px;
+  overflow: hidden;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+
+.quick-add-shell-frame .content-grid {
+  height: 100%;
+}
+
+@media (max-width: 1024px) {
+  .quick-add-shell-frame {
+    height: auto;
+    max-height: 640px;
+    overflow-y: auto;
+  }
+
+  .quick-add-shell-frame .content-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+/* Also declared in fixture-catalog.css; kept here too so this story's shell layout does not
+   implicitly depend on that file's CSS having been bundled first. */
+.compose-block-composer-slot {
+  display: contents;
+}
+
+.quick-add-composer {
+  position: relative;
+  min-width: 0;
+}
+
+.quick-add-composer--compact,
+.quick-add-composer--command {
+  display: contents;
+}
+
+.quick-add-composer--touch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+
+.quick-add-composer--touch label {
+  color: var(--text-heading);
+  font-size: var(--font-s);
+  font-weight: 700;
+}
+
+.quick-add-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.quick-add-input::placeholder {
+  color: var(--text-faint);
+}
+
+.quick-add-submit {
+  flex: none;
+  min-height: 40px;
+  padding: var(--space-8) var(--space-16);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--font-m);
+  font-weight: 800;
+}
+
+.quick-add-composer__footer,
+.quick-add-options,
+.quick-add-metadata-summary,
+.quick-add-touch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.quick-add-composer__footer {
+  justify-content: space-between;
+}
+
+.quick-add-option {
+  padding: var(--space-6) var(--space-10);
+  font-size: var(--font-s);
+}
+
+.quick-add-options {
+  padding: var(--space-8);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-s);
+  background: var(--surface-sunken);
+}
+
+.quick-add-menu {
+  display: flex;
+}
+
+.quick-add-menu[hidden],
+.quick-add-options[hidden],
+.quick-add-touch-surface[hidden] {
+  display: none;
+}
+
+.quick-add-command-palette {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.quick-add-meta-chip {
+  white-space: nowrap;
+}
+
+.quick-add-metadata-summary .quick-add-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.quick-add-composer--touch .quick-add-input,
+.quick-add-touch-control,
+.quick-add-submit--touch {
+  min-height: 44px;
+}
+
+.quick-add-composer--touch .quick-add-input {
+  box-sizing: border-box;
+  height: 44px;
+}
+
+.quick-add-composer--touch .quick-add-selected-tags .add-task-tag-chip {
+  min-height: 44px;
+}
+
+.quick-add-touch-control {
+  flex: 1 1 120px;
+  padding: var(--space-10) var(--space-12);
+  font-size: var(--font-m);
+}
+
+.quick-add-touch-surface {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface-sunken);
+}
+
+.quick-add-submit--touch {
+  width: 100%;
+}
+
+.quick-add-feedback {
+  min-height: 20px;
+}
+
+.quick-add-feedback__status,
+.quick-add-feedback__error {
+  margin: var(--space-0);
+  font-size: var(--font-s);
+  line-height: 1.4;
+}
+
+.quick-add-feedback__status:empty {
+  padding: var(--space-0);
+}
+
+.quick-add-feedback__error {
+  color: var(--danger);
+}
+
+.quick-add-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-20);
+}
+
+.quick-add-notes section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.quick-add-notes h2 {
+  color: var(--text-strong);
+  font-size: var(--font-xl);
+}
+
+.quick-add-notes h3 {
+  color: var(--text-heading);
+  font-size: var(--font-m);
+}
+
+.quick-add-notes p,
+.quick-add-notes li,
+.quick-add-notes dd {
+  color: var(--text-muted);
+  font-size: var(--font-s);
+  line-height: 1.5;
+}
+
+.quick-add-notes ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-left: var(--space-20);
+}
+
+.quick-add-notes dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-6) var(--space-10);
+}
+
+.quick-add-notes dt {
+  color: var(--text-heading);
+  font-size: var(--font-s);
+  font-weight: 700;
+}
+
+.quick-add-notes dd {
+  margin: var(--space-0);
+}
+
+@media (max-width: 1024px) {
+  .quick-add-pilot__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-add-notes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-add-notes h2 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .quick-add-pilot {
+    padding: var(--space-16);
+  }
+
+  .quick-add-pilot__header {
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+
+  .quick-add-preview,
+  .quick-add-notes {
+    padding: var(--space-16);
+  }
+
+  .quick-add-notes {
+    display: flex;
+  }
+
+}
+
+@media (max-width: 420px) {
+  .quick-add-pilot {
+    padding: var(--space-12);
+  }
+
+  .quick-add-preview,
+  .quick-add-notes,
+  .quick-add-composer--touch {
+    padding: var(--space-12);
+  }
+
+  .quick-add-state-button {
+    flex: 1 1 auto;
+  }
+
+  .quick-add-touch-actions,
+  .quick-add-touch-surface {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+}

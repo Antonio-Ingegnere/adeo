@@ -134,23 +134,8 @@ export const setupComposeOptions = () => {
   paintComposePriority();
   paintComposeReminder();
 
-  refs.composeListPicker?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const open = !isComposeListMenuOpen();
-    // state.lists can change (a list added/renamed/deleted) any time this stays closed, so the
-    // menu is refreshed on open rather than kept live -- the same lazy-repaint pattern the edit
-    // dialog's own list menu uses (renderModalLists() on openEditModal).
-    if (open) paintComposeListLabel();
-    if (refs.composeListMenu) refs.composeListMenu.style.display = open ? 'flex' : 'none';
-    refs.composeListPicker?.setAttribute('aria-expanded', String(open));
-    syncComposeMetaRow();
-  });
-
-  refs.composeListMenu?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const target = event.target as HTMLElement;
-    const item = target.closest('.modal-list-item') as HTMLElement | null;
-    if (!item) return;
+  // --- shared selection + keyboard for the list and priority menus --------------------------
+  const selectComposeListItem = (item: HTMLElement) => {
     const val = item.dataset.value ?? '';
     state.composeListId = val ? Number(val) : null;
     closeComposeListMenu();
@@ -160,21 +145,9 @@ export const setupComposeOptions = () => {
     paintComposeListLabel();
     renderTemplateHints(true);
     syncComposeMetaRow();
-  });
+  };
 
-  refs.composePriorityPicker?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const open = !isComposePriorityMenuOpen();
-    if (refs.composePriorityMenu) refs.composePriorityMenu.style.display = open ? 'flex' : 'none';
-    refs.composePriorityPicker?.setAttribute('aria-expanded', String(open));
-    syncComposeMetaRow();
-  });
-
-  refs.composePriorityMenu?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const target = event.target as HTMLElement;
-    const item = target.closest('.priority-menu-item') as HTMLElement | null;
-    if (!item) return;
+  const selectComposePriorityItem = (item: HTMLElement) => {
     const val = (item.getAttribute('data-value') as typeof state.composePriority) ?? 'none';
     state.composePriority = val;
     closeComposePriorityMenu();
@@ -182,9 +155,130 @@ export const setupComposeOptions = () => {
     paintComposePriority();
     renderTemplateHints(true);
     syncComposeMetaRow();
+  };
+
+  /** Roving focus (Up/Down/Home/End) plus Enter/Space activation for one open menu. Items
+   *  carry focus themselves -- list rows are <button>s already, priority rows are given
+   *  tabindex -1 when the menu opens -- so this only moves focus and fires the selection.
+   *  preventDefault() on Enter/Space also suppresses a <button>'s synthetic click, so the
+   *  selection never runs twice. Arrow keys reach here because focus sits inside #compose-block,
+   *  where the global list-scoped nav shortcuts are declined. */
+  const wireComposeMenuKeys = (
+    menu: HTMLElement | null,
+    itemSelector: string,
+    select: (item: HTMLElement) => void
+  ) => {
+    menu?.addEventListener('keydown', (event) => {
+      const items = Array.from(menu.querySelectorAll<HTMLElement>(itemSelector));
+      if (items.length === 0) return;
+      const index = items.indexOf(document.activeElement as HTMLElement);
+      let next = -1;
+      switch (event.key) {
+        case 'ArrowDown':
+          next = index < 0 ? 0 : (index + 1) % items.length;
+          break;
+        case 'ArrowUp':
+          next = index < 0 ? items.length - 1 : (index - 1 + items.length) % items.length;
+          break;
+        case 'Home':
+          next = 0;
+          break;
+        case 'End':
+          next = items.length - 1;
+          break;
+        case 'Enter':
+        case ' ':
+          if (index < 0) return;
+          event.preventDefault();
+          select(items[index]);
+          return;
+        default:
+          return;
+      }
+      event.preventDefault();
+      items[next]?.focus();
+    });
+  };
+
+  /** Move focus onto the current value's row (or the first) when a menu opens. */
+  const focusComposeMenu = (menu: HTMLElement | null, itemSelector: string, activeValue: string) => {
+    if (!menu) return;
+    const items = Array.from(menu.querySelectorAll<HTMLElement>(itemSelector));
+    items.forEach((el) => {
+      // <button> rows stay in the Tab order; the priority menu's <div> rows need a tabindex to
+      // be focusable at all, and -1 keeps the menu a single Tab stop (arrows move within it).
+      if (el.tagName !== 'BUTTON' && !el.hasAttribute('tabindex')) el.tabIndex = -1;
+    });
+    const current = items.find((el) => (el.dataset.value ?? '') === activeValue);
+    (current ?? items[0])?.focus();
+  };
+
+  refs.composeListPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = !isComposeListMenuOpen();
+    // Only one of the row's three surfaces is open at a time -- opening this one closes the
+    // other two (their own stopPropagation() keeps the document-level closer from doing it).
+    if (open) {
+      closeComposePriorityMenu();
+      composeDatePicker?.close();
+    }
+    // state.lists can change (a list added/renamed/deleted) any time this stays closed, so the
+    // menu is refreshed on open rather than kept live -- the same lazy-repaint pattern the edit
+    // dialog's own list menu uses (renderModalLists() on openEditModal).
+    if (open) paintComposeListLabel();
+    if (refs.composeListMenu) refs.composeListMenu.style.display = open ? 'flex' : 'none';
+    refs.composeListPicker?.setAttribute('aria-expanded', String(open));
+    if (open) {
+      focusComposeMenu(
+        refs.composeListMenu,
+        '.modal-list-item',
+        state.composeListId != null ? String(state.composeListId) : ''
+      );
+    }
+    syncComposeMetaRow();
   });
 
-  attachDatePicker(refs.composeReminderDate, { accessibleName: 'Reminder' });
+  refs.composeListMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const item = (event.target as HTMLElement).closest('.modal-list-item') as HTMLElement | null;
+    if (item) selectComposeListItem(item);
+  });
+  wireComposeMenuKeys(refs.composeListMenu, '.modal-list-item', selectComposeListItem);
+
+  refs.composePriorityPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = !isComposePriorityMenuOpen();
+    if (open) {
+      closeComposeListMenu();
+      composeDatePicker?.close();
+    }
+    if (refs.composePriorityMenu) refs.composePriorityMenu.style.display = open ? 'flex' : 'none';
+    refs.composePriorityPicker?.setAttribute('aria-expanded', String(open));
+    if (open) {
+      focusComposeMenu(refs.composePriorityMenu, '.priority-menu-item', state.composePriority);
+    }
+    syncComposeMetaRow();
+  });
+
+  refs.composePriorityMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const item = (event.target as HTMLElement).closest('.priority-menu-item') as HTMLElement | null;
+    if (item) selectComposePriorityItem(item);
+  });
+  wireComposeMenuKeys(refs.composePriorityMenu, '.priority-menu-item', selectComposePriorityItem);
+
+  const composeDatePicker = attachDatePicker(refs.composeReminderDate, {
+    accessibleName: 'Reminder',
+  });
+  // Opening the reminder popover closes the list and priority menus. Its own trigger handler
+  // stopPropagation()s, so the document-level closer never sees the click; this runs right
+  // after that handler (registered later on the same element) and drops the other two.
+  composeDatePicker?.trigger.addEventListener('click', () => {
+    if (!composeDatePicker.isOpen()) return;
+    closeComposeListMenu();
+    closeComposePriorityMenu();
+    syncComposeMetaRow();
+  });
   paintComposeReminder(); // the generated .date-picker-trigger now exists
   refs.composeReminderDate?.addEventListener('change', (event) => {
     const val = (event.target as HTMLInputElement).value;

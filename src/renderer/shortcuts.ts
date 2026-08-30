@@ -8,6 +8,7 @@
  */
 
 import { activeOverlay } from './focusTrap.js';
+import { refs } from './dom.js';
 import { isQuerySuggestOpen } from './querySearch.js';
 import { isTagSuggestOpen } from './tagInput.js';
 import { isDatePickerOpen } from './datepicker.js';
@@ -115,6 +116,17 @@ const isTypingTarget = (el: Element | null): boolean => {
 const currentContext = (): 'modal' | 'typing' | 'list' => {
   if (activeOverlay()) return 'modal';
   if (isTypingTarget(document.activeElement)) return 'typing';
+  // The compose block (task input + its Quick Add metadata-row pickers) is an editing surface,
+  // not the task list. Its list/priority triggers and the list menu's rows are real <button>s,
+  // so without this a plain Enter or Delete while one is focused would run the list-scoped task
+  // shortcuts (e.g. task.open on the focused task) instead of activating the button.
+  if (
+    refs.composeBlock &&
+    document.activeElement &&
+    refs.composeBlock.contains(document.activeElement)
+  ) {
+    return 'typing';
+  }
   return 'list';
 };
 

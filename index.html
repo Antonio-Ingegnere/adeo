@@ -189,7 +189,7 @@
         <div class="main-body">
           <!-- Heading and its input are one unit, so they get their own tighter gap rather
                than .main-body's 16px. -->
-          <div class="compose-block">
+          <div class="compose-block" id="compose-block">
             <!-- The heading *is* the view: a list, a smart list or a search, picked from one
                  menu, with whatever can be done about it on the right. Plain text until
                  pointed at. Built by renderViewBar(). -->
@@ -225,59 +225,62 @@
               </button>
             </div>
             <!-- Static markup: `refs` in dom.ts resolves at import (`byId` runs once), so any
-                 element not present in this file at load time would be null forever. -->
+                 element not present in this file at load time would be null forever.
+                 The metadata row carries no visible labels -- the field name lives in each
+                 trigger's aria-label -- and is revealed by composer activity, not a toggle:
+                 syncComposeMetaRow() derives `hidden` from focus/draft/open-surface state.
+                 See CLAUDE.md "Quick Add options". -->
             <div class="compose-options">
-              <button id="compose-options-toggle" type="button" class="view-bar-action compose-options-toggle"
-                aria-expanded="false" aria-controls="compose-options-panel">Options</button>
               <p id="compose-error" class="compose-error" role="alert"></p>
               <span id="compose-status" class="visually-hidden" role="status" aria-live="polite"></span>
             </div>
-            <div id="compose-options-panel" class="compose-options-panel" hidden>
-              <div class="compose-option">
-                <p class="compose-option-label" id="compose-list-label">Task list</p>
-                <div class="modal-list-select-wrap reminder-select-wrap">
-                  <button id="compose-list-picker" class="reminder-picker" type="button"
-                    aria-haspopup="menu" aria-expanded="false"
-                    aria-labelledby="compose-list-label compose-list-value">
-                    <span id="compose-list-value">Current list</span>
-                    <span class="priority-caret">▾</span>
-                  </button>
-                  <div id="compose-list-menu" class="modal-list-menu" role="menu"></div>
-                </div>
+            <div id="compose-meta-row" class="compose-meta-row" role="group"
+              aria-label="Details for the next task" hidden>
+              <div id="compose-list-field" class="compose-field compose-field--list">
+                <button id="compose-list-picker" class="reminder-picker" type="button"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="compose-list-menu"
+                  aria-label="Task list">
+                  <span class="compose-field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span id="compose-list-value" class="compose-value">Current list</span>
+                  <span class="priority-caret" aria-hidden="true">▾</span>
+                </button>
+                <div id="compose-list-menu" class="modal-list-menu" role="menu" aria-label="Task list"></div>
               </div>
-              <div class="compose-option">
-                <p class="compose-option-label" id="compose-priority-label">Priority</p>
-                <div class="priority-select-wrap">
-                  <button id="compose-priority-picker" class="priority-picker" type="button"
-                    aria-haspopup="menu" aria-expanded="false"
-                    aria-labelledby="compose-priority-label compose-priority-value">
-                    <span id="compose-priority-chip" class="priority-chip" aria-hidden="true"></span>
-                    <span id="compose-priority-value">None</span>
-                    <span class="priority-caret">▾</span>
-                  </button>
-                  <div id="compose-priority-menu" class="priority-menu" role="menu">
-                    <div class="priority-menu-item" data-value="none">
-                      <span class="priority-chip priority-chip--none" aria-hidden="true"></span>
-                      <span>None</span>
-                    </div>
-                    <div class="priority-menu-item" data-value="low">
-                      <span class="priority-chip priority-chip--low" aria-hidden="true"></span>
-                      <span>Low</span>
-                    </div>
-                    <div class="priority-menu-item" data-value="medium">
-                      <span class="priority-chip priority-chip--medium" aria-hidden="true"></span>
-                      <span>Medium</span>
-                    </div>
-                    <div class="priority-menu-item" data-value="high">
-                      <span class="priority-chip priority-chip--high" aria-hidden="true"></span>
-                      <span>High</span>
-                    </div>
+              <div id="compose-priority-field" class="compose-field compose-field--priority">
+                <button id="compose-priority-picker" class="priority-picker" type="button"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="compose-priority-menu"
+                  aria-label="Priority">
+                  <span id="compose-priority-chip" class="priority-chip" aria-hidden="true"></span>
+                  <span id="compose-priority-value" class="compose-value">None</span>
+                  <span class="priority-caret" aria-hidden="true">▾</span>
+                </button>
+                <div id="compose-priority-menu" class="priority-menu" role="menu" aria-label="Priority">
+                  <div class="priority-menu-item" data-value="none">
+                    <span class="priority-chip priority-chip--none" aria-hidden="true"></span>
+                    <span>None</span>
+                  </div>
+                  <div class="priority-menu-item" data-value="low">
+                    <span class="priority-chip priority-chip--low" aria-hidden="true"></span>
+                    <span>Low</span>
+                  </div>
+                  <div class="priority-menu-item" data-value="medium">
+                    <span class="priority-chip priority-chip--medium" aria-hidden="true"></span>
+                    <span>Medium</span>
+                  </div>
+                  <div class="priority-menu-item" data-value="high">
+                    <span class="priority-chip priority-chip--high" aria-hidden="true"></span>
+                    <span>High</span>
                   </div>
                 </div>
               </div>
-              <div class="compose-option">
-                <label for="compose-reminder-date" class="compose-option-label">Reminder</label>
-                <input id="compose-reminder-date" type="date" class="reminder-date-input" />
+              <div id="compose-reminder-field" class="compose-field compose-field--reminder"
+                data-menu-align="end">
+                <input id="compose-reminder-date" type="date" class="reminder-picker" aria-label="Reminder" />
               </div>
             </div>
           </div>

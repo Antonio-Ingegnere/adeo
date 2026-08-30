@@ -1,0 +1,372 @@
+/* Quick Add inline metadata layouts -- concept-only CSS (ui-ux/ux/concepts).
+   Four label-free treatments of the three production compose fields (Task list, Priority,
+   Reminder). Every control below is a production control (.reminder-picker, .priority-picker,
+   .template-chip, the datepicker trigger) that this file only *lays out*: it removes the
+   stacked .compose-option-label, releases the fixed widths those controls inherit from the
+   Options panel, and adds the leading icon slot. No production file is modified. */
+
+/* ---------- Shared field behavior ---------- */
+
+/* .modal-list-select-wrap sets width:100%/min-width:140px for the edit dialog's stacked
+   column; an inline row needs content width instead. */
+.qaim-field {
+  position: relative;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+/* .priority-picker/.reminder-picker are width:100% inside .compose-option. */
+.qaim-trigger {
+  width: auto;
+  max-width: 200px;
+  gap: var(--space-6);
+  font-family: inherit;
+}
+
+.qaim-trigger:focus-visible,
+.qaim-chip:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
+}
+
+.qaim-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shrink policy for the rows that cannot wrap between their fields (the cluster and the
+   bar): a long list name absorbs the shrink and truncates, while priority and the reminder
+   date keep their content width. Truncating a date would make it unreadable, and
+   responsive.md rejects shrinking as the only answer -- so the list is the one field allowed
+   to clip, and its full name stays in the trigger's accessible name.
+   Without this a 41-character list name pushed the reminder past the column's right edge at
+   a 315px column (verified in Storybook before this rule). */
+.qaim-cluster .qaim-field--list,
+.qaim-bar .qaim-field--list {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.qaim-cluster .qaim-field--priority,
+.qaim-cluster .qaim-field--reminder,
+.qaim-bar .qaim-field--priority,
+.qaim-bar .qaim-field--reminder {
+  flex: 0 0 auto;
+}
+
+.qaim-cluster .qaim-trigger,
+.qaim-bar .qaim-trigger {
+  min-width: 0;
+}
+
+/* Mirrors .date-picker-trigger-icon so all three fields carry the same 13px glyph slot. */
+.qaim-icon {
+  display: inline-flex;
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+  color: var(--text-faint);
+}
+
+.qaim-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.qaim-icon path,
+.qaim-icon rect {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The reminder trigger inherits .reminder-date-input's fixed 100px; an inline row sizes it
+   from its own value instead. */
+.qaim-field .date-picker-trigger.reminder-date-input {
+  width: auto;
+  max-width: 200px;
+}
+
+.qaim-field input[type='date'] {
+  display: none;
+}
+
+/* The production date trigger puts its calendar glyph after the value. In these layouts the
+   three fields are identified by a leading glyph, so the reminder's is moved to match. */
+.qaim-field--reminder .date-picker-trigger {
+  flex-direction: row-reverse;
+  gap: var(--space-6);
+}
+
+/* In the Options panel the reminder is a bordered .reminder-date-input while the list and
+   priority pickers are borderless sunken pills -- a difference the stacked labels hid. On one
+   line it reads as a third kind of control, so the row layouts give the reminder the same
+   .priority-picker/.reminder-picker treatment. This is the one visual deviation from
+   production in these concepts and is called out in the comparison. */
+.qaim-row .qaim-field--reminder .date-picker-trigger,
+.qaim-cluster .qaim-field--reminder .date-picker-trigger {
+  padding: var(--space-6) var(--space-8);
+  border: none;
+  background: var(--surface-sunken);
+  color: var(--text-strong);
+  font-size: var(--font-xs);
+}
+
+.qaim-row .qaim-field--reminder .date-picker-trigger:hover,
+.qaim-cluster .qaim-field--reminder .date-picker-trigger:hover {
+  background: var(--surface-active);
+}
+
+/* A compact trigger is narrower than the menus' inherited geometry (.priority-menu is
+   width:115%; left:-7.5%), so the menus get their own readable floor here. */
+.qaim-field .priority-menu,
+.qaim-field .modal-list-menu {
+  left: 0;
+  width: max-content;
+  min-width: 160px;
+  max-width: min(260px, calc(100vw - var(--space-24)));
+}
+
+/* Fields sitting at the right edge of a narrow column open their menu leftwards so nothing
+   is pushed past the app's right edge. */
+.qaim-field[data-menu-align='end'] .priority-menu,
+.qaim-field[data-menu-align='end'] .modal-list-menu {
+  left: auto;
+  right: 0;
+}
+
+.qaim-field .modal-list-item,
+.qaim-field .priority-menu-item {
+  font-family: inherit;
+  font-size: var(--font-s);
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+}
+
+.qaim-field .priority-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.qaim-field .modal-list-item:focus-visible,
+.qaim-field .priority-menu-item:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: -2px;
+}
+
+/* ---------- A. Value row ---------- */
+
+.qaim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+/* ---------- B. Meta chips ---------- */
+
+/* .add-task-template is display:none until the renderer shows it; the concept row is always
+   present, so it is turned back on here rather than with an inline style. */
+.qaim-chip-row.add-task-template {
+  display: flex;
+}
+
+.qaim-chip.template-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 200px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.qaim-chip .qaim-icon {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+}
+
+.qaim-chip:hover {
+  background: var(--surface-hover);
+}
+
+.qaim-chip[data-priority]:hover {
+  filter: brightness(0.97);
+}
+
+/* An unset chip states the action it offers instead of a value. */
+.qaim-chip[data-set='false'] {
+  color: var(--text-hint);
+}
+
+.qaim-chip .priority-caret {
+  margin-left: var(--space-0);
+  font-size: var(--font-xs);
+}
+
+.qaim-field--chip .date-picker-trigger.template-chip {
+  width: auto;
+  max-width: 200px;
+}
+
+/* ---------- C. Same-line cluster ---------- */
+
+.qaim-input-row {
+  flex-wrap: wrap;
+}
+
+/* Without a floor the cluster wins the width fight: .add-task-input-wrap is flex:1 with no
+   min-width, so at a ~315px column the task field rendered about one character wide and the
+   Add button wrapped alone onto a second line (verified in Storybook at a 315px column before
+   this rule). The floor makes the row wrap as a whole instead. */
+.qaim-input-row .add-task-input-wrap {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.qaim-cluster {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Collapsed state: an untouched field shows only its glyph, so an unused row costs no width
+   and no extra line. The accessible name still carries field and value. */
+.qaim-cluster .qaim-field[data-set='false'] .qaim-value,
+.qaim-cluster .qaim-field[data-set='false'] .date-picker-trigger-label,
+.qaim-cluster .qaim-field[data-set='false'] .priority-caret {
+  display: none;
+}
+
+.qaim-cluster .qaim-trigger,
+.qaim-cluster .date-picker-trigger {
+  /* the 34px of .add-task-input-wrap .text-input beside it */
+  box-sizing: border-box;
+  min-height: 34px;
+  border-radius: var(--radius-l);
+}
+
+.qaim-cluster .qaim-field[data-set='false'] .qaim-trigger,
+.qaim-cluster .qaim-field[data-set='false'] .date-picker-trigger {
+  justify-content: center;
+  min-width: 34px;
+  padding: var(--space-6);
+}
+
+.qaim-cluster .qaim-field[data-set='true'] .qaim-icon,
+.qaim-cluster .qaim-field[data-set='true'] .date-picker-trigger-icon {
+  color: var(--text-secondary);
+}
+
+/* ---------- D. Unified context bar ---------- */
+
+.qaim-bar {
+  display: flex;
+  align-items: stretch;
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  border-radius: var(--radius-m);
+  background: var(--surface-sunken);
+}
+
+/* No `flex` here: the shared shrink policy above decides which field may truncate, and an
+   equal-specificity declaration this far down the file would silently win over it. */
+.qaim-bar .qaim-field {
+  min-width: 0;
+}
+
+.qaim-bar .qaim-field + .qaim-field {
+  border-left: 1px solid var(--border-faint);
+}
+
+/* .date-picker-trigger.reminder-date-input carries two classes, so the shared width rule
+   above outranks a two-class selector here; the field class is repeated to win it back. */
+.qaim-bar .qaim-trigger,
+.qaim-bar .qaim-field .date-picker-trigger.reminder-date-input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-height: 28px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.qaim-bar .qaim-field:first-child .qaim-trigger {
+  border-top-left-radius: var(--radius-m);
+  border-bottom-left-radius: var(--radius-m);
+}
+
+.qaim-bar .qaim-field:last-child .qaim-trigger,
+.qaim-bar .qaim-field:last-child .date-picker-trigger {
+  border-top-right-radius: var(--radius-m);
+  border-bottom-right-radius: var(--radius-m);
+}
+
+.qaim-bar .qaim-trigger:hover,
+.qaim-bar .date-picker-trigger:hover {
+  background: var(--surface-active);
+}
+
+/* ---------- Concept scaffolding (Storybook only) ---------- */
+
+.qaim-measure {
+  margin: var(--space-8) var(--space-0) var(--space-0);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.qaim-measure b {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+/* Quick Add's own narrow rules already raise its controls to 44px at 480px; the concept
+   fields follow the same production breakpoint rather than inventing one. */
+@media (max-width: 480px) {
+  /* The task field takes the first line and the cluster shares the second with Add, so the
+     field never competes with the metadata for width on a phone-width column. */
+  .qaim-input-row .add-task-input-wrap {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .qaim-cluster {
+    flex: 1 1 auto;
+  }
+
+  .qaim-trigger,
+  .qaim-field .date-picker-trigger,
+  .qaim-chip.template-chip {
+    min-height: 44px;
+  }
+
+  .qaim-cluster .qaim-trigger,
+  .qaim-cluster .date-picker-trigger {
+    min-height: 44px;
+  }
+
+  .qaim-cluster .qaim-field[data-set='false'] .qaim-trigger,
+  .qaim-cluster .qaim-field[data-set='false'] .date-picker-trigger {
+    min-width: 44px;
+  }
+
+  .qaim-bar .qaim-trigger,
+  .qaim-bar .date-picker-trigger {
+    min-height: 44px;
+  }
+}

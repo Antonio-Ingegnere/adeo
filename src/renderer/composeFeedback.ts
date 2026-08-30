@@ -6,7 +6,7 @@ import { refs } from './dom.js';
  * imports actions.ts back.
  */
 
-export const announceComposeSuccess = (text: string) => {
+export const announceComposeSuccess = (text: string, listLabel: string) => {
   if (refs.composeStatus) {
     // Clear first: some screen readers do not re-announce a live region whose text is set to
     // the same string it already held, so a second identical "Added..." in a row must still
@@ -14,7 +14,7 @@ export const announceComposeSuccess = (text: string) => {
     // debounced case -- do not copy that guard here.
     refs.composeStatus.textContent = '';
     requestAnimationFrame(() => {
-      if (refs.composeStatus) refs.composeStatus.textContent = `Added “${text}”.`;
+      if (refs.composeStatus) refs.composeStatus.textContent = `Added “${text}” to ${listLabel}.`;
     });
   }
   if (refs.composeError) refs.composeError.textContent = '';

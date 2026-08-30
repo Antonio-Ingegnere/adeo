@@ -72,7 +72,16 @@ hooks:
                       return "this discards the submodule's working tree"
                   if runs(segment, "(rebase|filter-branch|filter-repo)"):
                       return "this rewrites commits that already exist"
-                  if re.search(r"\brm\b(?:\s+-\S+)*\s+-\w*[rf]|\brm\s+-\w*[rf]", segment):
+                  # Any `rm` at command position, flags or not. `git rm --cached`
+                  # is the one deletion-shaped command that deletes nothing, and
+                  # `runs` excludes it here because the rule above already
+                  # settled every other form of it.
+                  if re.search(
+                      r"^(?:sudo\s+|env\s+\S+=\S+\s+|xargs\s+(?:-\S+\s+)*)*rm\b",
+                      segment,
+                  ) and not runs(segment, "rm"):
+                      return "deleting files is not this agent's job"
+                  if re.search(r"-exec\s+rm\b|\bfind\b.*\s-delete\b", segment):
                       return "deleting files is not this agent's job"
                   return None
 
@@ -153,7 +162,12 @@ This repository's convention, as of writing:
   **why** the change was made: the problem, the mechanism, alternatives
   rejected and the reason, and how it was verified. Not a list of edits — the
   diff already says what changed.
-- A `Co-Authored-By:` trailer, matching the form used by recent commits.
+- This trailer, last, verbatim — do not substitute another model name, and do
+  not reword it:
+
+  ```
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+  ```
 
 The important constraint: **do not invent the "why".** You are frequently
 called without the conversation that produced the change, and a plausible

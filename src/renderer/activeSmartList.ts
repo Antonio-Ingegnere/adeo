@@ -7,7 +7,6 @@ import { deriveTemplate } from './smartListTemplate.js';
 import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
 import { paintTagChip } from './tagColor.js';
-import { formatDate } from './helpers.js';
 
 /**
  * Derived, never stored. A smart list is *running* iff the search bar currently holds exactly
@@ -171,6 +170,22 @@ export const resolveTemplateNames = (
   return { listId, tagIds, missing };
 };
 
+/**
+ * The list a task created from the compose row would actually land in, by the same precedence
+ * addTask() uses: an explicit compose choice, then a running smart list's `list:` term, then
+ * the sidebar selection. Lifted into one helper so the Task list trigger's label and the
+ * created task's `list_id` are provably the same computation rather than the rule stated twice.
+ */
+export const resolveComposeDestination = (): number | null => {
+  if (state.composeListId !== undefined) return state.composeListId;
+  const template = activeTemplate();
+  if (template) {
+    const { listId } = resolveTemplateNames(template);
+    if (listId !== undefined) return listId;
+  }
+  return state.selectedListId;
+};
+
 /** Tag names the smart list asks for that do not exist yet, so addTask can create them. */
 export const missingTemplateTagNames = (template: SmartListTemplate | null): string[] => {
   if (!template) return [];
@@ -200,18 +215,16 @@ export const renderTemplateHints = (force = false) => {
   const container = refs.addTaskTemplate;
   if (!container) return;
   const searching = Boolean(state.searchQuery.trim());
-  const key = `${state.searchMode}|${searching ? state.searchQuery.trim() : ''}|${state.selectedListId}|${state.composePriority}|${state.composeReminderDate}|${state.composeListId}`;
+  const key = `${state.searchMode}|${searching ? state.searchQuery.trim() : ''}|${state.selectedListId}`;
   if (!force && key === lastHintQuery) return;
   lastHintQuery = key;
   container.innerHTML = '';
 
   const template = activeTemplate();
-  const hasComposeMetadata =
-    state.composePriority !== 'none' ||
-    state.composeReminderDate !== null ||
-    state.composeListId !== undefined;
-  if (!template && !searching && !hasComposeMetadata) {
-    // the view is a plain list, and the picker above already names it
+  // The compose metadata row is now the "what the next task will get" summary for compose
+  // overrides; this row describes only the running query. With nothing running the view
+  // picker above already names the destination.
+  if (!template && !searching) {
     container.style.display = 'none';
     return;
   }
@@ -219,24 +232,15 @@ export const renderTemplateHints = (force = false) => {
 
   const { missing } = template ? resolveTemplateNames(template) : { missing: [] as string[] };
 
-  // Destination: unchanged while a search/template is running -- the picker names the search,
-  // not a list, so this stays the only place that can say where the task will land. A compose
-  // override (the more specific statement of intent) replaces the template-derived value for
-  // the same field. With nothing running, the picker still names the destination correctly
-  // *unless* composeListId has been explicitly set, in which case the picker is now wrong and
-  // this row has to say so instead.
-  if (template || searching || state.composeListId !== undefined) {
-    if (state.composeListId !== undefined) {
-      const list = state.composeListId === null ? null : state.lists.find((l) => l.id === state.composeListId);
-      container.appendChild(chip(state.composeListId === null ? 'No list' : list ? list.name : 'No list'));
-    } else if (template?.listName === null) {
-      container.appendChild(chip('No list'));
-    } else if (template?.listName !== undefined && !missing.length) {
-      container.appendChild(chip(template.listName));
-    } else if (template || searching) {
-      const fallback = state.lists.find((l) => l.id === state.selectedListId);
-      container.appendChild(chip(fallback ? fallback.name : 'No list'));
-    }
+  // Destination: while a search/template is running the picker names the search, not a list,
+  // so this row is the only place that can say where the task will land.
+  if (template?.listName === null) {
+    container.appendChild(chip('No list'));
+  } else if (template?.listName !== undefined && !missing.length) {
+    container.appendChild(chip(template.listName));
+  } else {
+    const fallback = state.lists.find((l) => l.id === state.selectedListId);
+    container.appendChild(chip(fallback ? fallback.name : 'No list'));
   }
 
   if (template) {
@@ -252,17 +256,12 @@ export const renderTemplateHints = (force = false) => {
     });
   }
 
-  // Priority and reminder: a compose value replaces the template-derived chip for the same
-  // field -- never both.
-  const effectivePriority = state.composePriority !== 'none' ? state.composePriority : template?.priority;
-  if (effectivePriority && effectivePriority !== 'none') {
-    const el = chip(effectivePriority[0].toUpperCase() + effectivePriority.slice(1));
-    el.dataset.priority = effectivePriority;
+  if (template?.priority && template.priority !== 'none') {
+    const el = chip(template.priority[0].toUpperCase() + template.priority.slice(1));
+    el.dataset.priority = template.priority;
     container.appendChild(el);
   }
-  if (state.composeReminderDate) {
-    container.appendChild(chip(`Reminder ${formatDate(state.composeReminderDate)}`));
-  } else if (template?.due) {
+  if (template?.due) {
     container.appendChild(chip(`Due ${resolveDue(template.due)}`));
   }
 

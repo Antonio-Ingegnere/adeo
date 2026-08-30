@@ -157,14 +157,38 @@ try {
     await page.locator('.view-menu-item', { hasText: name }).first().click();
   };
 
-  const openOptions = async () => {
-    if (!(await page.locator('#compose-options-panel').isHidden())) return;
-    await page.locator('#compose-options-toggle').click();
-    await page.locator('#compose-options-panel').waitFor({ state: 'visible' });
+  // The metadata row is revealed by composer activity, not a toggle. When it is hidden, drop
+  // focus outside the compose block first so a prior Escape-dismiss is cleared on re-entry;
+  // when it is already shown, just make sure #message-input holds focus (blurring with an
+  // empty draft would collapse the row and reset any values already chosen).
+  const activateComposer = async () => {
+    if (await page.locator('#compose-meta-row').isHidden()) {
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
+      await page.waitForTimeout(60);
+    }
+    await input.click();
+    await page.locator('#compose-meta-row').waitFor({ state: 'visible' });
+  };
+
+  // Clears the draft without focusing the input, then blurs whatever holds focus, so the
+  // activity predicate collapses the row. Used between scenarios to get a clean slate.
+  const deactivateComposer = async () => {
+    await page.evaluate(() => {
+      const el = document.getElementById('message-input');
+      if (el) {
+        el.value = '';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    await page.waitForTimeout(60);
+    await page.locator('#compose-meta-row').waitFor({ state: 'hidden' });
   };
 
   const pickComposeList = async (name) => {
-    await openOptions();
+    await activateComposer();
     await page.locator('#compose-list-picker').click();
     await page.locator('#compose-list-menu').waitFor({ state: 'visible' });
     if (name === null) {
@@ -175,15 +199,15 @@ try {
   };
 
   const pickComposePriority = async (value) => {
-    await openOptions();
+    await activateComposer();
     await page.locator('#compose-priority-picker').click();
     await page.locator('#compose-priority-menu').waitFor({ state: 'visible' });
     await page.locator(`#compose-priority-menu .priority-menu-item[data-value="${value}"]`).click();
   };
 
   const pickComposeReminderToday = async () => {
-    await openOptions();
-    await page.locator('#compose-options-panel .date-picker-trigger').click();
+    await activateComposer();
+    await page.locator('#compose-reminder-field .date-picker-trigger').click();
     await page.locator('.date-picker-footer-btn', { hasText: 'Today' }).click();
   };
 
@@ -233,6 +257,10 @@ try {
     );
     const status = await page.locator('#compose-status').textContent();
     check(Boolean(status && status.includes(text)), '1: #compose-status names the added task');
+    check(
+      Boolean(status && /\bto No list\.$/.test(status)),
+      '1: #compose-status names the destination ("... to No list.")',
+    );
     check((await page.locator('#compose-error').textContent()) === '', '1: #compose-error is empty');
   }
 
@@ -323,27 +351,34 @@ try {
   }
 
   // ---------------------------------------------------------------------------
-  // 8c. List picker default label (checked before any Options selection)
+  // 8c. List trigger names the *resolved* destination, not a placeholder
   // ---------------------------------------------------------------------------
   {
+    // default view is "All lists" with nothing selected -> the task would land unfiled
     check(
-      (await page.locator('#compose-list-value').textContent()) === 'Current list',
-      '8c: #compose-list-value reads "Current list" before any selection',
+      (await page.locator('#compose-list-value').textContent()) === 'No list',
+      '8c: #compose-list-value resolves to "No list" under All lists',
+    );
+    check(
+      (await page.locator('#compose-list-picker').getAttribute('aria-label')) === 'Task list: No list',
+      '8c: the trigger aria-label carries the resolved value',
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 7 + 9 + 10. Options apply priority; reset after success; chips with no search running
+  // 7 + 9 + 10. Row applies priority; resets after success; no compose chips in the hints row
   // ---------------------------------------------------------------------------
   {
     const text = uniqueText('Priority only');
     await pickComposePriority('high');
-    const hints = page.locator('#add-task-template');
-    await hints.waitFor({ state: 'visible' });
-    check((await hints.textContent())?.includes('High') ?? false, '10: hints row shows the priority chip');
     check(
-      !((await hints.locator('.template-chip').allTextContents()).some((t) => t === workName || t === personalName)),
-      '10: no destination chip when composeListId is untouched',
+      (await page.locator('#compose-priority-value').textContent()) === 'High',
+      '7: the priority trigger shows the chosen value',
+    );
+    // the hints row describes only a running query now; nothing is running, so it stays hidden
+    check(
+      await page.locator('#add-task-template').isHidden(),
+      '10: #add-task-template is not used to echo compose metadata',
     );
     await input.fill(text);
     await input.press('Enter');
@@ -351,18 +386,18 @@ try {
     const row = queryTaskRow(text);
     check(row?.priority === 'high', '7: stored priority is high');
 
-    check(await page.locator('#compose-options-panel').isHidden(), '9: panel is hidden after success');
+    // focus returns to #message-input on success, so the row stays shown -- but at defaults
     check(
-      (await page.locator('#compose-options-toggle').getAttribute('aria-expanded')) === 'false',
-      '9: toggle aria-expanded is false after success',
+      !(await page.locator('#compose-meta-row').isHidden()),
+      '9: the row stays shown after success (focus is back in the input)',
     );
     check(
       (await page.locator('#compose-priority-value').textContent()) === 'None',
       '9: #compose-priority-value reads None after success',
     );
     check(
-      (await page.locator('#compose-list-value').textContent()) === 'Current list',
-      '9: #compose-list-value reads Current list after success',
+      (await page.locator('#compose-list-value').textContent()) === 'No list',
+      '9: #compose-list-value resolves to No list after success',
     );
   }
 
@@ -386,11 +421,13 @@ try {
     await selectListByName(workName);
     const text = uniqueText('Explicit Personal list');
     await pickComposeList(personalName);
-    const hints = page.locator('#add-task-template');
-    await hints.waitFor({ state: 'visible' });
     check(
-      (await hints.locator('.template-chip').allTextContents()).includes(personalName),
-      '10: destination chip names Personal even with no search running',
+      (await page.locator('#compose-list-value').textContent()) === personalName,
+      '8a: the Task list trigger names the explicit choice',
+    );
+    check(
+      (await page.locator('#compose-list-field').getAttribute('data-set')) === 'true',
+      '8a: an explicit choice exposes data-set="true"',
     );
     await input.fill(text);
     await input.press('Enter');
@@ -425,11 +462,17 @@ try {
     const text = uniqueText('Compose beats template priority');
     await enterAdvancedSearch('priority:low');
     await pickComposePriority('high');
+    // the hints row still shows the running query's own value; the compose override shows on
+    // the trigger and wins field-by-field at submit
     const hints = page.locator('#add-task-template');
     const priorityChips = (await hints.locator('.template-chip').allTextContents()).filter((t) =>
       ['None', 'Low', 'Medium', 'High'].includes(t),
     );
-    check(priorityChips.length === 1 && priorityChips[0] === 'High', '11: exactly one priority chip, reading High');
+    check(priorityChips.length === 1 && priorityChips[0] === 'Low', '11: the hints row shows the query value (Low)');
+    check(
+      (await page.locator('#compose-priority-value').textContent()) === 'High',
+      '11: the priority trigger shows the compose override (High)',
+    );
     await input.fill(text);
     await input.press('Enter');
     // the created task has priority:high, which does not match the running priority:low
@@ -445,15 +488,20 @@ try {
   // ---------------------------------------------------------------------------
   {
     const text = uniqueText('Compose beats template list');
-    await enterAdvancedSearch(`list:${workName}`);
+    await enterAdvancedSearch(`list:"${workName}"`);
     await pickComposeList(personalName);
+    // the hints row names the running query's list; the trigger names the compose override
     const hints = page.locator('#add-task-template');
     const destinationChips = (await hints.locator('.template-chip').allTextContents()).filter(
       (t) => t === workName || t === personalName,
     );
     check(
-      destinationChips.length === 1 && destinationChips[0] === personalName,
-      '11a: exactly one destination chip, reading Personal',
+      destinationChips.length === 1 && destinationChips[0] === workName,
+      '11a: the hints row names the query list (Work)',
+    );
+    check(
+      (await page.locator('#compose-list-value').textContent()) === personalName,
+      '11a: the Task list trigger names the compose override (Personal)',
     );
     await input.fill(text);
     await input.press('Enter');
@@ -514,10 +562,10 @@ try {
   }
 
   // ---------------------------------------------------------------------------
-  // 13. Escape layering
+  // 13. Escape layering: menu -> collapse the row -> fall through to the app
   // ---------------------------------------------------------------------------
   {
-    await openOptions();
+    await activateComposer();
     await page.locator('#compose-priority-picker').click();
     await page.locator('#compose-priority-menu').waitFor({ state: 'visible' });
     await page.locator('#compose-priority-picker').focus();
@@ -533,30 +581,164 @@ try {
       '13: focus returns to #compose-priority-picker',
     );
     await page.keyboard.press('Escape');
-    check(await page.locator('#compose-options-panel').isHidden(), '13: second Escape closes the panel');
+    check(await page.locator('#compose-meta-row').isHidden(), '13: second Escape collapses the row');
     check(
-      await page.evaluate(() => document.activeElement === document.getElementById('compose-options-toggle')),
-      '13: focus returns to #compose-options-toggle',
+      await page.evaluate(() => document.activeElement === document.getElementById('message-input')),
+      '13: focus moves to #message-input after the collapse',
+    );
+    // third Escape: the row is hidden, so it must fall through without opening anything
+    await page.keyboard.press('Escape');
+    const anyOverlayOpen = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.overlay')).some((el) => el.classList.contains('open')),
+    );
+    check(!anyOverlayOpen, '13: a third Escape opens no overlay');
+    await deactivateComposer();
+  }
+
+  // ----------------------------------------------------------------------------
+  // 14. Escape collapses the row without touching the draft
+  // ---------------------------------------------------------------------------
+  {
+    await activateComposer();
+    await input.fill('draft kept through escape');
+    await page.locator('#compose-meta-row').waitFor({ state: 'visible' });
+    await page.keyboard.press('Escape');
+    check(await page.locator('#compose-meta-row').isHidden(), '14: Escape collapses the row');
+    check(
+      (await input.inputValue()) === 'draft kept through escape',
+      '14: the draft text is preserved',
     );
     check(
-      (await page.locator('#compose-options-toggle').getAttribute('aria-expanded')) === 'false',
-      '13: toggle aria-expanded is false after closing',
+      await page.evaluate(() => document.activeElement === document.getElementById('message-input')),
+      '14: focus is in #message-input',
     );
+    const anyOverlayOpen = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.overlay')).some((el) => el.classList.contains('open')),
+    );
+    check(!anyOverlayOpen, '14: no overlay opens from this Escape');
+    await deactivateComposer();
   }
 
   // ---------------------------------------------------------------------------
-  // 14. Escape does not leave the app in a broken state
+  // 14b. Collapsing the row resets every field to its default
   // ---------------------------------------------------------------------------
   {
-    await openOptions();
-    await input.focus();
-    await page.keyboard.press('Escape');
-    check(await page.locator('#compose-options-panel').isHidden() === false, '14: Options panel stays open');
-    const anyOverlayOpen = await page.evaluate(
-      () => Array.from(document.querySelectorAll('.overlay')).some((el) => el.classList.contains('open')),
+    await selectListByName(workName);
+    await pickComposePriority('high');
+    await pickComposeList(personalName);
+    check(
+      (await page.locator('#compose-priority-value').textContent()) === 'High' &&
+        (await page.locator('#compose-list-value').textContent()) === personalName,
+      '14b: values are set before the collapse',
     );
-    check(!anyOverlayOpen, '14: no overlay opens from this Escape');
-    await page.locator('#compose-options-toggle').click();
+    // blur with an empty draft -> the row hides and must reset
+    await deactivateComposer();
+    await activateComposer();
+    check(
+      (await page.locator('#compose-priority-value').textContent()) === 'None',
+      '14b: priority returned to None',
+    );
+    check(
+      (await page.locator('#compose-list-value').textContent()) === workName,
+      '14b: Task list returned to the resolved destination (the viewed list)',
+    );
+    check(
+      (await page.locator('#compose-list-field').getAttribute('data-set')) === 'false',
+      '14b: the explicit override was cleared (data-set="false")',
+    );
+    await selectListByName('All lists');
+  }
+
+  // ---------------------------------------------------------------------------
+  // 14c. The date popover does not collapse the row
+  // ---------------------------------------------------------------------------
+  {
+    await activateComposer();
+    await page.locator('#compose-reminder-field .date-picker-trigger').click();
+    await page
+      .locator('.date-picker-popover[aria-label="Choose Reminder"]')
+      .waitFor({ state: 'visible' });
+    check(
+      !(await page.locator('#compose-meta-row').isHidden()),
+      '14c: the row stays shown while the calendar popover has focus',
+    );
+    await page
+      .locator('.date-picker-popover[aria-label="Choose Reminder"] .date-picker-footer-btn', {
+        hasText: 'Today',
+      })
+      .click();
+    check(
+      !(await page.locator('#compose-meta-row').isHidden()),
+      '14c: the row is still shown after picking a date',
+    );
+    check(
+      (await page.locator('#compose-reminder-field').getAttribute('data-set')) === 'true',
+      '14c: the reminder field exposes data-set="true"',
+    );
+    await deactivateComposer();
+  }
+
+  // ----------------------------------------------------------------------------
+  // 14d. Group and field naming
+  // ---------------------------------------------------------------------------
+  {
+    await activateComposer();
+    check(
+      (await page.locator('#compose-meta-row').getAttribute('role')) === 'group' &&
+        (await page.locator('#compose-meta-row').getAttribute('aria-label')) === 'Details for the next task',
+      '14d: the row is a role="group" named "Details for the next task"',
+    );
+    check(
+      (await page.locator('#compose-priority-picker').getAttribute('aria-label')) === 'Priority: None',
+      '14d: the priority trigger names its field and value',
+    );
+    check(
+      (await page.locator('.compose-option-label').count()) === 0,
+      '14d: no visible field labels remain',
+    );
+    await deactivateComposer();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 14e. Tab order: Task, Add task, Task list, Priority, Reminder
+  // ---------------------------------------------------------------------------
+  {
+    await activateComposer();
+    const order = [];
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('Tab');
+      order.push(
+        await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el) return null;
+          return el.id || el.className || el.tagName;
+        }),
+      );
+    }
+    check(order[0] === 'add-button', `14e: Tab 1 reaches #add-button (got ${order[0]})`);
+    check(order[1] === 'compose-list-picker', `14e: Tab 2 reaches the Task list trigger (got ${order[1]})`);
+    check(
+      order[2] === 'compose-priority-picker',
+      `14e: Tab 3 reaches the Priority trigger (got ${order[2]})`,
+    );
+    check(
+      typeof order[3] === 'string' && order[3].includes('date-picker-trigger'),
+      `14e: Tab 4 reaches the Reminder trigger (got ${order[3]})`,
+    );
+    // Escape-dismiss the row (hidden, but focus stays in #message-input); Tab must then skip
+    // the metadata triggers entirely
+    await input.fill('draft for tab test');
+    await page.locator('#compose-meta-row').waitFor({ state: 'visible' });
+    await page.keyboard.press('Escape');
+    await page.locator('#compose-meta-row').waitFor({ state: 'hidden' });
+    await page.keyboard.press('Tab'); // -> #add-button
+    await page.keyboard.press('Tab'); // -> whatever follows the compose block
+    const afterHidden = await page.evaluate(() => document.activeElement?.id ?? '');
+    check(
+      afterHidden !== 'compose-list-picker' && afterHidden !== 'compose-priority-picker',
+      `14e: a hidden row's fields are not Tab-reachable (landed on ${afterHidden})`,
+    );
+    await deactivateComposer();
   }
 
   // ---------------------------------------------------------------------------
@@ -579,10 +761,12 @@ try {
       check(overflow, `16: no horizontal overflow at ${size.width}x${size.height}`);
       check(await page.locator('#message-input').isVisible(), `16: input row visible at ${size.width}`);
       check(await page.locator('#add-button').isVisible(), `16: Add button visible at ${size.width}`);
+      await activateComposer();
       check(
-        await page.locator('#compose-options-toggle').isVisible(),
-        `16: Options toggle visible at ${size.width}`,
+        await page.locator('#compose-list-picker').isVisible(),
+        `16: the metadata row is visible while the composer is active at ${size.width}`,
       );
+      await deactivateComposer();
     }
 
     // 390px narrow/touch verification (Open Question 2's resolution): temporarily relax the
@@ -608,25 +792,31 @@ try {
       // responsive layout... the sidebar, dialogs and src/main.ts's minWidth: 600 are P5.4's").
       // What this feature owns is that its own compose-row controls reflow without overflowing
       // *their own* container, and reach the 44px touch target.
+      await activateComposer();
       const composeRowOverflow = await page.evaluate(() => {
-        const panel = document.getElementById('compose-options-panel');
+        const row = document.getElementById('compose-meta-row');
         const body = document.querySelector('.main-body');
-        if (!panel || !body) return true;
-        return panel.scrollWidth <= body.clientWidth;
+        if (!row || !body) return true;
+        return row.scrollWidth <= body.clientWidth;
       });
-      check(composeRowOverflow, '16: the compose row itself does not overflow its container at 390px');
+      check(composeRowOverflow, '16: the metadata row does not overflow its container at 390px');
       const addButtonBox = await page.locator('#add-button').boundingBox();
       check(
         Boolean(addButtonBox && addButtonBox.width >= 44 && addButtonBox.height >= 44),
         '17: #add-button is at least 44x44 at 390px',
       );
-      await openOptions();
-      const toggleBox = await page.locator('#compose-options-toggle').boundingBox();
+      for (const id of ['compose-list-picker', 'compose-priority-picker']) {
+        const box = await page.locator(`#${id}`).boundingBox();
+        check(Boolean(box && box.height >= 44), `17: #${id} is at least 44 high at 390px`);
+      }
+      const reminderBox = await page
+        .locator('#compose-reminder-field .date-picker-trigger')
+        .boundingBox();
       check(
-        Boolean(toggleBox && toggleBox.height >= 44),
-        '17: #compose-options-toggle is at least 44 high at 390px',
+        Boolean(reminderBox && reminderBox.height >= 44),
+        '17: the reminder trigger is at least 44 high at 390px',
       );
-      await page.locator('#compose-options-toggle').click();
+      await deactivateComposer();
     } else {
       console.log(
         '390px could not be verified on this platform (window would not resize below its floor); ' +
@@ -661,20 +851,22 @@ try {
       });
       check(Boolean(errorColorInfo.color), `18 (${theme}): #compose-error has a computed colour`);
 
-      await openOptions();
       await pickComposePriority('low');
-      const toggleColorInfo = await page.evaluate(() => {
-        const el = document.getElementById('compose-options-toggle');
+      const triggerColorInfo = await page.evaluate(() => {
+        const el = document.getElementById('compose-priority-picker');
         const style = getComputedStyle(el);
-        return { color: style.color, bg: style.backgroundColor, active: el.dataset.active };
+        return { color: style.color, bg: style.backgroundColor };
       });
-      check(toggleColorInfo.active === 'true', `18 (${theme}): toggle carries data-active="true"`);
       check(
-        toggleColorInfo.color !== toggleColorInfo.bg,
-        `18 (${theme}): toggle text colour differs from its background`,
+        Boolean(triggerColorInfo.color) && triggerColorInfo.color !== triggerColorInfo.bg,
+        `18 (${theme}): the metadata trigger renders with contrasting text and background`,
+      );
+      check(
+        (await page.locator('#compose-priority-value').textContent()) === 'Low',
+        `18 (${theme}): the priority trigger shows the chosen value`,
       );
       await pickComposePriority('none');
-      await input.fill('');
+      await deactivateComposer();
     }
     await page.evaluate(async () => {
       await window.electronAPI.updateTheme('system');

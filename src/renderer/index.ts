@@ -51,7 +51,11 @@ import { state } from './state.js';
 import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
-import { setupComposeOptions } from './composeOptions.js';
+import {
+  paintComposeListLabel,
+  setupComposeOptions,
+  syncComposeMetaRow,
+} from './composeOptions.js';
 import { clearComposeFeedback } from './composeFeedback.js';
 import { activeOverlay, installModalFocusTrap } from './focusTrap.js';
 import {
@@ -95,6 +99,8 @@ const selectList = (listId: number | null) => {
   renderLists();
   renderSmartLists();
   renderTasks();
+  // the un-overridden Task list trigger follows the view
+  paintComposeListLabel();
 };
 
 // ---------- Smart lists ----------
@@ -738,7 +744,11 @@ const setupEvents = () => {
     }
   });
   // A stale "Enter a task before adding." should not survive the user starting to fix it.
-  refs.input?.addEventListener('input', () => clearComposeFeedback());
+  refs.input?.addEventListener('input', () => {
+    clearComposeFeedback();
+    // a non-empty draft is one of the things that reveals the metadata row
+    syncComposeMetaRow();
+  });
   setupTagInput();
 
   refs.cancelEditBtn?.addEventListener('click', () => closeEditModal());
@@ -1521,6 +1531,9 @@ const setupEvents = () => {
       refs.tagSuggestMenu.style.display = 'none';
     }
     closeQueryPopovers();
+    // closing a compose menu on an outside click may have removed the last thing keeping the
+    // metadata row shown -- re-derive its visibility (and reset it if it now hides)
+    syncComposeMetaRow();
   });
 };
 

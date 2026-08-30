@@ -1,0 +1,46 @@
+[
+  {
+    "story": "a-value-row",
+    "height": 180,
+    "width": 315,
+    "overflowRight": [],
+    "docOverflow": 0,
+    "listValueVisible": {
+      "text": "Quarterly planning and stakeholder review",
+      "clipped": true
+    }
+  },
+  {
+    "story": "b-meta-chips",
+    "height": 184,
+    "width": 315,
+    "overflowRight": [],
+    "docOverflow": 0,
+    "listValueVisible": {
+      "text": "Quarterly planning and stakeholder review",
+      "clipped": true
+    }
+  },
+  {
+    "story": "c-same-line-cluster",
+    "height": 218,
+    "width": 315,
+    "overflowRight": [],
+    "docOverflow": 0,
+    "listValueVisible": {
+      "text": "Quarterly planning and stakeholder review",
+      "clipped": true
+    }
+  },
+  {
+    "story": "d-unified-context-bar",
+    "height": 128,
+    "width": 315,
+    "overflowRight": [],
+    "docOverflow": 0,
+    "listValueVisible": {
+      "text": "Quarterly planning and stakeholder review",
+      "clipped": true
+    }
+  }
+]

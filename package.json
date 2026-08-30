@@ -6,6 +6,7 @@
   "main": "dist/main.js",
   "scripts": {
     "check:ux-boundary": "node scripts/check-ux-boundary.mjs",
+    "test:workflow": "python3 .claude/scripts/resolve-approved-plan-selftest.py",
     "build": "npm run check:ux-boundary && rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server dist/styles && cp index.html dist/index.html && cp styles.css dist/styles.css && cp styles/*.css dist/styles/ && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
     "api": "python3 server/app.py",
     "prestart": "bash -lc 'PY=.venv/bin/python; if [ -x \"$PY\" ]; then $PY -c \"import fastapi\"; else python3 -c \"import fastapi\"; fi'",

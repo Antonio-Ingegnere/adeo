@@ -6,6 +6,7 @@ import {
   renderTemplateHints,
   syncSmartListUI,
 } from './activeSmartList.js';
+import { paintComposeListLabel } from './composeOptions.js';
 import { refs } from './dom.js';
 import { renderViewBar } from './viewBar.js';
 import { currentView } from './currentView.js';
@@ -213,6 +214,9 @@ export const applySearchQuery = (value: string, immediate = false) => {
   syncListPills();
   // the hints describe the query on screen, so they follow it rather than the association
   renderTemplateHints();
+  // an un-overridden Task list trigger names the resolved destination, which a running smart
+  // list's `list:` term changes -- repaint it on the same edit the hints follow
+  paintComposeListLabel();
   if (state.searchMode === 'advanced') {
     const trimmed = value.trim();
     const previousStatus = state.queryStatus;

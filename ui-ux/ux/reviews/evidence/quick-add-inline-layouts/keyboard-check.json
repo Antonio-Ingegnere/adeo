@@ -1,0 +1,661 @@
+{
+  "report": [
+    {
+      "story": "a-value-row",
+      "steps": [
+        {
+          "after": "Tab#1",
+          "active": {
+            "tag": "button",
+            "cls": "primary-button icon-btn",
+            "role": null,
+            "name": "Add task",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "Tab#2",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Task list: Work",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#3",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Medium",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#4",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-date-input date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#5",
+          "active": {
+            "tag": "div",
+            "cls": "task-row",
+            "role": null,
+            "name": "Review Quick Add briefToday, 10:00#Desig",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "priority ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "None",
+            "checked": "false",
+            "expanded": null
+          },
+          "expanded": "true"
+        },
+        {
+          "after": "menu ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "Low",
+            "checked": "false",
+            "expanded": null
+          }
+        },
+        {
+          "after": "menu Enter (select)",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false",
+          "triggerName": "Priority: Low"
+        },
+        {
+          "after": "menu Escape",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false"
+        },
+        {
+          "after": "date popover Escape",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-date-input date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          },
+          "popoverDisplay": "none"
+        }
+      ],
+      "accessibleNames": [
+        {
+          "cls": "reminder-picker qaim-trigger",
+          "name": "Task list: Work",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-values-list-menu"
+        },
+        {
+          "cls": "reminder-picker qaim-trigger",
+          "name": "Priority: Medium",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-values-priority-menu"
+        },
+        {
+          "cls": "reminder-date-input date-picker-trigger",
+          "name": "Reminder: 24 Aug 2026",
+          "haspopup": "dialog",
+          "expanded": "false",
+          "controls": "date-picker-1"
+        }
+      ],
+      "groupLabel": "Details for the next task",
+      "visibleFieldLabels": 0,
+      "draftAfterEscape": "Prepare design review",
+      "datePopoverOpen": "flex",
+      "enterSubmits": {
+        "before": 3,
+        "after": 4,
+        "focusAfter": {
+          "tag": "input",
+          "cls": "text-input",
+          "role": "combobox",
+          "name": "Task",
+          "checked": null,
+          "expanded": "false"
+        }
+      },
+      "blankSubmit": {
+        "message": "Enter a task before adding.",
+        "role": "alert",
+        "tasks": 4
+      }
+    },
+    {
+      "story": "b-meta-chips",
+      "steps": [
+        {
+          "after": "Tab#1",
+          "active": {
+            "tag": "button",
+            "cls": "primary-button icon-btn",
+            "role": null,
+            "name": "Add task",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "Tab#2",
+          "active": {
+            "tag": "button",
+            "cls": "template-chip qaim-chip",
+            "role": null,
+            "name": "Task list: Work",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#3",
+          "active": {
+            "tag": "button",
+            "cls": "template-chip qaim-chip",
+            "role": null,
+            "name": "Priority: Medium",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#4",
+          "active": {
+            "tag": "button",
+            "cls": "template-chip qaim-chip date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#5",
+          "active": {
+            "tag": "div",
+            "cls": "task-row",
+            "role": null,
+            "name": "Review Quick Add briefToday, 10:00#Desig",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "priority ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "None",
+            "checked": "false",
+            "expanded": null
+          },
+          "expanded": "true"
+        },
+        {
+          "after": "menu ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "Low",
+            "checked": "false",
+            "expanded": null
+          }
+        },
+        {
+          "after": "menu Enter (select)",
+          "active": {
+            "tag": "button",
+            "cls": "template-chip qaim-chip",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false",
+          "triggerName": "Priority: Low"
+        },
+        {
+          "after": "menu Escape",
+          "active": {
+            "tag": "button",
+            "cls": "template-chip qaim-chip",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false"
+        },
+        {
+          "after": "date popover Escape",
+          "active": {
+            "tag": "button",
+            "cls": "template-chip qaim-chip date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          },
+          "popoverDisplay": "none"
+        }
+      ],
+      "accessibleNames": [
+        {
+          "cls": "template-chip qaim-chip",
+          "name": "Task list: Work",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-chips-list-menu"
+        },
+        {
+          "cls": "template-chip qaim-chip",
+          "name": "Priority: Medium",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-chips-priority-menu"
+        },
+        {
+          "cls": "template-chip qaim-chip date-picker-trigger",
+          "name": "Reminder: 24 Aug 2026",
+          "haspopup": "dialog",
+          "expanded": "false",
+          "controls": "date-picker-1"
+        }
+      ],
+      "groupLabel": "Details for the next task",
+      "visibleFieldLabels": 0,
+      "draftAfterEscape": "Prepare design review",
+      "datePopoverOpen": "flex",
+      "enterSubmits": {
+        "before": 3,
+        "after": 4,
+        "focusAfter": {
+          "tag": "input",
+          "cls": "text-input",
+          "role": "combobox",
+          "name": "Task",
+          "checked": null,
+          "expanded": "false"
+        }
+      },
+      "blankSubmit": {
+        "message": "Enter a task before adding.",
+        "role": "alert",
+        "tasks": 4
+      }
+    },
+    {
+      "story": "c-same-line-cluster",
+      "steps": [
+        {
+          "after": "Tab#1",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Task list: Work",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#2",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Medium",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#3",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-date-input date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#4",
+          "active": {
+            "tag": "button",
+            "cls": "primary-button icon-btn",
+            "role": null,
+            "name": "Add task",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "Tab#5",
+          "active": {
+            "tag": "div",
+            "cls": "task-row",
+            "role": null,
+            "name": "Review Quick Add briefToday, 10:00#Desig",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "priority ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "None",
+            "checked": "false",
+            "expanded": null
+          },
+          "expanded": "true"
+        },
+        {
+          "after": "menu ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "Low",
+            "checked": "false",
+            "expanded": null
+          }
+        },
+        {
+          "after": "menu Enter (select)",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false",
+          "triggerName": "Priority: Low"
+        },
+        {
+          "after": "menu Escape",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false"
+        },
+        {
+          "after": "date popover Escape",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-date-input date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          },
+          "popoverDisplay": "none"
+        }
+      ],
+      "accessibleNames": [
+        {
+          "cls": "reminder-picker qaim-trigger",
+          "name": "Task list: Work",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-cluster-list-menu"
+        },
+        {
+          "cls": "reminder-picker qaim-trigger",
+          "name": "Priority: Medium",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-cluster-priority-menu"
+        },
+        {
+          "cls": "reminder-date-input date-picker-trigger",
+          "name": "Reminder: 24 Aug 2026",
+          "haspopup": "dialog",
+          "expanded": "false",
+          "controls": "date-picker-1"
+        }
+      ],
+      "groupLabel": "Details for the next task",
+      "visibleFieldLabels": 0,
+      "draftAfterEscape": "Prepare design review",
+      "datePopoverOpen": "flex",
+      "enterSubmits": {
+        "before": 3,
+        "after": 4,
+        "focusAfter": {
+          "tag": "input",
+          "cls": "text-input",
+          "role": "combobox",
+          "name": "Task",
+          "checked": null,
+          "expanded": "false"
+        }
+      },
+      "blankSubmit": {
+        "message": "Enter a task before adding.",
+        "role": "alert",
+        "tasks": 4
+      }
+    },
+    {
+      "story": "d-unified-context-bar",
+      "steps": [
+        {
+          "after": "Tab#1",
+          "active": {
+            "tag": "button",
+            "cls": "primary-button icon-btn",
+            "role": null,
+            "name": "Add task",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "Tab#2",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Task list: Work",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#3",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Medium",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#4",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-date-input date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          }
+        },
+        {
+          "after": "Tab#5",
+          "active": {
+            "tag": "div",
+            "cls": "task-row",
+            "role": null,
+            "name": "Review Quick Add briefToday, 10:00#Desig",
+            "checked": null,
+            "expanded": null
+          }
+        },
+        {
+          "after": "priority ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "None",
+            "checked": "false",
+            "expanded": null
+          },
+          "expanded": "true"
+        },
+        {
+          "after": "menu ArrowDown",
+          "active": {
+            "tag": "button",
+            "cls": "priority-menu-item",
+            "role": "menuitemradio",
+            "name": "Low",
+            "checked": "false",
+            "expanded": null
+          }
+        },
+        {
+          "after": "menu Enter (select)",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false",
+          "triggerName": "Priority: Low"
+        },
+        {
+          "after": "menu Escape",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-picker qaim-trigger",
+            "role": null,
+            "name": "Priority: Low",
+            "checked": null,
+            "expanded": "false"
+          },
+          "expanded": "false"
+        },
+        {
+          "after": "date popover Escape",
+          "active": {
+            "tag": "button",
+            "cls": "reminder-date-input date-picker-trigger",
+            "role": null,
+            "name": "Reminder: 24 Aug 2026",
+            "checked": null,
+            "expanded": "false"
+          },
+          "popoverDisplay": "none"
+        }
+      ],
+      "accessibleNames": [
+        {
+          "cls": "reminder-picker qaim-trigger",
+          "name": "Task list: Work",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-bar-list-menu"
+        },
+        {
+          "cls": "reminder-picker qaim-trigger",
+          "name": "Priority: Medium",
+          "haspopup": "menu",
+          "expanded": "false",
+          "controls": "qaim-bar-priority-menu"
+        },
+        {
+          "cls": "reminder-date-input date-picker-trigger",
+          "name": "Reminder: 24 Aug 2026",
+          "haspopup": "dialog",
+          "expanded": "false",
+          "controls": "date-picker-1"
+        }
+      ],
+      "groupLabel": "Details for the next task",
+      "visibleFieldLabels": 0,
+      "draftAfterEscape": "Prepare design review",
+      "datePopoverOpen": "flex",
+      "enterSubmits": {
+        "before": 3,
+        "after": 4,
+        "focusAfter": {
+          "tag": "input",
+          "cls": "text-input",
+          "role": "combobox",
+          "name": "Task",
+          "checked": null,
+          "expanded": "false"
+        }
+      },
+      "blankSubmit": {
+        "message": "Enter a task before adding.",
+        "role": "alert",
+        "tasks": 4
+      }
+    }
+  ],
+  "errors": []
+}

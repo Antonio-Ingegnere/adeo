@@ -3,6 +3,7 @@ import {
   activeTemplate,
   missingTemplateTagNames,
   renderTemplateHints,
+  resolveComposeDestination,
   resolveTemplateNames,
   templateSeed,
 } from './activeSmartList.js';
@@ -15,7 +16,12 @@ import { renderShortcutHints } from './shortcutHints.js';
 import { renderTasks } from './tasks.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
-import { composeSeed, resetComposeOptions } from './composeOptions.js';
+import {
+  composeSeed,
+  paintComposeListLabel,
+  resetComposeOptions,
+  syncComposeMetaRow,
+} from './composeOptions.js';
 import { announceComposeSuccess, showComposeError } from './composeFeedback.js';
 
 const INLINE_TAG_RE = /(^|\s)#([A-Za-z0-9_-]+)/g;
@@ -67,14 +73,10 @@ export const addTask = async () => {
   }
 
   // the smart list's list wins over the sidebar selection, and an explicit compose choice wins
-  // over both -- each is a more specific statement of where the user means this task to go
+  // over both -- each is a more specific statement of where the user means this task to go.
+  // resolveComposeDestination() is the same computation the Task list trigger's label uses.
   const resolved = template ? resolveTemplateNames(template) : null;
-  const listId =
-    state.composeListId !== undefined
-      ? state.composeListId
-      : resolved && resolved.listId !== undefined
-        ? resolved.listId
-        : state.selectedListId;
+  const listId = resolveComposeDestination();
   // tags the smart list names that already existed; the rest were just created above
   resolved?.tagIds.forEach((id) => {
     if (!tagIds.includes(id)) tagIds.push(id);
@@ -108,10 +110,13 @@ export const addTask = async () => {
     // the hints memoize on has not moved; resetComposeOptions() below repaints once more with
     // the options cleared, so this is the pre-reset state and that is the post-reset state.
     renderTemplateHints(true);
+    const listLabel =
+      listId === null ? 'No list' : state.lists.find((l) => l.id === listId)?.name ?? 'No list';
     resetComposeOptions();
+    syncComposeMetaRow();
     input.value = '';
     input.focus();
-    announceComposeSuccess(text);
+    announceComposeSuccess(text, listLabel);
     // the title carries the search result count, which is now one out of date
     renderViewBar();
     renderTasks();
@@ -196,6 +201,8 @@ export const loadLists = async () => {
     renderLists();
     renderViewBar();
     renderViewBar();
+    // a rename/delete can change the name the un-overridden Task list trigger resolves to
+    paintComposeListLabel();
   } catch (error) {
     console.error('Failed to load lists', error);
   }

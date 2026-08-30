@@ -2,6 +2,34 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Classify every feature request with the `/feature` rules; users may also invoke
+`/feature start request="..."` explicitly. Choose the lightest safe path:
+
+- FAST: concise brief, then implementation, tests, and review; no approval gate.
+- STANDARD: concise mini spec, one human approval, then autonomous
+  implementation, tests/QA, and review. This is the default.
+- FULL: specification plus architecture/plan and one human approval, reserved
+  for high-risk, cross-cutting, migration, contract, security, compatibility,
+  or highly uncertain work.
+
+Escalate only when discovered risk requires `FAST -> STANDARD -> FULL`. FAST
+and STANDARD use one current artifact at `.claude/workflow/current.md`; do not
+create a full specification or implementation plan for them. NON-BLOCKING
+review comments never delay implementation.
+
+The concise operating guide, commands, classification rules, approval boundary,
+review format, artifact limits, agent roles, and safety rules are in
+[`.claude/HELP.md`](.claude/HELP.md).
+
+`/implementation-plan` and the Architect are FULL-only. `/spec-storybook` and
+the Product Designer are optional specialist workflows, not prerequisites for
+ordinary implementation. Use a subagent only when parallel work, independent
+context, a genuine specialty, or task size justifies its initialization cost.
+
+All existing bounded-autonomy controls remain in force, especially for
+destructive actions, protected paths, secrets, external/production writes,
+security-sensitive decisions, contradictions, and material scope expansion.
+
 ## What this is
 
 Adeo is a lightweight, cross-platform (mac/Windows/Linux) Electron todo app. The UI runs in Electron's main/renderer processes (TypeScript); persistence and business logic (tasks, lists, recurring-task expansion, due-reminder lookup) live in a local FastAPI + SQLite backend (Python) that the Electron main process spawns as a child process. Reminder notifications are delivered natively via Electron's own `Notification` API in the main process, which also handles notification clicks.
@@ -40,8 +68,9 @@ npm run package:linux
 ```
 `package:win` expects a bundled Windows embeddable Python under `python/python-3.12.10-embed-amd64/` with site-packages populated; `package:mac` expects standalone Python runtimes under `python/mac-arm64/` and `python/mac-x64/` (from [python-build-standalone](https://github.com/astral-sh/python-build-standalone)) with site-packages populated — see README.md for the full steps. Without these, the packaged app falls back to the system `python3`, which typically lacks `fastapi` and fails to start (now surfaced via an error dialog instead of a silent windowless hang, see `src/main.ts`'s `app.whenReady()` handler).
 
-There is no general test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are two self-test scripts over the pure, dom-free modules plus two isolated Electron safety tests:
+There is no general test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are three focused self-test scripts plus two isolated Electron safety tests:
 ```
+npm run test:workflow             # FAST/STANDARD/FULL authorization gates
 node scripts/query-selftest.mjs      # query parsing/compilation, smart-list templates
 node scripts/shortcuts-selftest.mjs  # shortcut key grammar, default keymap integrity
 npm run test:isolation               # builds, uses temp data, proves real data unchanged
@@ -163,14 +192,18 @@ Where the task lands when the query does not name exactly one list: `state.selec
 `POST /tasks` accepts optional `priority`/`reminderDate`/`reminderTime`/`repeatRule`/`repeatStart` for this; they were previously hardcoded to defaults.
 
 ### Quick Add options
-The compose row's **Options** disclosure (`#compose-options-toggle` / `#compose-options-panel`, `src/renderer/composeOptions.ts`) exposes Task list, Priority and Reminder date for the *next* task, without turning the add field into a command syntax. It is collapsed static markup in `index.html`, not generated — `refs` in `dom.ts` resolves at import (`byId` runs once), so anything not present at load time is `null` forever.
+The compose row's **metadata row** (`#compose-meta-row`, `src/renderer/composeOptions.ts`) exposes Task list, Priority and Reminder date for the *next* task, without turning the add field into a command syntax. It is static markup in `index.html`, not generated — `refs` in `dom.ts` resolves at import (`byId` runs once), so anything not present at load time is `null` forever. It carries **no visible labels**: the field name lives in each trigger's `aria-label` (`Task list: <value>`, `Priority: None`, `Reminder: Select date`), and the row itself is a `role="group"` named `Details for the next task`. There is **no disclosure toggle** — an earlier `#compose-options-toggle` / `#compose-options-panel` was removed.
 
-`state.composeListId` is tri-state (`undefined | null | number`), unlike the edit dialog's `modalSelectedListId`: `undefined` means untouched (inherit whatever the view/template would already send the task to), `null` means the user explicitly chose "No list", and a number is an explicit list. Two states are not enough — the picker needs the same explicit "No list" the edit dialog's list field offers, and that has to stay distinguishable from never having opened Options at all. While untouched, the trigger reads **Current list** rather than calling `renderListOptions` (which only knows `number | null` and would show "No list" as if it had already been chosen).
+Visibility is a **single derived predicate** (`shouldShowComposeMeta()`) with one applier (`syncComposeMetaRow()`), so the row's shown/hidden state can never disagree with what produced it — the same discipline as `activeSmartList()`. The row shows while any of these holds: focus is inside `.compose-block`, `#message-input` holds a non-empty draft, or a compose surface (list menu, priority menu, date popover) is open. The predicate is written over **open surfaces, not DOM containment**, on purpose: the date popover is appended to `document.body` (outside the block) and pressing the mouse on a role-less priority `<div>` row blurs the trigger to `<body>` before the click lands — a `:focus-within` rule would collapse the row in both cases. `.compose-meta-row[hidden] { display: none }` is load-bearing (its own `display: flex` beats the UA `[hidden]` rule). Layout shift on every reveal/collapse is accepted, not reserved against.
 
-Compose values beat everything else: `addTask()` (`actions.ts`) resolves the destination list as `state.composeListId ?? resolved.listId ?? state.selectedListId` (compose beats the running smart list's `list:` term beats the sidebar selection — each a more specific statement of intent than the last), and builds the task's seed as `{ ...templateSeed(template), ...composeSeed() }` so an explicit priority/reminder wins field-by-field over what the query would have derived.
+**Hidden ⟺ at defaults.** Every shown → hidden transition (the activity rule *or* Escape) runs `resetComposeOptions()`, so a hidden row can never leave metadata silently armed. `state.composeMetaDismissed` is the transient flag Escape sets so the predicate does not immediately re-show the row against a still-non-empty draft; it clears when focus leaves the block and re-enters.
 
-`renderTemplateHints()` (`activeSmartList.ts`) stays the **only** "what will the next task get" summary — no second one was added. It already hid itself when there was no search and no template, reasoning that the view picker above names the destination; that reasoning only holds for priority and reminder, which never change the destination. A compose list override does change it, silently, the same way a running search already does, so the row now also shows itself — with a destination chip — whenever `composeListId !== undefined`, even with nothing running.
+`state.composeListId` is tri-state (`undefined | null | number`), unlike the edit dialog's `modalSelectedListId`: `undefined` means untouched (inherit the precedence chain), `null` means the user explicitly chose "No list", and a number is an explicit list. **While untouched the trigger names the *resolved* destination** — the list the task would actually reach — via `resolveComposeDestination()` (`activeSmartList.ts`): `state.composeListId ?? resolveTemplateNames(activeTemplate()).listId ?? state.selectedListId`. Displaying the resolution must never write it back into `state.composeListId`, or a view change would strand a stale override. `paintComposeListLabel()` is repainted on the view (`selectList`), search-query (`applySearchQuery`) and list-mutation (`loadLists`) paths — the same edits `renderTemplateHints()` follows. `data-set` on the field wrapper and trigger still marks an *explicit* override, distinct from a matching resolved name.
 
-Escape closes exactly one surface per press, each layer `stopPropagation()`-ing so only one thing closes: the tag suggestion menu, then the reminder date popover (owned entirely by `datepicker.ts`), then the compose list menu, then the compose priority menu, then the Options panel itself — in that order, each restoring focus to its own trigger. Enter never opens or is swallowed by Options; it only ever submits from `#message-input` or activates a control inside the panel.
+Compose values beat everything else: `addTask()` (`actions.ts`) resolves the destination list through the same `resolveComposeDestination()` the trigger uses (compose beats the running smart list's `list:` term beats the sidebar selection), and builds the task's seed as `{ ...templateSeed(template), ...composeSeed() }` so an explicit priority/reminder wins field-by-field. Success announces `Added "<title>" to <list>.` via `#compose-status`, naming the destination from the same computation.
+
+`renderTemplateHints()` (`activeSmartList.ts`) now describes **only the running query** — compose overrides show on the row's own triggers, and the hidden ⟺ defaults invariant means there is never any armed compose metadata to summarise while the row is hidden. It stays hidden when nothing is running.
+
+Escape closes exactly one surface per press, each layer `stopPropagation()`-ing: the tag suggestion menu (owned by `tagInput.ts` on `#message-input`), then the reminder date popover (owned by `datepicker.ts`), then the compose list menu, then the compose priority menu, then — row shown, nothing open — **collapse the row** (`composeMetaDismissed = true`, hide + reset, focus back to `#message-input`). The keydown listener lives on `#compose-block`, not the removed panel, so Escape is catchable from inside `#message-input`. A hidden row takes no Escape and it falls through to the app's own handler. Enter never opens or is swallowed by the row; it only submits from `#message-input` or activates a control inside it.
 
 Blank submit (`actions.ts`) is checked **before** any tag is created — reordered from the original behaviour, where submitting only `#tag` text created the tag and silently added nothing. A blank submit is now a true no-op: `Enter a task before adding.`, plus focus back to the field even when Add was clicked. A recoverable save failure (`{ error }` or a thrown IPC error) preserves the whole draft — text, pending tags, chosen Options — and shows `Couldn't add the task. Your draft is kept — try Add again.`; the server's own error text is never surfaced. Both messages live in `#compose-error` (`role="alert"`); success is announced only to assistive tech via `#compose-status` (`role="status"`), since the new task row is already the visible confirmation.

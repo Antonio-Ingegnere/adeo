@@ -87,6 +87,12 @@ export type UIState = {
    * opened Options at all.
    */
   composeListId: number | null | undefined;
+  /**
+   * Set true when Escape collapses the activity-revealed metadata row, so the activity
+   * predicate does not immediately re-show it against a still-non-empty draft. Cleared when
+   * focus leaves the compose block and re-enters. Transient; never persisted.
+   */
+  composeMetaDismissed: boolean;
 };
 
 export const state: UIState = {
@@ -135,4 +141,5 @@ export const state: UIState = {
   composePriority: 'none',
   composeReminderDate: null,
   composeListId: undefined,
+  composeMetaDismissed: false,
 };

@@ -63,14 +63,23 @@ const moveTaskInState = (fromIndex: number, insertAt: number) => {
  * Move the ring and the single tab stop onto one row. Roving tabindex: exactly one row is
  * reachable by Tab, so the list is one stop rather than one per task.
  */
-const markCursorRow = (target: HTMLElement | null) => {
+const markCursorRow = (target: HTMLElement | null, showRing = true) => {
   taskRows().forEach((row, index) => {
     // With no cursor, the first row still holds tabindex 0 — otherwise the list would have
     // no tab stop at all and Tab could never reach it.
     const isTarget = target ? row === target : index === 0;
-    row.classList.toggle('focused', Boolean(target) && isTarget);
+    // showRing is false when the cursor is only being re-seated for a background rebuild while
+    // focus is in another region (the compose field, search, a modal): keep the roving tab
+    // stop and state.focusedTaskId, but do not paint a ring that would compete with the real
+    // focus indicator elsewhere. blurCursorRow() below does the same at the moment focus leaves.
+    row.classList.toggle('focused', showRing && Boolean(target) && isTarget);
     row.tabIndex = isTarget ? 0 : -1;
   });
+};
+
+/** Drop the visible cursor ring without moving the logical cursor or the tab stop. */
+const blurCursorRow = () => {
+  taskRows().forEach((row) => row.classList.remove('focused'));
 };
 
 const rowForTask = (taskId: number | null): HTMLElement | null =>
@@ -149,7 +158,10 @@ const applyTaskFocus = (hadFocus: boolean, previousOrdinal: number) => {
   }
 
   state.focusedTaskId = Number(target.dataset.taskId);
-  markCursorRow(target);
+  // hadFocus covers "focus is in the list" and "focus fell to <body> after a mutation"; in both
+  // the ring should stay. When focus has genuinely moved to another control, hold the cursor
+  // position but not the ring.
+  markCursorRow(target, hadFocus);
   if (hadFocus) {
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: 'nearest' });
@@ -580,10 +592,26 @@ export const attachTaskListKeyboard = () => {
   refs.tasksList.addEventListener('focusin', (event) => {
     const row = (event.target as HTMLElement | null)?.closest<HTMLElement>('.task-row');
     if (!row) return;
+    markCursorRow(row);
     const taskId = Number(row.dataset.taskId);
     if (taskId === state.focusedTaskId) return;
     state.focusedTaskId = taskId;
-    markCursorRow(row);
+  });
+
+  // The ring is a class, not :focus-visible, so it survives a re-render — but it must not
+  // survive focus deliberately leaving the list for another control (Cmd+N to the compose
+  // field, clicking search, opening a modal). event.relatedTarget is unreliable for keyboard
+  // Tab navigation here, so re-check document.activeElement on the next frame instead: still in
+  // the list, or parked on <body> after a mutation (renderTasks()'s hadFocus re-seats that
+  // one) — keep the ring; on any other real element — strip it, keeping state.focusedTaskId
+  // and the roving tab stop so Tab or an arrow key resumes exactly here.
+  refs.tasksList.addEventListener('focusout', () => {
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) return;
+      if (active instanceof Node && refs.tasksList?.contains(active)) return;
+      blurCursorRow();
+    });
   });
 };
 

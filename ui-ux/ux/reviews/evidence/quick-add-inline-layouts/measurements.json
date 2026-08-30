@@ -1,0 +1,2164 @@
+{
+  "results": [
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 157,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 140,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 92,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 100,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 1024,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 918,
+        "height": 157,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 123,
+          "blockRight": 971
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 140,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 92,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 100,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 768,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 702,
+        "height": 157,
+        "scrollWidth": 702,
+        "clientWidth": 702
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 103,
+          "blockRight": 735
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 140,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 92,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 100,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 390,
+      "mode": "column",
+      "composeBlock": {
+        "width": 390,
+        "height": 307,
+        "scrollWidth": 390,
+        "clientWidth": 390
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 390
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 390,
+          "h": 59,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 390,
+          "h": 59,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 390,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 307,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 315,
+          "h": 59,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 315,
+          "h": 59,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 315,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Empty",
+      "composeBlock": {
+        "width": 560,
+        "height": 157,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 140,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 79,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 100,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Save error",
+      "composeBlock": {
+        "width": 560,
+        "height": 157,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 140,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 76,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 100,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "light",
+      "mode": "axe",
+      "axe": {
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              ".view-picker",
+              ".reminder-picker",
+              ".priority-picker"
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              ".reminder-picker > .priority-caret[aria-hidden=\"true\"]",
+              ".priority-picker > .priority-caret[aria-hidden=\"true\"]",
+              "div[data-task-id=\"task-review\"] > .task-main > .task-reminder > .task-reminder-text",
+              "button[title=\"Filter by #Design\"]"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "dark",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 157,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 140,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 92,
+          "h": 44,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 100,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "baseline-inline-essentials",
+      "theme": "dark",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 307,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "compose-option",
+          "w": 315,
+          "h": 59,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 315,
+          "h": 59,
+          "name": ""
+        },
+        {
+          "cls": "compose-option",
+          "w": 315,
+          "h": 44,
+          "name": "inline-quick-task-field-reminder-date"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 110,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 25,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 26,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 25,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 1024,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 918,
+        "height": 110,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 123,
+          "blockRight": 971
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 25,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 26,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 25,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 768,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 702,
+        "height": 110,
+        "scrollWidth": 702,
+        "clientWidth": 702
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 103,
+          "blockRight": 735
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 25,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 26,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 25,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 390,
+      "mode": "column",
+      "composeBlock": {
+        "width": 390,
+        "height": 128,
+        "scrollWidth": 390,
+        "clientWidth": 390
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 390
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 128,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 315,
+      "mode": "priority-menu-open",
+      "menuOverflow": {
+        "menuLeft": 81,
+        "menuRight": 255,
+        "blockLeft": 0,
+        "blockRight": 315,
+        "overflowRight": -60,
+        "overflowLeft": -81,
+        "expanded": "true"
+      }
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Empty",
+      "composeBlock": {
+        "width": 560,
+        "height": 110,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 105,
+          "h": 25,
+          "name": "Task list: Current list"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 75,
+          "h": 26,
+          "name": "Priority: None"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 94,
+          "h": 25,
+          "name": "Reminder: Select date"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Save error",
+      "composeBlock": {
+        "width": 560,
+        "height": 123,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 92,
+          "h": 25,
+          "name": "Task list: Personal"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 72,
+          "h": 26,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 25,
+          "name": "Reminder: 25 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Long content",
+      "composeBlock": {
+        "width": 560,
+        "height": 110,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 200,
+          "h": 25,
+          "name": "Task list: Quarterly planning and stakeholder review"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 72,
+          "h": 26,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 102,
+          "h": 25,
+          "name": "Reminder: 31 Dec 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "light",
+      "mode": "axe",
+      "axe": {
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              ".view-picker",
+              "button[aria-controls=\"qaim-values-list-menu\"]",
+              "button[aria-controls=\"qaim-values-priority-menu\"]",
+              ".date-picker-trigger"
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              "button[aria-controls=\"qaim-values-list-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "button[aria-controls=\"qaim-values-priority-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "div[data-task-id=\"task-review\"] > .task-main > .task-reminder > .task-reminder-text",
+              "button[title=\"Filter by #Design\"]"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "story": "a-value-row",
+      "theme": "dark",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 110,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 25,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 26,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 25,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "a-value-row",
+      "theme": "dark",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 128,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 22,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 22,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 22,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 1024,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 918,
+        "height": 112,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 123,
+          "blockRight": 971
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 22,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 22,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 22,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 768,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 702,
+        "height": 112,
+        "scrollWidth": 702,
+        "clientWidth": 702
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 103,
+          "blockRight": 735
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 22,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 22,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 22,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 390,
+      "mode": "column",
+      "composeBlock": {
+        "width": 390,
+        "height": 134,
+        "scrollWidth": 390,
+        "clientWidth": 390
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 390
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 134,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 315,
+      "mode": "priority-menu-open",
+      "menuOverflow": {
+        "menuLeft": 78,
+        "menuRight": 252,
+        "blockLeft": 0,
+        "blockRight": 315,
+        "overflowRight": -63,
+        "overflowLeft": -78,
+        "expanded": "true"
+      }
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Empty",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 104,
+          "h": 22,
+          "name": "Task list: Current list"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 57,
+          "h": 22,
+          "name": "Priority: None"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 96,
+          "h": 22,
+          "name": "Reminder: Select date"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Save error",
+      "composeBlock": {
+        "width": 560,
+        "height": 125,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 91,
+          "h": 22,
+          "name": "Task list: Personal"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 54,
+          "h": 22,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 22,
+          "name": "Reminder: 25 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Long content",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 200,
+          "h": 22,
+          "name": "Task list: Quarterly planning and stakeholder review"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 54,
+          "h": 22,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 104,
+          "h": 22,
+          "name": "Reminder: 31 Dec 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "light",
+      "mode": "axe",
+      "axe": {
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              ".view-picker",
+              "button[aria-controls=\"qaim-chips-list-menu\"]",
+              "button[aria-controls=\"qaim-chips-priority-menu\"]",
+              ".date-picker-trigger"
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              "button[aria-controls=\"qaim-chips-list-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "button[aria-controls=\"qaim-chips-priority-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "div[data-task-id=\"task-review\"] > .task-main > .task-reminder > .task-reminder-text",
+              "button[title=\"Filter by #Design\"]"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "dark",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 22,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 22,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 22,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "b-meta-chips",
+      "theme": "dark",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 134,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "qaim-field qaim-field--list qaim-field--chip",
+          "w": 72,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "qaim-field qaim-field--priority qaim-field--chip",
+          "w": 71,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder qaim-field--chip",
+          "w": 105,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 76,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 34,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 34,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 34,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 1024,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 918,
+        "height": 76,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 123,
+          "blockRight": 971
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 34,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 34,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 34,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 768,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 702,
+        "height": 76,
+        "scrollWidth": 702,
+        "clientWidth": 702
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 103,
+          "blockRight": 735
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 34,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 34,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 34,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 390,
+      "mode": "column",
+      "composeBlock": {
+        "width": 390,
+        "height": 128,
+        "scrollWidth": 390,
+        "clientWidth": 390
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 390
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 170,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 315,
+      "mode": "priority-menu-open",
+      "menuOverflow": {
+        "menuLeft": 77,
+        "menuRight": 251,
+        "blockLeft": 0,
+        "blockRight": 315,
+        "overflowRight": -64,
+        "overflowLeft": -77,
+        "expanded": "true"
+      }
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Empty",
+      "composeBlock": {
+        "width": 560,
+        "height": 76,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 34,
+          "h": 34,
+          "name": "Task list: Current list"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 34,
+          "h": 34,
+          "name": "Priority: None"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 34,
+          "h": 34,
+          "name": "Reminder: Select date"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Save error",
+      "composeBlock": {
+        "width": 560,
+        "height": 89,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 92,
+          "h": 34,
+          "name": "Task list: Personal"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 72,
+          "h": 34,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 34,
+          "name": "Reminder: 25 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Long content",
+      "composeBlock": {
+        "width": 560,
+        "height": 118,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 200,
+          "h": 34,
+          "name": "Task list: Quarterly planning and stakeholder review"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 72,
+          "h": 34,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 102,
+          "h": 34,
+          "name": "Reminder: 31 Dec 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "light",
+      "mode": "axe",
+      "axe": {
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              ".view-picker",
+              "button[aria-controls=\"qaim-cluster-list-menu\"]",
+              "button[aria-controls=\"qaim-cluster-priority-menu\"]",
+              ".date-picker-trigger"
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              "button[aria-controls=\"qaim-cluster-list-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "button[aria-controls=\"qaim-cluster-priority-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "div[data-task-id=\"task-review\"] > .task-main > .task-reminder > .task-reminder-text",
+              "button[title=\"Filter by #Design\"]"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "dark",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 76,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 34,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 34,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 34,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "c-same-line-cluster",
+      "theme": "dark",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 170,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 89,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 28,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 28,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 28,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 1024,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 918,
+        "height": 112,
+        "scrollWidth": 918,
+        "clientWidth": 918
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 123,
+          "blockRight": 971
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 28,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 28,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 28,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 768,
+      "mode": "viewport",
+      "composeBlock": {
+        "width": 702,
+        "height": 112,
+        "scrollWidth": 702,
+        "clientWidth": 702
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 103,
+          "blockRight": 735
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 28,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 28,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 28,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 390,
+      "mode": "column",
+      "composeBlock": {
+        "width": 390,
+        "height": 128,
+        "scrollWidth": 390,
+        "clientWidth": 390
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 390
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 128,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 315,
+      "mode": "priority-menu-open",
+      "menuOverflow": {
+        "menuLeft": 74,
+        "menuRight": 248,
+        "blockLeft": 0,
+        "blockRight": 315,
+        "overflowRight": -67,
+        "overflowLeft": -74,
+        "expanded": "true"
+      }
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Empty",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 105,
+          "h": 28,
+          "name": "Task list: Current list"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 76,
+          "h": 28,
+          "name": "Priority: None"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 95,
+          "h": 28,
+          "name": "Reminder: Select date"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Save error",
+      "composeBlock": {
+        "width": 560,
+        "height": 125,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 92,
+          "h": 28,
+          "name": "Task list: Personal"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 73,
+          "h": 28,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 28,
+          "name": "Reminder: 25 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "width": 1440,
+      "mode": "state:Long content",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 268,
+          "h": 28,
+          "name": "Task list: Quarterly planning and stakeholder review"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 73,
+          "h": 28,
+          "name": "Priority: High"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 103,
+          "h": 28,
+          "name": "Reminder: 31 Dec 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "light",
+      "mode": "axe",
+      "axe": {
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              ".view-picker",
+              "button[aria-controls=\"qaim-bar-list-menu\"]",
+              "button[aria-controls=\"qaim-bar-priority-menu\"]",
+              ".date-picker-trigger"
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              "button[aria-controls=\"qaim-bar-list-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "button[aria-controls=\"qaim-bar-priority-menu\"] > .priority-caret[aria-hidden=\"true\"]",
+              "div[data-task-id=\"task-review\"] > .task-main > .task-reminder > .task-reminder-text",
+              "button[title=\"Filter by #Design\"]"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "dark",
+      "width": 1440,
+      "mode": "story-page",
+      "composeBlock": {
+        "width": 560,
+        "height": 112,
+        "scrollWidth": 560,
+        "clientWidth": 560
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 483,
+          "blockRight": 973
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 28,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 28,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 28,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    },
+    {
+      "story": "d-unified-context-bar",
+      "theme": "dark",
+      "width": 315,
+      "mode": "column",
+      "composeBlock": {
+        "width": 315,
+        "height": 128,
+        "scrollWidth": 315,
+        "clientWidth": 315
+      },
+      "overflowingChildren": [
+        {
+          "selector": "button.view-picker",
+          "right": 70,
+          "blockRight": 315
+        }
+      ],
+      "documentOverflow": 0,
+      "fields": [
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--list",
+          "w": 73,
+          "h": 44,
+          "name": "Task list: Work"
+        },
+        {
+          "cls": "modal-list-select-wrap reminder-select-wrap qaim-field qaim-field--priority",
+          "w": 90,
+          "h": 44,
+          "name": "Priority: Medium"
+        },
+        {
+          "cls": "qaim-field qaim-field--reminder",
+          "w": 104,
+          "h": 44,
+          "name": "Reminder: 24 Aug 2026"
+        }
+      ]
+    }
+  ],
+  "consoleErrors": []
+}

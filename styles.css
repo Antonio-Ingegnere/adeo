@@ -551,9 +551,13 @@ body {
   display: none;
 }
 
-/* .focused is the ring; without this the UA would draw a second one just outside it. */
-.task-row:focus,
-.task-row:focus-visible {
+/* Suppress the UA focus outline only when .focused is NOT drawing our own ring. Without the
+   :not(), this equal-specificity rule sits after .task-row.focused in the file and its
+   `outline: none` wins the cascade — so a row that is both the keyboard cursor and DOM-focused
+   (Tab lands on it, or an arrow key focus()es it) would show no ring at all until focus moved
+   to a child and the row dropped to :focus-within. */
+.task-row:focus:not(.focused),
+.task-row:focus-visible:not(.focused) {
   outline: none;
 }
 
@@ -2751,42 +2755,13 @@ kbd {
   border-color: var(--border-strong);
 }
 
-/* Quick Add "Options" disclosure -- see CLAUDE.md "Quick Add options" for why the panel is
-   static markup and why the compose row's own values beat the smart-list template. */
+/* Quick Add metadata row -- the label-free "Value row" layout. See CLAUDE.md "Quick Add
+   options" for why this is static markup, why there is no disclosure toggle, and why
+   visibility is one derived predicate over open surfaces rather than DOM containment. */
 .compose-options {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-}
-
-.compose-options-toggle[data-active='true'] {
-  background: var(--surface-selected);
-  color: var(--text-body);
-}
-
-.compose-options-panel {
-  display: flex;
-  gap: var(--space-16);
-  flex-wrap: wrap;
-  padding: var(--space-8) var(--space-0);
-}
-
-/* load-bearing: .compose-options-panel's own flex display beats [hidden] on specificity, so a
-   collapsed panel would otherwise stay laid out and in the tab order. */
-.compose-options-panel[hidden] {
-  display: none;
-}
-
-.compose-option {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.compose-option-label {
-  font-size: var(--font-xs);
-  color: var(--text-hint);
-  margin: 0;
 }
 
 .compose-error {
@@ -2799,6 +2774,83 @@ kbd {
   display: none;
 }
 
+.compose-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  padding: var(--space-8) 0; /* spacing-exception: replaces the removed .compose-options-panel inset */
+}
+
+/* load-bearing: .compose-meta-row's own flex display beats [hidden] on specificity, so a
+   collapsed row would otherwise stay laid out and in the tab order. */
+.compose-meta-row[hidden] {
+  display: none;
+}
+
+.compose-field {
+  position: relative;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+/* content-sized up to a cap, then ellipsis -- defeats .priority-picker/.reminder-picker's
+   own width:100% and .modal-list-select-wrap's min-width:140px. */
+.compose-field .priority-picker,
+.compose-field .reminder-picker,
+.compose-field .date-picker-trigger {
+  width: auto;
+  max-width: 200px;
+  gap: var(--space-6);
+}
+
+.compose-field-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+}
+
+.compose-field-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.compose-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* .priority-menu's shipped left:-7.5%;width:115% is derived from a full-width trigger and is
+   unreadable under a content-sized one. */
+.compose-field .priority-menu,
+.compose-field .modal-list-menu {
+  left: 0;
+  width: max-content;
+  min-width: 160px;
+  max-width: min(260px, calc(100vw - var(--space-24)));
+}
+
+.compose-field[data-menu-align='end'] .priority-menu,
+.compose-field[data-menu-align='end'] .modal-list-menu {
+  left: auto;
+  right: 0;
+}
+
+/* lead with the calendar glyph like the other two fields */
+.compose-field--reminder .date-picker-trigger {
+  flex-direction: row-reverse;
+}
+
+.compose-field--reminder .date-picker-trigger-label {
+  flex: 0 1 auto;
+}
+
 /* Scoped to Quick Add's own controls only -- whole-app narrow/touch layout is P5.4's. */
 @media (max-width: 480px) {
   #add-button {
@@ -2806,15 +2858,10 @@ kbd {
     min-height: 44px;
   }
 
-  .compose-options-toggle,
-  .compose-options-panel .priority-picker,
-  .compose-options-panel .reminder-picker,
-  .compose-options-panel .date-picker-trigger {
+  .compose-meta-row .priority-picker,
+  .compose-meta-row .reminder-picker,
+  .compose-meta-row .date-picker-trigger {
     min-height: 44px;
-  }
-
-  .compose-options-panel {
-    flex-direction: column;
   }
 
   .add-task-template {

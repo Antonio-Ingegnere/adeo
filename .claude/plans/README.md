@@ -1,8 +1,8 @@
-# FULL implementation plan lifecycle
+# Exceptional high-risk implementation plans
 
-This revisioned lifecycle is only for FULL work selected through `/feature`.
-FAST and STANDARD use `.claude/workflow/current.md` and must not create plan
-history here. Do not manually replace `current.md` with a new FULL plan.
+This revisioned lifecycle is only for durable high-risk work identified by
+`/deliver` and routed through `/feature mode=full`. Ordinary delivery must not
+create plan history here. Do not manually replace `current.md` with a new plan.
 
 ## Commands
 
@@ -24,9 +24,10 @@ history here. Do not manually replace `current.md` with a new FULL plan.
 
 Every active plan has an append-only Decision Log and Revision Log. Updating an
 approved plan returns it to draft and requires a new explicit approval. The
-implementer may use only the immutable approved snapshot selected by
-`current.md` while its lifecycle status is `APPROVED`.
+`/deliver` orchestrator records the immutable approved snapshot through
+`delivery.py authorize-high`; the implementer proceeds only while that reference
+is present in machine delivery state.
 
-Create the specification and architecture/plan before requesting the one FULL
-human approval. Do not add separate approval gates for research, specification,
-and planning.
+Create the durable specification and architecture/plan before requesting the
+one human approval. Do not add separate approval gates for research,
+specification, and planning.

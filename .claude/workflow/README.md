@@ -1,10 +1,11 @@
-# Current feature workflow
+# Legacy feature artifacts
 
-Normal feature requests may create `current.md` automatically through the
-`/feature` rules; `/feature start request="..."` does so explicitly. FAST and
-STANDARD keep their complete brief or mini spec in that one file. FULL uses it
-as a small mode/status pointer to the detailed plan under `.claude/plans/`.
+`.claude/workflow/current.md` contains historical FAST/STANDARD/FULL workflow
+state. It remains readable so an already-authorized legacy feature is not
+silently invalidated, but new ordinary work must use `/deliver` and the
+machine-owned `.claude/delivery/current.json` lifecycle.
 
-Do not store review transcripts or duplicate source documentation here. Replace
-a completed `current.md` only when starting the next feature; never overwrite an
-unfinished feature without explicit user direction.
+Do not create new workflow artifacts. New high-risk work uses an immutable plan
+snapshot plus `delivery.py authorize-high`; it does not synchronize this file.
+Implementation completion is never recorded here; deterministic quality plus a
+bounded verifier receipt own `READY_FOR_PRODUCT_REVIEW`.

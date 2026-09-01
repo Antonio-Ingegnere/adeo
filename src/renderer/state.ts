@@ -1,5 +1,43 @@
-import type { List, SmartList, Tag, Task, Theme } from '../types';
+import type { Board, List, SmartList, Tag, Task, Theme } from '../types';
 import type { CompiledPredicate, ParseError } from './query.js';
+
+/**
+ * One column of the multi-column board, in the renderer's working copy. `clientId` is a
+ * throwaway local handle so a column can be addressed before it is persisted and while it is
+ * being reordered; identity for persistence is (sourceKind, sourceId, position).
+ */
+export type BoardWorkingColumn = {
+  clientId: string;
+  sourceKind: 'list' | 'smart';
+  /** list id, or smart-list id; a `list` column with sourceId 0 means "No list" */
+  sourceId: number;
+};
+
+/** Attribute snapshot a board move can touch, held client-side for the Undo-toast window. */
+export type BoardMoveSnapshot = {
+  taskId: number;
+  listId: number | null;
+  priority: Task['priority'];
+  tagIds: number[];
+  reminderDate: string | null;
+  reminderTime: string | null;
+  repeatRule: string | null;
+  repeatStart: string | null;
+  done: boolean;
+};
+
+/** Inline preview / confirm state for a best-effort, blocked or no-op move. */
+export type BoardPreviewState = {
+  destColumnId: string;
+  fromColumnId: string;
+  taskId: number;
+};
+
+export type BoardToastState = {
+  message: string;
+  /** the snapshot is what Undo restores; absent when there is nothing to undo (errors) */
+  undo: boolean;
+};
 
 export type UIState = {
   tasks: Task[];
@@ -93,6 +131,33 @@ export type UIState = {
    * focus leaves the compose block and re-enters. Transient; never persisted.
    */
   composeMetaDismissed: boolean;
+
+  /** Saved boards (Alternative B). CRUD mirrors the smart-list stack. */
+  boards: Board[];
+  boardsExpanded: boolean;
+  openBoardMenuId: number | null;
+  /** true while the main column shows the board instead of the single view */
+  boardMode: boolean;
+  /** which saved board is open, or null for an unsaved working board */
+  activeBoardId: number | null;
+  /** the renderer's working copy of the open board's ordered columns */
+  boardColumns: BoardWorkingColumn[];
+  /** working columns / name differ from the saved board */
+  boardUnsaved: boolean;
+  /** open column options (⋯) menu, by column clientId */
+  boardOpenColumnMenuId: string | null;
+  /** open header source picker, by column clientId ('__add__' for the end-of-row control) */
+  boardOpenSourcePickerId: string | null;
+  /** open per-card "Move to…" menu */
+  boardOpenMoveMenu: { taskId: number; columnId: string } | null;
+  /** inline preview / confirm surface for a best-effort / blocked / no-op move */
+  boardPreview: BoardPreviewState | null;
+  /** non-live Undo toast; auto-clears */
+  boardToast: BoardToastState | null;
+  /** pre-move attribute snapshot; lifetime = the toast window, does not survive reload */
+  boardSnapshot: BoardMoveSnapshot | null;
+  /** column whose body / header last held focus, for seeding the single view on leave */
+  boardFocusColumnId: string | null;
 };
 
 export const state: UIState = {
@@ -142,4 +207,18 @@ export const state: UIState = {
   composeReminderDate: null,
   composeListId: undefined,
   composeMetaDismissed: false,
+  boards: [],
+  boardsExpanded: true,
+  openBoardMenuId: null,
+  boardMode: false,
+  activeBoardId: null,
+  boardColumns: [],
+  boardUnsaved: false,
+  boardOpenColumnMenuId: null,
+  boardOpenSourcePickerId: null,
+  boardOpenMoveMenu: null,
+  boardPreview: null,
+  boardToast: null,
+  boardSnapshot: null,
+  boardFocusColumnId: null,
 };

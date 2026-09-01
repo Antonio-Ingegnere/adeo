@@ -157,6 +157,35 @@
                 search, then save it from the strip under the search bar.</div>
             </div>
           </div>
+          <!-- Saved boards: a named, ordered set of List / Smart list column references. Deleting
+               a board never touches a List, Smart list or task. Modelled on .smart-lists-panel. -->
+          <div class="lists-panel boards-panel" id="boards-panel">
+            <div class="lists-header">
+              <div class="lists-title-wrap">
+                <span class="lists-title-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 5h4v14H4V5zm6 0h4v14h-4V5zm6 0h4v14h-4V5z" />
+                  </svg>
+                </span>
+                <p class="lists-title">Boards</p>
+              </div>
+              <div class="lists-actions">
+                <button id="add-board-button" class="icon-button" aria-label="New board">+</button>
+                <button id="boards-toggle" class="icon-button" aria-label="Toggle boards">
+                  <span class="expand-chevrons" aria-hidden="true">
+                    <svg viewBox="0 0 14 14" focusable="false">
+                      <path d="M2 3 L7 8 L12 3" />
+                      <path d="M2 8 L7 13 L12 8" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div id="boards-list" class="lists-list">
+              <div id="boards-empty" class="empty-state">No boards yet. Click + to lay Lists and
+                Smart lists side by side.</div>
+            </div>
+          </div>
           <div class="lists-panel tags-panel">
             <div class="lists-header">
               <div class="lists-title-wrap">
@@ -209,6 +238,8 @@
               <button id="tag-filter-chip" class="tag-filter-chip" type="button" style="display:none"></button>
               <div id="view-bar-naming" class="view-bar-naming" style="display:none"></div>
               <div id="view-bar-actions" class="view-bar-actions"></div>
+              <button id="board-toggle" class="view-bar-action" type="button" aria-pressed="false"
+                title="Lay several views side by side">Board</button>
             </div>
             <div class="input-row">
               <div class="add-task-input-wrap">
@@ -292,6 +323,14 @@
             <div id="tasks-list" class="tasks-list">
               <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
             </div>
+          </div>
+          <!-- The multi-column board. Hidden until entered; replaces the single view above.
+               The board region owns its own horizontal overflow so the page never scrolls
+               sideways. Built by src/renderer/board.ts. -->
+          <div id="board-region" class="board-region" role="region" aria-label="Board" hidden>
+            <div id="board-columns" class="board-columns"></div>
+            <span id="board-live" class="visually-hidden" role="status" aria-live="polite"></span>
+            <div id="board-toast" class="board-toast" role="group" aria-label="Move result" hidden></div>
           </div>
         </div>
       </div>

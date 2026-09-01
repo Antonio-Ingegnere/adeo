@@ -121,6 +121,22 @@ const renderViewMenu = () => {
       );
     });
   }
+
+  menu.appendChild(menuGroup('Boards'));
+  menu.appendChild(
+    menuItem(
+      'New board',
+      view.kind === 'board' && view.board === null,
+      () => emit('enter-board-view', { boardId: null }),
+    ),
+  );
+  state.boards.forEach((board) => {
+    menu.appendChild(
+      menuItem(board.name, view.kind === 'board' && view.board?.id === board.id, () =>
+        emit('enter-board-view', { boardId: board.id }),
+      ),
+    );
+  });
 };
 
 // ---------- The bar ----------
@@ -128,6 +144,7 @@ const renderViewMenu = () => {
 const viewLabel = (view: ReturnType<typeof currentView>): string => {
   if (view.kind === 'smart') return view.smartList.name;
   if (view.kind === 'search') return 'Search results';
+  if (view.kind === 'board') return view.board ? view.board.name : 'Board';
   if (view.id === null) return 'All lists';
   return state.lists.find((l) => l.id === view.id)?.name ?? 'All lists';
 };
@@ -221,6 +238,13 @@ export const renderViewBar = () => {
 
   if (naming) {
     renderNaming();
+    return;
+  }
+
+  if (view.kind === 'board') {
+    refs.viewBarActions.appendChild(
+      action('Leave board', 'Return to the single view', () => emit('leave-board-view')),
+    );
     return;
   }
 

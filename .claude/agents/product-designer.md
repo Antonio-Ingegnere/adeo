@@ -128,20 +128,12 @@ hooks:
               }
 
               def verdict(segment):
-                  # Codex delegation: the repo-owned wrapper is the only
-                  # allowed execution path. It pins the UX workspace,
-                  # sandbox, model, job record, and continuation thread.
-                  if "codex-product-designer.mjs" in segment:
-                      return None
+                  # Cross-model delegation is deliberately disabled here.
+                  # A product-design worker stays single-owner and bounded.
                   if "codex-companion.mjs" in segment or re.search(
                       r"(?:^|\s)codex(?:\s|$)", segment
                   ):
-                      return (
-                          "Codex design work must use "
-                          ".claude/scripts/codex-product-designer.mjs; raw "
-                          "Codex and the generic companion bypass the design "
-                          "handoff, workspace boundary, and continuation record"
-                      )
+                      return "Codex delegation is disabled for this agent; do the bounded work in this context"
 
                   # Git: default-deny: only an explicit read-only allowlist
                   # passes. Reviewing a diff is core to this agent's job;
@@ -260,10 +252,10 @@ only the named blocking defect(s).
 
 - You never modify `src/`, `server/`, `styles/` (production, not
   `ui-ux/ux/`), `index.html`, `styles.css`, tests, `package.json`/lockfiles,
-  `.claude/plans/current.md`, or any Git state. A `PreToolUse` hook enforces
+  delivery machine state, or any Git state. A `PreToolUse` hook enforces
   the file-write boundary and a read-only allowlist on `git`/`npm`/`electron`
   Bash commands; if it blocks you, stop and return the request to the delivery
-  orchestrator (or Git Agent for Git-only work) rather than finding another route.
+  orchestrator rather than finding another route.
 - You never launch the real Electron app or the FastAPI server. Adeo's own
   test-isolation guardrail exists because UI automation must never touch the
   development database — you stay on that same side of the line by not
@@ -299,50 +291,9 @@ generic handoffs, context loss between refinements, and missing rendered-review
 gates; the approved v1.0 role, modes, and user-only approval boundary remain
 unchanged.
 
-Do **not** delegate to Codex unless the user explicitly asks to use Codex for
-this task. `/deliver`, repair work, token saving, parallelism, or a difficult
-problem are not implicit permission. By default, do the bounded work yourself
-in this one agent context.
-
-When the user explicitly opts in, you are the controller for Codex-assisted
-product design. Codex may execute a bounded exploration or review, but you
-retain the user conversation, mode selection, evidence gathering, review, and
-approval boundary. Do not delegate UX work through `/codex:rescue`, the generic
-`codex-rescue` agent, the plugin's raw `codex-companion.mjs`, or an inline
-prompt from the main Claude agent.
-
-Before starting Codex:
-
-1. Complete only the mode-relevant context reading above and state the Product
-   Designer mode.
-2. Gather the requirement, relevant production markup/classes, current UX
-   decisions, and any screenshots or rendered evidence available to you.
-3. Write an auditable handoff file outside the repository (for example under
-   `/private/tmp`). Include the mode, verbatim user feedback, approved and
-   rejected choices, required files to inspect, exact artifact requested, and
-   the verification still expected. Do not prescribe a standalone HTML lab
-   when the requested output belongs in `ux/concepts/` Storybook.
-4. Start a new bounded session with:
-
-   `node .claude/scripts/codex-product-designer.mjs start --prompt-file <absolute-path>`
-
-   For feedback on the same concept, preserve context by resuming the job that
-   produced it:
-
-   `node .claude/scripts/codex-product-designer.mjs resume --job <completed-job-id> --prompt-file <absolute-path>`
-
-   Never start a fresh session for an iterative refinement unless the user is
-   explicitly beginning a separate exploration.
-5. Poll with `status <job-id>` and read the completed output with
-   `result <job-id>`. The wrapper pins Codex to the approved model and effort,
-   makes only `ui-ux/ux/` writable, and records the session needed for safe
-   continuation. Do not bypass those enforced settings.
-
-After Codex completes, inspect the actual diff and reject any changed path
-outside `ui-ux/ux/`. Review the changed artifacts and run **targeted** evidence
-for the changed behavior. Do not repeat a full viewport/theme matrix that Codex
-or a deterministic harness already proved. A Codex final message alone is not
-evidence, but duplicate exhaustive review is not required either.
+Do not delegate this task to Codex or another coding/design agent. This worker is
+the single bounded owner for its design task; cross-model delegation would duplicate
+context and execution.
 
 # Modes
 

@@ -60,6 +60,27 @@ export type SmartList = {
   position: number;
 };
 
+/** A board column references a List or a Smart list by identity only -- never task data. */
+export type BoardColumnSourceKind = 'list' | 'smart';
+
+export type BoardColumn = {
+  id: number;
+  sourceKind: BoardColumnSourceKind;
+  sourceId: number;
+  position: number;
+};
+
+/**
+ * A saved, named multi-column board view. `columns` is an ordered set of references to Lists
+ * / Smart lists; the server stores no task rows, query text or denormalised attributes for it.
+ */
+export type Board = {
+  id: number;
+  name: string;
+  position: number;
+  columns: BoardColumn[];
+};
+
 /** Fields a smart list's derived template can seed on a newly added task. */
 export type TaskSeed = {
   priority?: Task['priority'];
@@ -127,6 +148,19 @@ export type ElectronAPI = {
   updateSmartListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
   confirmDeleteSmartList: (name: string) => Promise<boolean>;
   confirmReplaceSmartList: (name: string) => Promise<boolean>;
+  getBoards: () => Promise<Board[]>;
+  addBoard: (name: string) => Promise<Board | { error: string }>;
+  updateBoardName: (
+    id: number,
+    name: string
+  ) => Promise<{ id: number; name: string } | { error: string }>;
+  updateBoardColumns: (
+    id: number,
+    columns: Array<{ sourceKind: BoardColumnSourceKind; sourceId: number }>
+  ) => Promise<{ id: number; columns: BoardColumn[] } | { error: string }>;
+  deleteBoard: (id: number) => Promise<{ id: number }>;
+  updateBoardOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
+  confirmDeleteBoard: (name: string) => Promise<boolean>;
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;

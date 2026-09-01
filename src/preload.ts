@@ -1,5 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronAPI, List, Settings, SmartList, Tag, Task, TaskSeed, Theme } from './types';
+import type {
+  Board,
+  BoardColumn,
+  BoardColumnSourceKind,
+  ElectronAPI,
+  List,
+  Settings,
+  SmartList,
+  Tag,
+  Task,
+  TaskSeed,
+  Theme,
+} from './types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   addTask: (text: string, listId?: number | null, tagIds?: number[], seed?: TaskSeed) =>
@@ -85,6 +97,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('confirm-delete-smart-list', name) as Promise<boolean>,
   confirmReplaceSmartList: (name: string) =>
     ipcRenderer.invoke('confirm-replace-smart-list', name) as Promise<boolean>,
+  getBoards: () => ipcRenderer.invoke('get-boards') as Promise<Board[]>,
+  addBoard: (name: string) =>
+    ipcRenderer.invoke('add-board', name) as Promise<Board | { error: string }>,
+  updateBoardName: (id: number, name: string) =>
+    ipcRenderer.invoke('update-board-name', id, name) as Promise<
+      { id: number; name: string } | { error: string }
+    >,
+  updateBoardColumns: (
+    id: number,
+    columns: Array<{ sourceKind: BoardColumnSourceKind; sourceId: number }>
+  ) =>
+    ipcRenderer.invoke('update-board-columns', id, columns) as Promise<
+      { id: number; columns: BoardColumn[] } | { error: string }
+    >,
+  deleteBoard: (id: number) => ipcRenderer.invoke('delete-board', id) as Promise<{ id: number }>,
+  updateBoardOrder: (orderedIds: number[]) =>
+    ipcRenderer.invoke('update-board-order', orderedIds) as Promise<{ success: boolean }>,
+  confirmDeleteBoard: (name: string) =>
+    ipcRenderer.invoke('confirm-delete-board', name) as Promise<boolean>,
   updateTimeFormat: (format: '12h' | '24h') =>
     ipcRenderer.invoke('update-time-format', format) as Promise<{ timeFormat: '12h' | '24h' }>,
   updateDateFormat: (format: string) =>

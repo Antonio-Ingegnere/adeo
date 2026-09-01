@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,7 @@ ACTIVE_STATES = {
     "VERIFYING",
     "REPAIRING",
     "NEEDS_HUMAN_REVIEW",
+    "READY_FOR_MANUAL_QA",
 }
 IMPLEMENTATION_STATES = {"IMPLEMENTING", "REPAIRING"}
 BLOCKING_VERIFIER_SEVERITIES = {
@@ -53,6 +55,15 @@ VERIFIER_BUDGETS = {
 }
 MAX_VERIFIER_DEFECTS = 3
 MAX_ADVERSARIAL_SCENARIOS = 3
+MAX_MANUAL_QA_DEFECTS = 3
+MAX_MANUAL_QA_BATCHES = 3
+MAX_MANUAL_QA_REOPENS = 1
+QA_REPAIR_ROUTES = {"qa-repairer", "qa-repairer-sonnet"}
+FEATURE_CHECK_PATTERNS = (
+    re.compile(r"^node scripts/[A-Za-z0-9_./-]+-selftest\.mjs$"),
+    re.compile(r"^python3 scripts/[A-Za-z0-9_./-]+-selftest\.py$"),
+    re.compile(r"^npm run test:[A-Za-z0-9:_-]+$"),
+)
 KNOWN_EVIDENCE = {
     "build",
     "workflow",
@@ -187,6 +198,165 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def _yaml_scalar(value: str) -> Any:
+    value = value.strip()
+    if not value:
+        return ""
+    if value in {"null", "Null", "NULL", "~"}:
+        return None
+    if value.lower() in {"true", "false"}:
+        return value.lower() == "true"
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+        try:
+            import ast
+            return ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            return value[1:-1]
+    if re.fullmatch(r"-?\d+", value):
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    return value
+
+
+def _read_simple_bugs_yaml(path: Path) -> dict[str, Any]:
+    """Dependency-free fallback for the intentionally tiny manual-QA YAML schema."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise DeliveryError(f"Cannot read YAML from {path}: {exc}") from exc
+
+    bugs: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    i = 0
+    saw_bugs = False
+    while i < len(lines):
+        raw = lines[i]
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            i += 1
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if indent == 0 and stripped == "bugs:":
+            saw_bugs = True
+            i += 1
+            continue
+        if not saw_bugs:
+            raise DeliveryError("Manual-QA YAML fallback expects a top-level `bugs:` list")
+        if indent == 2 and stripped.startswith("- "):
+            current = {}
+            bugs.append(current)
+            first = stripped[2:].strip()
+            if first:
+                if ":" not in first:
+                    raise DeliveryError(f"Invalid YAML bug entry near line {i + 1}")
+                key, value = first.split(":", 1)
+                current[key.strip()] = _yaml_scalar(value)
+            i += 1
+            continue
+        if current is None or indent != 4 or ":" not in stripped:
+            raise DeliveryError(f"Unsupported manual-QA YAML shape near line {i + 1}")
+        key, value = stripped.split(":", 1)
+        key, value = key.strip(), value.strip()
+        if value in {">", "|"}:
+            block: list[str] = []
+            i += 1
+            while i < len(lines):
+                block_raw = lines[i]
+                block_indent = len(block_raw) - len(block_raw.lstrip(" "))
+                if block_raw.strip() and block_indent <= 4:
+                    break
+                if block_indent >= 6:
+                    block.append(block_raw[6:])
+                elif not block_raw.strip():
+                    block.append("")
+                i += 1
+            current[key] = (" ".join(part.strip() for part in block if part.strip()) if value == ">" else "\n".join(block).strip())
+            continue
+        if not value:
+            items: list[str] = []
+            i += 1
+            while i < len(lines):
+                item_raw = lines[i]
+                item_indent = len(item_raw) - len(item_raw.lstrip(" "))
+                item_stripped = item_raw.strip()
+                if not item_stripped:
+                    i += 1
+                    continue
+                if item_indent <= 4:
+                    break
+                if item_indent == 6 and item_stripped.startswith("- "):
+                    items.append(str(_yaml_scalar(item_stripped[2:])))
+                    i += 1
+                    continue
+                raise DeliveryError(f"Unsupported YAML list item near line {i + 1}")
+            current[key] = items
+            continue
+        current[key] = _yaml_scalar(value)
+        i += 1
+
+    if not saw_bugs:
+        raise DeliveryError("Manual-QA YAML requires a top-level `bugs:` list")
+    return {"bugs": bugs}
+
+
+def read_manual_qa_file(path: Path) -> dict[str, Any]:
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        return read_json(path)
+    if suffix not in {".yaml", ".yml"}:
+        raise DeliveryError("Manual-QA file must use .json, .yaml, or .yml")
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        return _read_simple_bugs_yaml(path)
+    try:
+        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise DeliveryError(f"Cannot read YAML from {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise DeliveryError(f"Expected a YAML object in {path}")
+    return value
+
+
+def normalize_manual_qa_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if "defects" in payload:
+        defects = payload.get("defects")
+        if not isinstance(defects, list):
+            raise DeliveryError("Manual QA `defects` must be a list")
+        return defects
+
+    bugs = payload.get("bugs")
+    if not isinstance(bugs, list):
+        raise DeliveryError("Manual QA requires a top-level `bugs` or `defects` list")
+    normalized: list[dict[str, Any]] = []
+    for bug in bugs:
+        if not isinstance(bug, dict):
+            raise DeliveryError("Every manual-QA bug must be an object")
+        status = str(bug.get("status") or "Open").strip()
+        if status.lower() != "open":
+            continue
+        description = bug.get("description")
+        validate_string(description, "manual_qa.description")
+        steps = bug.get("steps", [])
+        validate_string_list(steps, "manual_qa.steps", allow_empty=True)
+        normalized.append({
+            "manual_bug_id": bug.get("id"),
+            "manual_status": status,
+            "category": bug.get("category") or "ui",
+            "expected": bug.get("expected") or "The reported manual-QA issue no longer occurs while intended product behavior is preserved.",
+            "actual": str(description).strip(),
+            "reproduction": steps,
+            "suspected_area": bug.get("suspected_area") or "manual QA surface",
+            "evidence": bug.get("evidence", []),
+            "invariant_violated": bug.get("invariant_violated") or "The user-reported manual-QA defect must be resolved.",
+        })
+    if not normalized:
+        raise DeliveryError("Manual-QA YAML contains no Open bugs")
+    return normalized
+
+
 def write_state(root: Path, state: dict[str, Any]) -> None:
     target = state_path(root)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -256,6 +426,7 @@ def ensure_budget(state: dict[str, Any]) -> dict[str, Any]:
         state["budget"] = budget
     budget.setdefault("human_extra_targeted", 0)
     budget.setdefault("human_extra_repairs", 0)
+    budget.setdefault("manual_qa_batches", 0)
     budget["max_full_verifier_runs"] = policy["full"]
     budget["max_targeted_verifier_runs"] = (
         policy["targeted"] + int(budget.get("human_extra_targeted", 0))
@@ -312,7 +483,12 @@ def load_state(root: Path, *, refresh_ready: bool = True) -> dict[str, Any]:
     if state.get("version") != VERSION:
         raise DeliveryError("Unsupported delivery state version")
     ensure_budget(state)
-    if refresh_ready and state.get("state") == "READY_FOR_PRODUCT_REVIEW":
+    # v1 compatibility: old runtimes called this product review even though UI
+    # still required human acceptance. Treat it as manual-QA readiness.
+    if state.get("state") == "READY_FOR_PRODUCT_REVIEW":
+        state["state"] = "READY_FOR_MANUAL_QA"
+        write_state(root, state)
+    if refresh_ready and state.get("state") == "READY_FOR_MANUAL_QA":
         _, current = current_snapshot(root)
         verified = (state.get("verifier") or {}).get("fingerprint")
         if current != verified:
@@ -351,6 +527,47 @@ def validate_string_list(value: Any, field: str, *, allow_empty: bool = False) -
         raise DeliveryError(f"Change Model field `{field}` must be {qualifier}")
     if any(not isinstance(item, str) or not item.strip() for item in value):
         raise DeliveryError(f"Change Model field `{field}` contains an invalid item")
+
+
+def validate_feature_check(command: str) -> str:
+    validate_string(command, "feature_checks")
+    normalized = " ".join(command.split())
+    if len(normalized) > 180 or ".." in normalized:
+        raise DeliveryError("Feature check is unsafe or too long")
+    if not any(pattern.fullmatch(normalized) for pattern in FEATURE_CHECK_PATTERNS):
+        raise DeliveryError(
+            "Unsupported feature check. Use `node scripts/*-selftest.mjs`, "
+            "`python3 scripts/*-selftest.py`, or `npm run test:<name>`."
+        )
+    return normalized
+
+
+def feature_checks(model: dict[str, Any], paths: list[str]) -> list[str]:
+    commands: list[str] = []
+    for raw in model.get("feature_checks", []):
+        command = validate_feature_check(str(raw))
+        if command not in commands:
+            commands.append(command)
+    for path in paths:
+        if path.startswith("scripts/") and path.endswith("-selftest.mjs"):
+            command = validate_feature_check(f"node {path}")
+            if command not in commands:
+                commands.append(command)
+        elif path.startswith("scripts/") and path.endswith("-selftest.py"):
+            command = validate_feature_check(f"python3 {path}")
+            if command not in commands:
+                commands.append(command)
+    if len(commands) > 5:
+        raise DeliveryError("At most five feature-specific deterministic checks are allowed")
+    return commands
+
+
+def verification_route(state: dict[str, Any]) -> str:
+    mode = str(state.get("verification_mode") or "full")
+    if mode == "targeted":
+        return "verifier-targeted"
+    risk = str((state.get("change_model") or {}).get("risk") or "low")
+    return "verifier" if risk == "high" else "verifier-lite"
 
 
 
@@ -441,6 +658,12 @@ def validate_change_model(model: dict[str, Any], expected_target: str | None = N
         validate_string_list(model[field], field)
     validate_string_list(model["unknowns"], "unknowns", allow_empty=True)
     validate_string_list(model["evidence"], "evidence", allow_empty=True)
+    raw_feature_checks = model.get("feature_checks", [])
+    validate_string_list(raw_feature_checks, "feature_checks", allow_empty=True)
+    if len(raw_feature_checks) > 5:
+        raise DeliveryError("Change Model `feature_checks` may contain at most 5 items")
+    for command in raw_feature_checks:
+        validate_feature_check(command)
     unknown_evidence = sorted(set(model["evidence"]) - KNOWN_EVIDENCE)
     if unknown_evidence:
         raise DeliveryError("Unknown evidence checks: " + ", ".join(unknown_evidence))
@@ -474,6 +697,9 @@ def inferred_evidence(paths: list[str]) -> set[str]:
         path.startswith("src/renderer/") or path in {"index.html", "styles.css"}
         for path in paths
     ):
+        # UI delivery must at least launch through the isolated real Electron
+        # harness. Feature-specific journeys belong in Change Model feature_checks.
+        result.add("isolation")
         result.add("storybook")
     if any("quick-add" in path or "composeoptions" in path for path in lowered):
         result.add("quick-add")
@@ -525,6 +751,13 @@ def run_check(root: Path, check: str, paths: list[str]) -> tuple[int, float]:
         return check_diff(root, paths)
     started = time.monotonic()
     result = subprocess.run(CHECKS[check], cwd=root, check=False)
+    return result.returncode, time.monotonic() - started
+
+
+def run_feature_check(root: Path, command: str) -> tuple[int, float]:
+    normalized = validate_feature_check(command)
+    started = time.monotonic()
+    result = subprocess.run(shlex.split(normalized), cwd=root, check=False)
     return result.returncode, time.monotonic() - started
 
 
@@ -591,9 +824,9 @@ def validate_verifier_report(
             if defect_id is not None:
                 validate_string(defect_id, "defects.defect_id")
                 prior = existing.get(defect_id)
-                if not prior or prior.get("source") != "verifier":
+                if not prior or prior.get("source") not in {"verifier", "manual-qa"}:
                     raise DeliveryError(
-                        f"Targeted verifier defect `{defect_id}` does not reference a prior verifier defect"
+                        f"Targeted verifier defect `{defect_id}` does not reference a prior verifier/manual-QA defect"
                     )
 
 
@@ -635,6 +868,7 @@ def command_start(root: Path, task: str, target_kind: str, references: list[str]
             "repair_cycles": 0,
             "human_extra_targeted": 0,
             "human_extra_repairs": 0,
+            "manual_qa_batches": 0,
             "max_full_verifier_runs": VERIFIER_BUDGETS["low"]["full"],
             "max_targeted_verifier_runs": VERIFIER_BUDGETS["low"]["targeted"],
             "max_repair_cycles": VERIFIER_BUDGETS["low"]["repair_cycles"],
@@ -664,38 +898,26 @@ def command_model(root: Path, model_file: str) -> None:
     print(f"{state['id']}: {state['state']} ({model['risk']} risk)")
 
 
-def command_authorize(root: Path, reference: str) -> None:
+def command_authorize(root: Path, reason: str) -> None:
     state = load_state(root)
     require_state(state, {"BLOCKED_DECISION"}, "authorize high-risk implementation")
     model = state.get("change_model") or {}
     if model.get("risk") != "high":
-        raise DeliveryError("Only a high-risk delivery uses explicit durable authorization")
+        raise DeliveryError("Only a high-risk delivery uses explicit human authorization")
     if model.get("unknowns") or model.get("decision_required"):
         raise DeliveryError(
-            "Revise the Change Model to record the resolved decision before authorization"
+            "Resolve the open decision and record a revised Change Model before authorization"
         )
-    target = (root / reference).resolve()
-    archive = (root / ".claude/plans/archive").resolve()
-    try:
-        inside = os.path.commonpath([target, archive]) == str(archive)
-    except ValueError:
-        inside = False
-    if not inside or not target.is_file():
-        raise DeliveryError("Authorization reference must be an approved snapshot under .claude/plans/archive")
-    approved_text = target.read_text(encoding="utf-8")
-    approved = re.search(
-        r"(?:^Lifecycle Status:\s*APPROVED\s*$|"
-        r"^## Implementation Status\s*$\s*^`?APPROVED`?\s*$)",
-        approved_text,
-        re.MULTILINE,
-    )
-    if not approved:
-        raise DeliveryError("Authorization reference is not marked APPROVED")
-    state["authorization"] = str(target.relative_to(root))
+    validate_string(reason, "reason")
+    state["authorization"] = {
+        "kind": "explicit-human",
+        "reason": reason.strip(),
+        "authorized_at": utc_now(),
+    }
     state["state"] = "IMPLEMENTING"
     state["worker_claim"] = None
     write_state(root, state)
-    print(f"{state['id']}: IMPLEMENTING (authorized by {reference})")
+    print(f"{state['id']}: IMPLEMENTING (explicit human authorization)")
 
 
 def command_worker_claim(root: Path, role: str, as_json: bool) -> None:
@@ -705,7 +927,7 @@ def command_worker_claim(root: Path, role: str, as_json: bool) -> None:
         {"UNDERSTANDING", "BLOCKED_DECISION", "IMPLEMENTING", "REPAIRING"},
         "claim an execution worker",
     )
-    if role not in {"implementer", "product-designer", "architect"}:
+    if role not in {"implementer", "product-designer"}:
         raise DeliveryError(f"Unsupported delivery worker role `{role}`")
 
     target = delivery_target(state)
@@ -719,7 +941,7 @@ def command_worker_claim(root: Path, role: str, as_json: bool) -> None:
     if target == "production" and role == "product-designer":
         raise DeliveryError(
             "`/deliver` targets the shipping product. Storybook/UX concepts are read-only references; "
-            "claim implementer (or architect for a genuine high-risk decision), not product-designer."
+            "claim implementer, not product-designer."
         )
     if target == "prototype" and role == "implementer":
         raise DeliveryError("Prototype work is owned by product-designer, not implementer")
@@ -804,6 +1026,7 @@ def command_quality(root: Path) -> None:
 
     selected = inferred_evidence(paths) | set(model.get("evidence", []))
     checks = ["diff-check"] + [name for name in CHECK_ORDER if name in selected]
+    deterministic_feature_checks = feature_checks(model, paths)
     results: list[dict[str, Any]] = []
     failure: str | None = None
     for check in checks:
@@ -820,6 +1043,22 @@ def command_quality(root: Path) -> None:
         if returncode != 0:
             failure = check
             break
+    if failure is None:
+        for command in deterministic_feature_checks:
+            check = f"feature:{command}"
+            print(f"==> delivery quality: {check}", flush=True)
+            returncode, duration = run_feature_check(root, command)
+            results.append(
+                {
+                    "check": check,
+                    "command": command,
+                    "returncode": returncode,
+                    "seconds": round(duration, 3),
+                }
+            )
+            if returncode != 0:
+                failure = check
+                break
 
     after_checks, candidate = current_snapshot(root)
     if failure is None and fingerprint(before_checks) != candidate:
@@ -872,7 +1111,7 @@ def command_quality(root: Path) -> None:
     state["verification_mode"] = "full" if previous_state == "IMPLEMENTING" else "targeted"
     write_state(root, state)
     print(
-        f"{state['id']}: VERIFYING ({len(checks)} checks passed; "
+        f"{state['id']}: VERIFYING ({len(results)} checks passed; "
         f"mode={state['verification_mode']})"
     )
 
@@ -916,6 +1155,7 @@ def command_verifier_claim(root: Path, as_json: bool) -> None:
         payload = {
             "id": f"V-{budget['full_verifier_runs']}-{budget['targeted_verifier_runs']}-{int(time.time())}",
             "mode": mode,
+            "route": verification_route(state),
             "fingerprint": current,
             "claimed_at": utc_now(),
         }
@@ -925,7 +1165,10 @@ def command_verifier_claim(root: Path, as_json: bool) -> None:
     if as_json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        print(f"{payload['id']}: verifier claim mode={payload['mode']}")
+        print(
+            f"{payload['id']}: verifier claim mode={payload['mode']} "
+            f"route={payload.get('route', verification_route(state))}"
+        )
 
 
 def command_verifier(root: Path, report_file: str, verdict: str) -> None:
@@ -1060,10 +1303,11 @@ def command_verifier(root: Path, report_file: str, verdict: str) -> None:
             if defect.get("status") == "candidate-repaired":
                 if defect.get("severity") in BLOCKING_VERIFIER_SEVERITIES or defect.get("source") != "verifier":
                     defect["status"] = "verified-repaired"
-        state["state"] = "READY_FOR_PRODUCT_REVIEW"
+        state["state"] = "READY_FOR_MANUAL_QA"
+        state["qa_repair_route"] = None
         state["handoff"] = None
         write_state(root, state)
-        print(f"{state['id']}: READY_FOR_PRODUCT_REVIEW")
+        print(f"{state['id']}: READY_FOR_MANUAL_QA")
 
 
 def command_handoff(root: Path, handoff_file: str) -> None:
@@ -1099,6 +1343,271 @@ def command_handoff(root: Path, handoff_file: str) -> None:
     state["handoff"] = {**handoff, "updated_at": utc_now()}
     write_state(root, state)
     print(f"{state['id']}: handoff recorded at {handoff['checkpoint']}")
+
+
+def command_checkpoint(root: Path, reason: str) -> None:
+    """Serialize a continuation checkpoint without an LLM-authored summary."""
+    state = load_state(root)
+    require_state(state, ACTIVE_STATES, "record a deterministic checkpoint")
+    validate_string(reason, "reason")
+    compact = status_payload(root, full=False)
+    state_name = str(state.get("state"))
+    checkpoint = {
+        "UNDERSTANDING": "understanding",
+        "BLOCKED_DECISION": "understanding",
+        "IMPLEMENTING": "implementation",
+        "VERIFYING": "verification",
+        "REPAIRING": "repair",
+        "NEEDS_HUMAN_REVIEW": "repair",
+        "READY_FOR_MANUAL_QA": "manual-qa",
+    }.get(state_name, "implementation")
+    next_action = {
+        "UNDERSTANDING": "Resume bounded reconnaissance and record the Change Model.",
+        "BLOCKED_DECISION": "Resolve the explicit human decision; do not widen reconnaissance.",
+        "IMPLEMENTING": "Resume the single production implementation owner.",
+        "VERIFYING": f"Run only {verification_route(state)} for the authorized verification mode.",
+        "REPAIRING": "Repair only the open structured defects, then rerun deterministic quality.",
+        "NEEDS_HUMAN_REVIEW": "Wait for explicit human direction; do not continue autonomously.",
+        "READY_FOR_MANUAL_QA": "Human manually tests the real application; use /qa-fix or /qa-accept.",
+    }.get(state_name, "Inspect compact delivery state.")
+    completed: list[str] = []
+    if state.get("change_model"):
+        completed.append("Change Model recorded")
+    if (state.get("quality") or {}).get("passed"):
+        completed.append("deterministic quality passed")
+    if (state.get("verifier") or {}).get("effective_verdict") == "pass":
+        completed.append("independent verification passed")
+    read_first = [
+        path for path in compact.get("changed_paths", []) if is_production_path(path)
+    ][:5]
+    verification = [
+        f"{item.get('command')} — PASS"
+        for item in (state.get("quality") or {}).get("checks", [])
+        if item.get("returncode") == 0
+    ][-5:]
+    blockers = [
+        str(item.get("actual"))
+        for item in compact.get("defects", {}).get("open", [])
+    ][:3]
+    state["handoff"] = {
+        "checkpoint": checkpoint,
+        "reason": reason.strip(),
+        "completed": completed[:6],
+        "next_action": next_action,
+        "read_first": read_first,
+        "verification": verification,
+        "blockers": blockers,
+        "updated_at": utc_now(),
+        "generated_by": "delivery.py checkpoint",
+    }
+    write_state(root, state)
+    print(f"{state['id']}: deterministic checkpoint recorded ({checkpoint})")
+
+
+def qa_bootstrap_state(root: Path, defects_file: str) -> dict[str, Any]:
+    """Start a narrow manual-QA repair lifecycle from the current working tree.
+
+    This is intentionally not a normal /deliver start: the current repository is
+    treated as the already-implemented candidate that a human has tested. Only
+    the imported defects may be repaired, followed by deterministic quality and
+    targeted verification.
+    """
+    baseline = snapshot(root)
+    source = Path(defects_file).name
+    state = {
+        "version": VERSION,
+        "id": f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-qa-repair-{slugify(source)}",
+        "state": "READY_FOR_MANUAL_QA",
+        "task": f"Repair explicit manual-QA defects from {source}",
+        "delivery_target": "production",
+        "reference_artifacts": [],
+        "created_at": utc_now(),
+        "updated_at": utc_now(),
+        "baseline": baseline,
+        "change_model": {
+            "target": "production",
+            "intent": "Repair only the explicit human-observed QA defects imported for this batch.",
+            "current_system": "The current working tree is the QA-tested implementation baseline; broad feature reconnaissance is intentionally skipped.",
+            "domain": "Narrow production manual-QA repair against an already implemented feature.",
+            "flow": [
+                "human QA defect -> narrow reproduction -> smallest repair",
+                "deterministic quality -> targeted verifier -> manual QA",
+            ],
+            "invariants": [
+                "Do not broaden scope beyond the imported manual-QA defects.",
+                "Preserve unrelated shipping behavior and read-only design references.",
+            ],
+            "implementation_location": ["src/renderer/ or styles.css production UI surface as required by the imported defects"],
+            "affected": ["Only production paths required to repair the imported manual-QA defects."],
+            "do_not_change": ["ui-ux/ux/ design and Storybook reference artifacts", "Unrelated product behavior"],
+            "unknowns": [],
+            "risk": "low",
+            "evidence": [],
+            "feature_checks": [],
+            "decision_required": False,
+            "qa_bootstrap": True,
+        },
+        "authorization": None,
+        "quality": None,
+        "verifier": None,
+        "verifier_claim": None,
+        "worker_claim": None,
+        "verification_mode": "targeted",
+        "qa_repair_route": None,
+        "defects": [],
+        "observations": [],
+        "budget": {
+            "full_verifier_runs": 0,
+            "targeted_verifier_runs": 0,
+            "repair_cycles": 0,
+            "human_extra_targeted": 0,
+            "human_extra_repairs": 0,
+            "manual_qa_batches": 0,
+            "max_full_verifier_runs": 0,
+            "max_targeted_verifier_runs": VERIFIER_BUDGETS["low"]["targeted"],
+            "max_repair_cycles": VERIFIER_BUDGETS["low"]["repair_cycles"],
+        },
+        "handoff": None,
+        "qa_bootstrap": {"source": str(Path(defects_file).resolve()), "created_at": utc_now()},
+    }
+    validate_change_model(state["change_model"], "production")
+    write_state(root, state)
+    return state
+
+
+def manual_bug_history(state: dict[str, Any], manual_bug_id: str) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in state.get("defects", [])
+        if item.get("source") == "manual-qa"
+        and str(item.get("manual_bug_id") or "") == manual_bug_id
+    ]
+
+
+def command_qa_fix(root: Path, defects_file: str) -> None:
+    payload = read_manual_qa_file(Path(defects_file).resolve())
+    defects = normalize_manual_qa_payload(payload)
+    target = state_path(root)
+    if not target.is_file():
+        state = qa_bootstrap_state(root, defects_file)
+    else:
+        state = load_state(root)
+        if state.get("state") in {"DONE", "FAILED"}:
+            state = qa_bootstrap_state(root, defects_file)
+        else:
+            require_state(state, {"READY_FOR_MANUAL_QA"}, "record manual-QA defects")
+    if not defects:
+        raise DeliveryError("Manual QA requires at least one Open defect")
+    if len(defects) > MAX_MANUAL_QA_DEFECTS:
+        raise DeliveryError(
+            f"Manual-QA repair batches are capped at {MAX_MANUAL_QA_DEFECTS} defects; split the batch"
+        )
+
+    # Determine whether this batch contains human-confirmed reopens before mutating
+    # defect history. Same manual bug id is the stable identity across QA passes.
+    classifications: list[tuple[dict[str, Any], int]] = []
+    contains_new = False
+    max_reopen = 0
+    for item in defects:
+        if not isinstance(item, dict):
+            raise DeliveryError("Every manual-QA defect must be an object")
+        manual_bug_id = item.get("manual_bug_id")
+        reopen_count = 0
+        if manual_bug_id is not None:
+            history = manual_bug_history(state, str(manual_bug_id))
+            if history:
+                reopen_count = max(int(x.get("reopen_count", 0)) for x in history) + 1
+        if reopen_count == 0:
+            contains_new = True
+        if reopen_count > MAX_MANUAL_QA_REOPENS:
+            state["state"] = "NEEDS_HUMAN_REVIEW"
+            state["qa_repair_route"] = None
+            add_observation(
+                state,
+                f"Manual QA bug {manual_bug_id} reopened more than once; autonomous repair stopped.",
+                severity="blocking",
+            )
+            write_state(root, state)
+            raise DeliveryError(
+                f"Manual QA bug {manual_bug_id} reopened for the second time. "
+                "Stop automation and make an explicit human decision."
+            )
+        max_reopen = max(max_reopen, reopen_count)
+        classifications.append((item, reopen_count))
+
+    budget = ensure_budget(state)
+    # The ordinary new-defect discovery budget remains capped. A first reopen is
+    # allowed even after that cap because it is evidence that a prior repair was
+    # not actually accepted by the human tester, not a fresh exploratory batch.
+    if contains_new and budget.get("manual_qa_batches", 0) >= MAX_MANUAL_QA_BATCHES:
+        state["state"] = "NEEDS_HUMAN_REVIEW"
+        write_state(root, state)
+        raise DeliveryError(
+            "Manual-QA new-defect batch budget exhausted. Reopen an existing bug separately "
+            "or make an explicit human decision."
+        )
+
+    repair_route = "qa-repairer-sonnet" if max_reopen >= 1 else "qa-repairer"
+    for item, reopen_count in classifications:
+        for field in ("expected", "actual"):
+            validate_string(item.get(field), f"manual_qa.{field}")
+        reproduction = item.get("reproduction", [])
+        evidence = item.get("evidence", [])
+        validate_string_list(reproduction, "manual_qa.reproduction", allow_empty=True)
+        validate_string_list(evidence, "manual_qa.evidence", allow_empty=True)
+        category = str(item.get("category") or "ui")
+        severity = "accessibility" if category == "accessibility" else "functional"
+        defect = add_defect(
+            state,
+            source="manual-qa",
+            severity=severity,
+            expected=str(item["expected"]),
+            actual=str(item["actual"]),
+            reproduction=[str(value) for value in reproduction],
+            evidence=[str(value) for value in evidence],
+            suspected_area=str(item.get("suspected_area") or "manual QA surface"),
+            invariant=str(item.get("invariant_violated") or "User-reported behavior must be repaired."),
+        )
+        defect["manual_category"] = category
+        defect["reopen_count"] = reopen_count
+        defect["repair_route"] = repair_route
+        if item.get("manual_bug_id") is not None:
+            defect["manual_bug_id"] = str(item.get("manual_bug_id"))
+        if item.get("manual_status"):
+            defect["manual_status"] = str(item.get("manual_status"))
+
+    if contains_new:
+        budget["manual_qa_batches"] = int(budget.get("manual_qa_batches", 0)) + 1
+    budget["human_extra_repairs"] = int(budget.get("human_extra_repairs", 0)) + 1
+    budget["human_extra_targeted"] = int(budget.get("human_extra_targeted", 0)) + 1
+    ensure_budget(state)
+    state["state"] = "REPAIRING"
+    state["quality"] = None
+    state["verifier"] = None
+    state["verifier_claim"] = None
+    state["worker_claim"] = None
+    state["verification_mode"] = "targeted"
+    state["qa_repair_route"] = repair_route
+    write_state(root, state)
+    kind = "reopen" if max_reopen >= 1 else "new"
+    print(
+        f"{state['id']}: REPAIRING ({len(defects)} manual-QA defects, {kind}, route={repair_route})"
+    )
+
+
+def command_qa_accept(root: Path, reason: str) -> None:
+    state = load_state(root)
+    require_state(state, {"READY_FOR_MANUAL_QA"}, "accept manual QA")
+    validate_string(reason, "reason")
+    _, current = current_snapshot(root)
+    verified = (state.get("verifier") or {}).get("fingerprint")
+    if not verified or current != verified:
+        raise DeliveryError("Manual QA cannot accept a candidate that differs from its verifier receipt")
+    state["state"] = "DONE"
+    state["manual_qa_acceptance"] = {"reason": reason.strip(), "accepted_at": utc_now()}
+    state["handoff"] = None
+    write_state(root, state)
+    print(f"{state['id']}: DONE (manual QA accepted)")
 
 
 def command_resume_human(
@@ -1174,6 +1683,7 @@ def command_retarget(
                 "repair_cycles": 0,
                 "human_extra_targeted": 0,
                 "human_extra_repairs": 0,
+                "manual_qa_batches": 0,
                 "max_full_verifier_runs": VERIFIER_BUDGETS["low"]["full"],
                 "max_targeted_verifier_runs": VERIFIER_BUDGETS["low"]["targeted"],
                 "max_repair_cycles": VERIFIER_BUDGETS["low"]["repair_cycles"],
@@ -1241,10 +1751,13 @@ def status_payload(root: Path, *, full: bool = False) -> dict[str, Any]:
         "risk": (model or {}).get("risk"),
         "worker_claim": state.get("worker_claim"),
         "verification_mode": state.get("verification_mode"),
+        "qa_repair_route": state.get("qa_repair_route"),
+        "verification_route": verification_route(state) if state.get("state") == "VERIFYING" else None,
         "budget": {
             "full": [budget["full_verifier_runs"], budget["max_full_verifier_runs"]],
             "targeted": [budget["targeted_verifier_runs"], budget["max_targeted_verifier_runs"]],
             "repairs": [budget["repair_cycles"], budget["max_repair_cycles"]],
+            "manual_qa_batches": [budget.get("manual_qa_batches", 0), MAX_MANUAL_QA_BATCHES],
         },
         "quality": {
             "passed": quality.get("passed"),
@@ -1291,7 +1804,12 @@ def command_status(root: Path, as_json: bool, full: bool = False) -> None:
         f"repairs {budget['repair_cycles']}/{budget['max_repair_cycles']}"
     )
     if state.get("state") == "VERIFYING":
-        print(f"Verification mode: {state.get('verification_mode')}")
+        print(
+            f"Verification mode: {state.get('verification_mode')} "
+            f"via {verification_route(state)}"
+        )
+    if state.get("qa_repair_route") and state.get("state") == "REPAIRING":
+        print(f"QA repair route: {state.get('qa_repair_route')}")
     if state.get("worker_claim"):
         print(f"Worker: {state['worker_claim'].get('role')}")
     print(f"Changed paths: {len(state['changed_paths'])}")
@@ -1303,8 +1821,8 @@ def command_status(root: Path, as_json: bool, full: bool = False) -> None:
 
 def command_report(root: Path) -> None:
     state = status_payload(root, full=True)
-    if state["state"] != "READY_FOR_PRODUCT_REVIEW":
-        raise DeliveryError(f"Product review package is unavailable while state is {state['state']}")
+    if state["state"] != "READY_FOR_MANUAL_QA":
+        raise DeliveryError(f"Manual-QA package is unavailable while state is {state['state']}")
     model = state["change_model"]
     if not isinstance(model, dict):
         raise DeliveryError("READY state is invalid: missing Change Model")
@@ -1315,7 +1833,7 @@ def command_report(root: Path) -> None:
             "READY state is invalid for the requested delivery target: " + target_error
             + " Retarget the stale delivery instead of accepting this report."
         )
-    print("READY FOR PRODUCT REVIEW")
+    print("READY FOR MANUAL QA")
     print()
     print("Task")
     print(state["task"])
@@ -1365,6 +1883,11 @@ def command_report(root: Path) -> None:
         print("- None identified.")
     print()
     print(f"Diff: {len(state['changed_paths'])} paths changed")
+    print()
+    print("Next")
+    print("- Test the real application manually, especially overlays, clipping, scrolling and visual completeness.")
+    print("- If defects exist: /qa-fix <up to three concrete defects>.")
+    print("- If accepted: /qa-accept <short acceptance note>.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1381,7 +1904,7 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("--file", required=True)
 
     authorize = sub.add_parser("authorize-high")
-    authorize.add_argument("--reference", required=True)
+    authorize.add_argument("--reason", required=True)
 
     sub.add_parser("quality")
 
@@ -1398,6 +1921,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     handoff = sub.add_parser("handoff")
     handoff.add_argument("--file", required=True)
+
+    checkpoint = sub.add_parser("checkpoint")
+    checkpoint.add_argument("--reason", default="session boundary")
+
+    qa_fix = sub.add_parser("qa-fix")
+    qa_fix.add_argument("--file", required=True)
+
+    qa_accept = sub.add_parser("qa-accept")
+    qa_accept.add_argument("--reason", required=True)
 
     retarget = sub.add_parser("retarget")
     retarget.add_argument("--target", choices=sorted(DELIVERY_TARGETS), required=True)
@@ -1435,7 +1967,7 @@ def main() -> None:
         elif args.command == "model":
             command_model(root, args.file)
         elif args.command == "authorize-high":
-            command_authorize(root, args.reference)
+            command_authorize(root, args.reason)
         elif args.command == "quality":
             command_quality(root)
         elif args.command == "worker-claim":
@@ -1446,6 +1978,12 @@ def main() -> None:
             command_verifier(root, args.report, args.verdict)
         elif args.command == "handoff":
             command_handoff(root, args.file)
+        elif args.command == "checkpoint":
+            command_checkpoint(root, args.reason)
+        elif args.command == "qa-fix":
+            command_qa_fix(root, args.file)
+        elif args.command == "qa-accept":
+            command_qa_accept(root, args.reason)
         elif args.command == "retarget":
             command_retarget(root, args.target, args.task, args.reference, args.reason)
         elif args.command == "resume-human":

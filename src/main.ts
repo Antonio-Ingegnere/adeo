@@ -1203,6 +1203,66 @@ ipcMain.handle('update-smart-list-order', async (_event, orderedIds: number[]) =
   });
 });
 
+type BoardColumnRef = { sourceKind: 'list' | 'smart'; sourceId: number };
+
+ipcMain.handle('get-boards', async () => {
+  return apiRequest('/boards');
+});
+
+ipcMain.handle('add-board', async (_event, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'Board name is empty' };
+  }
+  return apiRequest('/boards', {
+    method: 'POST',
+    body: JSON.stringify({ name: trimmed }),
+  });
+});
+
+ipcMain.handle('update-board-name', async (_event, id: number, name: string) => {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    return { error: 'Board name is empty' };
+  }
+  return apiRequest(`/boards/${id}/name`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: trimmed }),
+  });
+});
+
+ipcMain.handle('update-board-columns', async (_event, id: number, columns: BoardColumnRef[]) => {
+  const allowed: BoardColumnRef['sourceKind'][] = ['list', 'smart'];
+  const clean = (Array.isArray(columns) ? columns : []).filter(
+    (column) =>
+      column &&
+      allowed.includes(column.sourceKind) &&
+      Number.isInteger(column.sourceId)
+  );
+  return apiRequest(`/boards/${id}/columns`, {
+    method: 'PUT',
+    body: JSON.stringify({ columns: clean }),
+  });
+});
+
+ipcMain.handle('delete-board', async (_event, id: number) => {
+  return apiRequest(`/boards/${id}`, { method: 'DELETE' });
+});
+
+ipcMain.handle('update-board-order', async (_event, orderedIds: number[]) => {
+  return apiRequest('/boards/order', {
+    method: 'POST',
+    body: JSON.stringify({ orderedIds }),
+  });
+});
+
+ipcMain.handle('confirm-delete-board', async (_event, name: string) => {
+  return confirmDelete(
+    `Delete board "${name}"?`,
+    'Only the saved board is removed. Its Lists, Smart lists and tasks are kept.'
+  );
+});
+
 ipcMain.handle('add-tag', async (_event, name: string) => {
   const trimmed = name?.trim();
   if (!trimmed) {

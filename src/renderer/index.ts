@@ -3,6 +3,8 @@ import { refs } from './dom.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
 import { loadSmartLists, renderSmartLists, toggleSmartListsExpanded } from './smartLists.js';
+import { loadBoardsPanel, renderBoards, toggleBoardsExpanded } from './boards.js';
+import { closeBoardMenus, enterBoardView, leaveBoardView, renderBoard } from './board.js';
 import {
   activeSmartList,
   associatedSmartList,
@@ -92,12 +94,15 @@ const closeViewMenu = () => {
  */
 const selectList = (listId: number | null) => {
   state.selectedListId = listId;
+  state.boardMode = false;
   exitViewBarNaming();
   clearSearch();
   closeViewMenu();
+  renderBoard();
   renderViewBar();
   renderLists();
   renderSmartLists();
+  renderBoards();
   renderTasks();
   // the un-overridden Task list trigger follows the view
   paintComposeListLabel();
@@ -311,6 +316,8 @@ const runSmartList = (smartListId: number) => {
   const alreadyRunning = current?.smartList.id === smartList.id && !current.edited;
   // clicking the running smart list clears it, matching how list and tag pills toggle
   const nextQuery = alreadyRunning ? '' : smartList.query;
+  state.boardMode = false;
+  renderBoard();
   exitViewBarNaming();
   setSearchMode('advanced');
   state.smartListOrigin = alreadyRunning ? null : smartList.id;
@@ -326,6 +333,7 @@ const runSmartList = (smartListId: number) => {
   // the list pills have to give up the highlight this smart list just took, and take it back
   // when the query is cleared: both directions run through the view, so both need the repaint
   renderLists();
+  renderBoards();
   renderViewBar();
 };
 
@@ -786,6 +794,43 @@ const setupEvents = () => {
     toggleSmartListsExpanded();
   });
 
+  refs.boardsToggle?.addEventListener('click', () => {
+    toggleBoardsExpanded();
+  });
+
+  refs.addBoardBtn?.addEventListener('click', () => {
+    void enterBoardView(null);
+  });
+
+  refs.boardToggle?.addEventListener('click', () => {
+    if (state.boardMode) {
+      leaveBoardView();
+    } else {
+      void enterBoardView(state.activeBoardId);
+    }
+  });
+
+  document.addEventListener('enter-board-view', (event) => {
+    const detail = (event as CustomEvent<{ boardId: number | null }>).detail;
+    closeViewMenu();
+    void enterBoardView(detail?.boardId ?? null);
+  });
+
+  // enterBoardView fires this once the board view is active, whatever the entry point
+  // (sidebar board pill, view picker, or the Board toggle). Re-render every sidebar
+  // panel so the board pill lights and the previously-selected list / smart-list
+  // pill clears -- their selected state is derived from currentView(), which now
+  // reports the board.
+  document.addEventListener('board-view-entered', () => {
+    renderBoards();
+    renderLists();
+    renderSmartLists();
+  });
+
+  document.addEventListener('leave-board-view', () => {
+    leaveBoardView();
+  });
+
   refs.addSmartListBtn?.addEventListener('click', () => openSmartListModal());
   refs.saveSmartListBtn?.addEventListener('click', () => saveSmartList());
   refs.cancelSmartListBtn?.addEventListener('click', () => closeSmartListModal());
@@ -868,6 +913,8 @@ const setupEvents = () => {
   document.addEventListener('tasks-rendered', () => {
     renderLists();
     renderTags();
+    // the board's column counts and cards are derived from the same task collection
+    if (state.boardMode) renderBoard();
   });
 
   document.addEventListener('filter-by-tag', (event) => {
@@ -1465,6 +1512,18 @@ const setupEvents = () => {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     closeViewMenu();
+    if (
+      state.boardMode &&
+      (state.boardPreview ||
+        state.boardOpenMoveMenu ||
+        state.boardOpenColumnMenuId !== null ||
+        state.boardOpenSourcePickerId !== null)
+    ) {
+      state.boardPreview = null;
+      closeBoardMenus();
+      renderBoard();
+      return;
+    }
     switch (activeOverlay()?.id) {
       case 'edit-overlay':
         closeEditModal();
@@ -1503,6 +1562,11 @@ const setupEvents = () => {
       state.openSmartListMenuId = null;
       renderSmartLists();
     }
+    if (state.openBoardMenuId !== null) {
+      state.openBoardMenuId = null;
+      renderBoards();
+    }
+    closeBoardMenus();
     if (refs.priorityMenu) {
       refs.priorityMenu.style.display = 'none';
     }
@@ -1616,7 +1680,9 @@ const init = async () => {
   attachDatePicker(refs.repeatStartDate);
   attachDatePicker(refs.repeatEndDate);
   setupComposeOptions();
+  renderBoard();
   renderLists();
+  renderBoards();
   renderModalLists();
   renderViewBar();
   // Initialize lists chevrons orientation
@@ -1626,6 +1692,8 @@ const init = async () => {
   refs.tagsToggle?.dispatchEvent(new Event('click'));
   refs.smartListsToggle?.dispatchEvent(new Event('click'));
   refs.smartListsToggle?.dispatchEvent(new Event('click'));
+  refs.boardsToggle?.dispatchEvent(new Event('click'));
+  refs.boardsToggle?.dispatchEvent(new Event('click'));
   renderViewBar();
   updatePriorityUI(state.modalPriority);
   await loadSettings();
@@ -1636,6 +1704,7 @@ const init = async () => {
   await loadTasks();
   await loadLists();
   await loadSmartLists();
+  await loadBoardsPanel();
   window.electronAPI.notifyRendererReady();
 };
 

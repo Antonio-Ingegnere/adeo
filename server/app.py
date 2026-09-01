@@ -135,6 +135,32 @@ def initialize_db() -> None:
       )
       """
     )
+    # A board is a named, ordered set of references to Lists / Smart lists -- identity and
+    # position only. It never stores task rows, query text or denormalised attributes; moving
+    # a task between columns is an attribute edit on the Task, done by the renderer through the
+    # existing per-attribute task endpoints. Deleting a List / Smart list cleans its columns
+    # (see delete_list / delete_smart_list) so a board never points at something that is gone.
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS boards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+      """
+    )
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS board_columns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        board_id INTEGER NOT NULL,
+        source_kind TEXT NOT NULL,
+        source_id INTEGER NOT NULL,
+        position INTEGER NOT NULL DEFAULT 0
+      )
+      """
+    )
     conn.commit()
   finally:
     conn.close()
@@ -247,6 +273,23 @@ class SmartListName(BaseModel):
 
 class SmartListQuery(BaseModel):
   query: str
+
+
+class BoardCreate(BaseModel):
+  name: str
+
+
+class BoardName(BaseModel):
+  name: str
+
+
+class BoardColumnRef(BaseModel):
+  sourceKind: str
+  sourceId: int
+
+
+class BoardColumns(BaseModel):
+  columns: List[BoardColumnRef]
 
 
 TAG_PALETTE = [
@@ -583,6 +626,10 @@ def delete_list(list_id: int) -> Dict[str, Any]:
     conn.execute("DELETE FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE list_id = ?)", (list_id,))
     conn.execute("DELETE FROM tasks WHERE list_id = ?", (list_id,))
     conn.execute("DELETE FROM lists WHERE id = ?", (list_id,))
+    # a board only references a list by identity, so its columns cannot outlive the list
+    conn.execute(
+      "DELETE FROM board_columns WHERE source_kind = 'list' AND source_id = ?", (list_id,)
+    )
     conn.commit()
     return {"id": list_id}
   finally:
@@ -807,6 +854,9 @@ def delete_smart_list(smart_list_id: int) -> Dict[str, Any]:
   conn = get_conn()
   try:
     conn.execute("DELETE FROM smart_lists WHERE id = ?", (smart_list_id,))
+    conn.execute(
+      "DELETE FROM board_columns WHERE source_kind = 'smart' AND source_id = ?", (smart_list_id,)
+    )
     conn.commit()
     return {"id": smart_list_id}
   finally:
@@ -819,6 +869,138 @@ def update_smart_list_order(payload: ListOrder) -> Dict[str, Any]:
   try:
     for index, smart_list_id in enumerate(payload.orderedIds):
       conn.execute("UPDATE smart_lists SET position = ? WHERE id = ?", (index, smart_list_id))
+    conn.commit()
+    return {"success": True}
+  finally:
+    conn.close()
+
+
+# ---------- Boards ----------
+# A board is a named, ordered set of column references to Lists / Smart lists (by identity and
+# position only). The server never stores task data or query text for a board; the renderer
+# resolves each column against the live Lists / Smart lists and moves tasks with the existing
+# per-attribute task endpoints. Shape and CRUD mirror the smart-list section above.
+
+BOARD_SOURCE_KINDS = {"list", "smart"}
+
+
+def board_columns_for(conn: sqlite3.Connection, board_id: int) -> List[Dict[str, Any]]:
+  rows = conn.execute(
+    "SELECT id, source_kind, source_id, position FROM board_columns WHERE board_id = ? "
+    "ORDER BY position ASC, id ASC",
+    (board_id,),
+  ).fetchall()
+  return [
+    {
+      "id": row["id"],
+      "sourceKind": row["source_kind"],
+      "sourceId": row["source_id"],
+      "position": row["position"],
+    }
+    for row in rows
+  ]
+
+
+def board_row(conn: sqlite3.Connection, row: sqlite3.Row) -> Dict[str, Any]:
+  return {
+    "id": row["id"],
+    "name": row["name"],
+    "position": row["position"],
+    "columns": board_columns_for(conn, row["id"]),
+  }
+
+
+def write_board_columns(conn: sqlite3.Connection, board_id: int, columns: List[BoardColumnRef]) -> None:
+  conn.execute("DELETE FROM board_columns WHERE board_id = ?", (board_id,))
+  for index, column in enumerate(columns):
+    if column.sourceKind not in BOARD_SOURCE_KINDS:
+      raise HTTPException(status_code=400, detail="Unknown board column source kind")
+    conn.execute(
+      "INSERT INTO board_columns (board_id, source_kind, source_id, position) VALUES (?, ?, ?, ?)",
+      (board_id, column.sourceKind, column.sourceId, index),
+    )
+
+
+@app.post("/boards")
+def add_board(payload: BoardCreate) -> Dict[str, Any]:
+  name = payload.name.strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Board name is empty")
+  conn = get_conn()
+  try:
+    row = conn.execute("SELECT MAX(position) as maxPos FROM boards").fetchone()
+    next_pos = (row["maxPos"] if row and row["maxPos"] is not None else -1) + 1
+    try:
+      cursor = conn.execute(
+        "INSERT INTO boards (name, position) VALUES (?, ?)", (name, next_pos)
+      )
+      conn.commit()
+    except sqlite3.IntegrityError:
+      raise HTTPException(status_code=400, detail="Board name already exists")
+    return {"id": cursor.lastrowid, "name": name, "position": next_pos, "columns": []}
+  finally:
+    conn.close()
+
+
+@app.get("/boards")
+def get_boards() -> List[Dict[str, Any]]:
+  conn = get_conn()
+  try:
+    rows = conn.execute(
+      "SELECT id, name, position FROM boards ORDER BY position ASC, id ASC"
+    ).fetchall()
+    return [board_row(conn, row) for row in rows]
+  finally:
+    conn.close()
+
+
+@app.patch("/boards/{board_id}/name")
+def update_board_name(board_id: int, payload: BoardName) -> Dict[str, Any]:
+  name = payload.name.strip()
+  if not name:
+    raise HTTPException(status_code=400, detail="Board name is empty")
+  conn = get_conn()
+  try:
+    try:
+      conn.execute("UPDATE boards SET name = ? WHERE id = ?", (name, board_id))
+      conn.commit()
+    except sqlite3.IntegrityError:
+      raise HTTPException(status_code=400, detail="Board name already exists")
+    return {"id": board_id, "name": name}
+  finally:
+    conn.close()
+
+
+@app.put("/boards/{board_id}/columns")
+def update_board_columns(board_id: int, payload: BoardColumns) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    write_board_columns(conn, board_id, payload.columns)
+    conn.commit()
+    return {"id": board_id, "columns": board_columns_for(conn, board_id)}
+  finally:
+    conn.close()
+
+
+@app.delete("/boards/{board_id}")
+def delete_board(board_id: int) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    # only the board and its column references go; Lists, Smart lists and tasks are untouched
+    conn.execute("DELETE FROM board_columns WHERE board_id = ?", (board_id,))
+    conn.execute("DELETE FROM boards WHERE id = ?", (board_id,))
+    conn.commit()
+    return {"id": board_id}
+  finally:
+    conn.close()
+
+
+@app.post("/boards/order")
+def update_board_order(payload: ListOrder) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    for index, board_id in enumerate(payload.orderedIds):
+      conn.execute("UPDATE boards SET position = ? WHERE id = ?", (index, board_id))
     conn.commit()
     return {"success": True}
   finally:

@@ -3,6 +3,7 @@ name: implementer
 description: Candidate implementation and autonomous repair worker for /deliver. Implements the repository-derived Change Model but never decides that a task is ready.
 model: sonnet
 effort: medium
+maxTurns: 32
 permissionMode: acceptEdits
 tools: Read, Grep, Glob, Edit, Write, Bash
 
@@ -16,23 +17,6 @@ hooks:
             - .claude/scripts/implementer-guard.py
     - matcher: "Write|Edit"
       hooks:
-        - type: command
-          command: python3
-          args:
-            - -c
-            - |
-              import os
-              import runpy
-
-              runpy.run_path(
-                  os.path.join(
-                      os.environ["CLAUDE_PROJECT_DIR"],
-                      ".claude",
-                      "scripts",
-                      "resolve-approved-plan.py",
-                  ),
-                  run_name="__main__",
-              )
         - type: command
           command: python3
           args:
@@ -85,13 +69,12 @@ modify repository files. If state is `IMPLEMENTING` or `REPAIRING`, use the
 existing Change Model. `BLOCKED_DECISION` means stop for the genuine decision.
 
 The PreToolUse hooks protect authority-bearing artifacts before each Write,
-Edit or Bash call. For an approved legacy high-risk task, the authorization
-hook may resolve its immutable FULL plan when no delivery runtime exists.
+Edit or Bash call. High-risk work is authorized only by the active delivery
+runtime after an explicit human decision; no legacy plan resolver is used.
 
 Never edit:
 
 - `.claude/delivery/` machine state;
-- `.claude/workflow/` or `.claude/plans/`;
 - `spec/` or `ui-ux/ux/`;
 - verifier reports or quality receipts.
 
@@ -118,6 +101,13 @@ Never edit:
 - Add evidence appropriate to the change: characterization/regression,
   behavioral/state-transition, contract, persistence, failure-path,
   interaction/accessibility or visual evidence as applicable.
+- Put reusable feature-specific executable checks in the Change Model's optional
+  `feature_checks` list. Allowed forms are `node scripts/*-selftest.mjs`,
+  `python3 scripts/*-selftest.py`, or `npm run test:<name>`. The deterministic
+  quality gate runs them; the verifier must not spend tokens rediscovering them.
+- For production UI changes, prefer one narrow real-Electron isolated smoke
+  journey for the critical behavior. Do not build viewport/theme Cartesian
+  matrices; manual QA owns visual polish, clipping and interaction feel.
 - Do not add a meaningless failing test merely to imitate TDD. For a bug, prefer
   a real pre-change reproduction; for new behavior, prove the relevant contract.
 - Run focused checks while developing. The orchestrator still runs the external

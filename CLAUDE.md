@@ -1,209 +1,48 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-Classify every feature request with the `/feature` rules; users may also invoke
-`/feature start request="..."` explicitly. Choose the lightest safe path:
-
-- FAST: concise brief, then implementation, tests, and review; no approval gate.
-- STANDARD: concise mini spec, one human approval, then autonomous
-  implementation, tests/QA, and review. This is the default.
-- FULL: specification plus architecture/plan and one human approval, reserved
-  for high-risk, cross-cutting, migration, contract, security, compatibility,
-  or highly uncertain work.
-
-Escalate only when discovered risk requires `FAST -> STANDARD -> FULL`. FAST
-and STANDARD use one current artifact at `.claude/workflow/current.md`; do not
-create a full specification or implementation plan for them. NON-BLOCKING
-review comments never delay implementation.
-
-The concise operating guide, commands, classification rules, approval boundary,
-review format, artifact limits, agent roles, and safety rules are in
-[`.claude/HELP.md`](.claude/HELP.md).
-
-`/implementation-plan` and the Architect are FULL-only. `/spec-storybook` and
-the Product Designer are optional specialist workflows, not prerequisites for
-ordinary implementation. Use a subagent only when parallel work, independent
-context, a genuine specialty, or task size justifies its initialization cost.
-
-All existing bounded-autonomy controls remain in force, especially for
-destructive actions, protected paths, secrets, external/production writes,
-security-sensitive decisions, contradictions, and material scope expansion.
-
-## What this is
-
-Adeo is a lightweight, cross-platform (mac/Windows/Linux) Electron todo app. The UI runs in Electron's main/renderer processes (TypeScript); persistence and business logic (tasks, lists, recurring-task expansion, due-reminder lookup) live in a local FastAPI + SQLite backend (Python) that the Electron main process spawns as a child process. Reminder notifications are delivered natively via Electron's own `Notification` API in the main process, which also handles notification clicks.
-
-## Commands
-
-Setup (one time):
-```
-npm install
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r server/requirements.txt
-```
-
-Run the app in development:
-```
-npm run start
-```
-This runs `scripts/dev-start.sh`, which starts the FastAPI server on `127.0.0.1:8000` (using `.venv/bin/python` if present, else `python3`), then launches Electron with `ADEO_API_URL` pointing at the running API. There is no separate "run just the frontend" mode — the API must be up first.
-
-Build (compiles TS for both main and renderer, copies static assets into `dist/`):
-```
-npm run build
-```
-
-Run only the Python API standalone (e.g. for API debugging):
-```
-npm run api
-```
-
-Package for distribution:
-```
-npm run package:mac
-npm run package:win
-npm run package:linux
-```
-`package:win` expects a bundled Windows embeddable Python under `python/python-3.12.10-embed-amd64/` with site-packages populated; `package:mac` expects standalone Python runtimes under `python/mac-arm64/` and `python/mac-x64/` (from [python-build-standalone](https://github.com/astral-sh/python-build-standalone)) with site-packages populated — see README.md for the full steps. Without these, the packaged app falls back to the system `python3`, which typically lacks `fastapi` and fails to start (now surfaced via an error dialog instead of a silent windowless hang, see `src/main.ts`'s `app.whenReady()` handler).
-
-There is no general test suite or linter in this repo — do not assume `npm test`/`npm run lint` exist. What does exist are three focused self-test scripts plus two isolated Electron safety tests:
-```
-npm run test:workflow             # FAST/STANDARD/FULL authorization gates
-node scripts/query-selftest.mjs      # query parsing/compilation, smart-list templates
-node scripts/shortcuts-selftest.mjs  # shortcut key grammar, default keymap integrity
-npm run test:isolation               # builds, uses temp data, proves real data unchanged
-npm run test:quick-add               # builds, uses temp data, exercises the compose row's Options disclosure
-```
-Both isolated Electron runs share one definition of "safe launch" — `scripts/lib/isolated-electron.mjs` — rather than each hand-rolling the `ADEO_UI_TEST` environment and the byte-for-byte protected-file guarantee.
-
-## Architecture
-
-### Process split
-- `src/main.ts` — Electron main process. Owns the app lifecycle, native menu, settings persistence (`settings.json` in Electron's userData dir), and spawning/health-checking the Python API child process. All data operations are exposed to the renderer via `ipcMain.handle(...)` and simply proxy to HTTP calls against the local FastAPI server (`apiRequest` helper). If the API process dies, the next request restarts it once and retries. It also polls `GET /reminders/due` every 30s, dedupes via an in-memory `Map`, and raises native `Notification`s for due reminders; clicking one focuses the window and sends `open-task-edit` over IPC to the renderer.
-- `src/preload.ts` — the only bridge between main and renderer; uses `contextBridge` to expose a single `window.electronAPI` object (typed by `ElectronAPI` in `src/types.ts`) with one method per IPC channel. Context isolation is on; the renderer has no direct Node/Electron access.
-- `src/renderer/*.ts` — plain TypeScript modules (no framework) that manipulate the DOM directly, compiled with a separate tsconfig (`tsconfig.renderer.json`, ESNext modules) targeting the browser context. Split by concern:
-  - `state.ts` — single mutable `UIState` object shared across modules (current tasks/lists, modal state, drag state, etc.)
-  - `dom.ts` — one `refs` object caching all `getElementById` lookups used across the app
-  - `actions.ts` — API calls (add/load tasks, lists, settings) that mutate `state` and trigger re-renders
-  - `tasks.ts` / `lists.ts` / `modals.ts` — rendering + drag-and-drop + modal logic for tasks, lists, and the edit/settings modals respectively
-  - `repeat.ts` — recurrence-rule helpers shared by the UI
-  - `smartLists.ts` / `activeSmartList.ts` / `smartListTemplate.ts` — smart lists (see below)
-  - `index.ts` — wires up all DOM event listeners and app init; also contains the custom recurrence-rule builder UI (RFC5545-style RRULE construction from the "Repeat" modal — daily/weekly/monthly/yearly, by-day/by-set-position, until/count)
-- `server/app.py` — single-file FastAPI app. SQLite database (`tasks`, `lists`, `tags`, `task_tags`, `smart_lists` tables), auto-migrated at startup via `has_column`/`ALTER TABLE` checks (no formal migration framework — new columns are added defensively in `initialize_db`). Recurring tasks: completing a task with a `repeat_rule` inserts the next occurrence using `dateutil.rrulestr`. `GET /reminders/due` returns not-done tasks whose reminder time has passed within a grace window (`reminder_grace_seconds`) — it's stateless on the Python side; dedupe/"already notified" tracking lives in Electron's main process (see above), which is the one polling this endpoint.
-
-### Data flow for a UI action
-Renderer calls `window.electronAPI.xyz(...)` → preload's `ipcRenderer.invoke` → `ipcMain.handle` in `main.ts` → `apiRequest()` HTTP call to the local FastAPI server → SQLite. Responses are plain JSON matching the `Task`/`List`/`Settings` shapes in `src/types.ts`, which is the single source of truth for data shapes shared (by hand, not by codegen) between the TS and Python sides — when changing a field, update `src/types.ts`, the Pydantic models in `server/app.py`, and `row_to_task`/equivalent serializers together.
-
-### Ports and environment variables
-- `ADEO_API_URL` — if set, Electron skips spawning its own API process and talks to this URL instead (used by `dev-start.sh` to point at the manually-started dev server).
-- `ADEO_API_HOST` / `ADEO_API_PORT` — host/port the spawned API process binds to (main process picks a free port automatically when packaged).
-- `ADEO_DB_PATH` — SQLite file location honored by both the Python server and Electron's spawned API; Electron defaults to `<userData>/tasks.db` when it starts the API.
-- `ADEO_UI_TEST=1` — enables fail-closed automated-UI safety. It requires absolute `ADEO_USER_DATA_DIR` and `ADEO_DB_PATH` values, rejects `ADEO_API_URL`, and suppresses protocol registration, normal single-instance routing, reminder polling/notifications, the running lock, and OS background-reminder installation. Never set it without both isolated paths.
-- `ADEO_USER_DATA_DIR` — Electron settings/cache directory used only with `ADEO_UI_TEST=1`; it must not be Adeo's normal user-data directory.
-- `ADEO_PYTHON_BIN` — override which Python interpreter the Electron main process spawns (bundled Python vs. system `python3`).
-
-### The view
-A list, a smart list and a bare search are three answers to one question, so there is one control for them: the **view bar** above the add-task input (`.view-bar`, `src/renderer/viewBar.ts`). Its picker is the only menu where lists and smart lists appear together — `All lists`, then the lists, then the smart lists under their group labels. **A task still belongs to a list or to nothing**: the edit modal's picker (`renderListOptions` in `lists.ts`) offers "No list" + lists and never a smart list.
-
-`currentView()` (`src/renderer/currentView.ts`) derives which of the three is up: `smart` when a search is running and `associatedSmartList()` matches, `search` when one is running and nothing matches, otherwise `list` with `state.selectedListId`. Every highlight reads it — the sidebar's list pills (`isListInView`) and smart-list pills (`isSmartListInView`) — which is what makes exclusivity structural rather than something each path has to remember. Nothing new is stored: `selectedListId` survives *underneath* a running search, so clearing the search drops you back into the list you were in.
-
-Selecting a list clears whatever search is running (`selectList` in `index.ts`) — one view at a time, or the picker would name something the rows below are not. `state.selectedListId` is still doing two jobs: filtering the rows (`getVisibleTasks`) and receiving new tasks (`addTask`). A running smart list's own `list:` term overrides it for *new* tasks only (`resolveTemplateNames`), being the more specific statement of intent. Because the picker names the search rather than a list while one is up, `renderTemplateHints` always leads with the destination in that state — that row is then the only thing that can say where the next task will land, and it always does.
-
-The bar's own repaint is `renderViewBar()`, called from `renderSearchStatus()` (advanced) and from `applySearchQuery`'s simple branch, deliberately unmemoized: its actions key off `state.queryStatus`, which is only settled by then. `syncSmartListUI`'s memo guards the *sidebar* repaint only; `querySearch.ts` repaints the list pills just on the search-on/search-off transition (`syncListPills`).
-
-### Keyboard shortcuts
-Four renderer modules, in a strict DAG: `shortcutKeys.ts` (the key grammar) ← `shortcutRegistry.ts` (the definitions) ← `shortcuts.ts` (the dispatcher) ← `shortcutsHelp.ts` / `shortcutsSettings.ts`. **The registry holds no handler functions** — only ids; `index.ts` owns the id→function table (`shortcutHandlers`), the same trick `viewBar.ts` uses, and it is what lets `tasks.ts`, the help overlay and the settings UI all import the registry without a cycle. The first two modules are pure and dom-free so `scripts/shortcuts-selftest.mjs` can drive them from Node.
-
-**Nothing shared may live at `src/`.** `tsconfig.json` includes `"src"` and excludes `src/renderer/**`; `tsconfig.renderer.json` clears that exclude and pulls in imported files transitively. A runtime module at `src/foo.ts` is therefore emitted by *both* passes to the same `dist/foo.js` — main's as CommonJS, the renderer's as ESNext — and `npm run build` runs main first, so the ESM output wins and `require()` from `dist/main.js` breaks at runtime. `src/types.ts` is only safe because it emits no runtime code. Consequently **main holds no shortcut logic**: the renderer computes Electron accelerators (`toElectronAccelerator`) and hands them over.
-
-A binding is a canonical string (`"Mod+Shift+F"`, `"ArrowDown"`, `"?"`) so dispatch is a `Map` lookup with no normalization at keypress time. `Mod` is ⌘ on macOS and Ctrl elsewhere, and the *other* one is emitted literally, so `Mod` never collides with a real Ctrl. The one subtle rule is Shift: a printable non-letter uses `event.key` as typed with Shift dropped (`Shift+/` → `"?"`), while ASCII letters uppercase and keep it — for a letter, case is the only signal.
-
-`scope` is what makes bare keys bindable. `list` fires only when the task list has focus, `modal` only under an overlay, and `global` everywhere — **except that an unmodified `global` binding is suppressed while typing**. That single rule lets `Mod+F` work from inside the search field while `?` stays inert in a query containing one, with no per-shortcut special-casing. Context comes from `activeOverlay()` (exported from `focusTrap.ts` — the app's one answer to "is a modal open") plus `document.activeElement`.
-
-`menuItem: true` means *a native menu accelerator carries this key*, so the dispatcher must not also claim it — Electron consumes the accelerator before the page sees it. A menu item with no accelerator (Help) claims no key and is not marked. `fixed: true` (Escape, Tab) means documented in help, never dispatched, never rebindable: Escape already has four correct owners layered by `stopPropagation` across `querySearch.ts`, `viewBar.ts`, `tagInput.ts` and `datepicker.ts`, and making it rebindable would let someone unbind their way out of every modal. `installShortcuts()` runs *before* `installModalFocusTrap()` — both are capture listeners on `document`, so registration order decides, and the rebinding UI's capture mode has to beat the trap's `Tab`.
-
-The task cursor is `state.focusedTaskId` — an **id**, because `row.dataset.index` is the drag-and-drop coordinate and every reorder or refetch invalidates it, and because `renderTasksInner` wipes the list with `innerHTML = ''`. `renderTasks()` brackets the rebuild: it records whether focus was in the list and the focused row's *ordinal* beforehand, then re-seats afterwards, falling back to the ordinal when the task itself is gone (completed with Show completed off, filtered out, deleted) so the cursor holds its place. The `hadFocus` gate is not optional — `renderTasks()` has ~15 callers, several with focus legitimately elsewhere, and without it adding a task yanks the caret out of the input. Traversal is always over `querySelectorAll('.task-row')`, never `getVisibleTasks()`, so search-mode grouping needs no special handling.
-
-The two always-visible text inputs name their own shortcut in their placeholder — "Search (⌘F)", "Add a new task (⌘N)" — because nothing else on screen says those keys exist. `shortcutHints.ts` reads the **live keymap**, so a rebind moves the hint and an unbind removes it rather than leaving the placeholder promising a dead key; `renderShortcutHints()` runs at init and after every keymap change. It sits above both `querySearch.ts` and `shortcuts.ts` on purpose: `shortcuts.ts` already imports `querySearch.ts`, so the search placeholder is *pushed in* via `setSearchShortcutHint` rather than pulled, which is what keeps that from being a cycle. Query mode keeps its own placeholder and takes no hint.
-
-`Settings.shortcuts` stores **overrides only, never a keymap snapshot**: an absent id keeps its platform default, so an improved default still reaches anyone who never rebound that one; `[]` is an explicit unbind and so must stay distinct from absent. `Settings.menuAccelerators` is a derived cache, needed because `setupMenu` runs inside `createWindow()` long before the renderer has loaded settings — main re-validates it against a narrow pattern on both read and menu build, because `Menu.buildFromTemplate` *throws* on a malformed accelerator and would leave the app with no menu at all. `update-shortcuts` persists both and re-calls `setupMenu`.
-
-### Tag colour
-Every tag swatch, dot and chip in the app goes through `tagColor.ts` — `paintTagChip` and `makeTagDot`. The colour is an **inline style, not a class**: it is data rather than a variant, which is what makes "turn tag colours off" simply *not setting it*, since the chip classes carry a border and no background of their own.
-
-`TAG_PALETTE` is hand-mirrored between `tagColor.ts` and `server/app.py`, the way `src/types.ts` mirrors the Pydantic models. The server assigns from it at creation and **validates against it** in `PATCH /tags/{id}/color`, so the two must be edited together — a colour the picker offers and the server doesn't know is rejected with a 400 rather than silently stored. Only palette colours are accepted because chip text is a single fixed ink chosen to sit on these pastels.
-
-`settings.tagColors` (default on) drops the fill everywhere and adds `tag-plain`; sidebar dots are not rendered at all, since a grey dot beside every tag carries no information. `tag-plain` is not just "no background": `--text-chip` is dark ink meant for a pastel fill and **stays dark in dark mode**, and `--border-chip` is black at low alpha, so an unfilled chip must switch to `--text-body` and `--border` or it goes invisible on a dark surface. `styles.css:2471` already documents that distinction for `.template-chip`. The rule must also sit *after* `.task-tag-chip` and `.tag-filter-chip` in the file — equal specificity means source order decides, and placing it earlier loses.
-
-### Sidebar order
-All three sidebar panels — lists, smart lists and tags — are **drag-ordered by `position`, never by name**. The gesture lives once in `pillDnD.ts`; each panel calls `attachPillDnD` with a `kind`, and a `dragover` whose kind doesn't match the pill under the pointer never calls `preventDefault`, so the browser refuses the drop and the panels can't be dragged into each other. The in-flight drag is module-local — it's interaction state, only one exists at a time, and it deliberately does not live in `UIState`.
-
-Tags were alphabetical until they became draggable, and the two cannot coexist: a drop would snap back on the next render. So `sortTags()` sorts by `position`, `GET /tags` orders by it, and `add_tag` appends with `MAX(position)+1` (it used `COUNT(*)`, which repeats a number as soon as a tag is deleted — harmless while nothing read the column, not any more). Renaming a tag no longer moves it.
-
-`initialize_db` carries a one-time renumber for tags whose positions aren't a distinct `0..n-1` run, assigning them by name so an existing database opens looking exactly as it did before. It is self-guarding rather than flag-driven: reordering always writes a distinct run, so it can never fire twice and can never undo someone's arrangement.
-
-Anything that reorders a panel has to repaint whatever else lists it in array order — for lists that's `renderViewBar()`, since the view picker names them in order. Tags appear in no picker, only in the edit modal's tag menu, which is rebuilt on open.
-
-### The Settings dialog
-Three tabs down a vertical rail — **General** (theme, time format, date format), **Tasks** (show completed, show tag colours), **Shortcuts** (the rebinding editor) — at a **fixed 720×560**, so the dialog does not resize as you switch. Short panels top-align and leave space; they never pad to fill. Every control carries an 11px hint line.
-
-The rail is a `role="tablist"` of **buttons with roving tabindex**, not the visually-hidden radios the search-mode switch uses, and the reason is the focus trap. `focusTrap.ts` picks the modal's boundary from the first and last element matching `FOCUSABLE` **and having a non-zero rect** — it never asked whether they were *tabbable*. Since the rail is the first thing in the dialog, both candidate patterns put a non-tabbable element at `items[0]`: `button:not([disabled])` matches a `tabindex="-1"` tab, and a 1×1 `.visually-hidden` radio passes `isVisible` while being untabbable whenever another tab is selected. Either way Shift+Tab from the selected tab fell through the trap and **left the modal** (verified: `activeElement` ends up outside). The trap now filters on `isTabbable` — `el.tabIndex >= 0 && isVisible(el)` — which fixes the button case exactly and retroactively fixes the latent tag-swatch version. It does *not* rescue radios, which all report `tabIndex === 0` checked or not; that asymmetry is why the rail is buttons.
-
-Panels are **static markup toggled with `hidden`**, never generated: `refs` in `dom.ts` is a module-level object literal, so `byId` runs at import and anything created later is `null` forever. `.settings-panel` sets `display:flex`, which would beat `[hidden]`, so `.settings-panel[hidden] { display: none }` is load-bearing — an inactive panel that still has a box stays in the trap's cycle.
-
-Active-tab styling is `--surface-selected` + `--text-heading` + weight 600, keyed off `[aria-selected='true']` so the CSS cannot drift from the ARIA. **Not an accent fill**: the accent is only ever a check glyph, a focus ring or the tag-swatch ring anywhere in this app.
-
-The **segmented controls** (`.settings-segmented` and the header's `.search-mode-switch`, which share `.segmented-option`) mark their checked segment with `--surface-selected` *plus* a 1px inset ring in `--border-segmented`. The ring is the point: the checked fill was `--surface` on a `--surface-sunken` track, measuring **1.07:1 in light and 1.08:1 in dark**, so only the text colour said which segment was picked. No fill token can fix that — adjacent greys cap out around 1.2–1.5:1 — which is why `--border-segmented` exists as its own token at 3.22:1 / 4.27:1, clearing the 3:1 WCAG asks of a state indicator. Deliberately **no weight change** on the checked segment: the segments are content-sized, so bolding one would resize the control as the selection moves.
-
-The tab is module-local in `settingsTabs.ts` and **resets to General on every open** — it is transient dialog position, not app state. Switching tabs and closing the dialog both call `abortShortcutCapture()`: `beginCapture` arms a one-shot handler that swallows the *next* key pressed anywhere, so leaving one running while another panel is up would bind a key the user can no longer see.
-
-`showCompleted` lives here *and* on the View menu. The dialog's `update-show-completed` writes settings and re-calls `setupMenu`, which is the two-way sync — and deliberately does **not** echo `show-completed-changed` back, which would re-render twice. The reverse direction matters too: the native menu stays clickable with the dialog open, so `onShowCompletedChanged` re-seeds the dialog's checkbox, or Save would quietly undo what the menu just did.
-
-`.modal-actions` carries no padding of its own; the 16px moved onto `.modal-content .modal-actions`. The edit modal is the only one whose `.modal` has `padding: 0`, so every other modal was double-insetting its buttons to 36px against content at 20px.
-
-### Settings vs. app data
-App settings (`showCompleted`, `timeFormat`, `dateFormat`, `theme`) are stored separately from task/list data — as JSON on disk via Electron's main process (`settingsPath` in `main.ts`), not in the SQLite DB. Task/list data lives entirely in SQLite via the Python API. All app-rendered dates go through the single shared `formatDate` helper (`src/renderer/helpers.ts`), which maps `state.dateFormat` to one of a fixed set of patterns — deliberately explicit/user-chosen rather than auto-detected from the OS locale, since JS's `Intl`/`toLocaleDateString` locale resolution doesn't reliably reflect OS regional-format overrides (verified: it ignores macOS's `-u-rg-` regional override entirely). Native `<input type="date">`/`<input type="time">` elements (the reminder popover, repeat start/end dates) still render in the OS's own format regardless of this setting — that's a normal, unavoidable native-control limitation, not a bug.
-
-`theme` (`'system' | 'light' | 'dark'`, chosen in the Settings modal) is applied entirely in the main process by assigning `nativeTheme.themeSource`. That drives the `prefers-color-scheme` media query in the renderer, so the dark token set at the bottom of `styles.css` needs no switch of its own and there is no renderer-side theme class or attribute — do not add one. It is set in `app.whenReady()` *before* `createWindow()`, because the window's `backgroundColor` is derived from `nativeTheme.shouldUseDarkColors` and applying the theme later would flash the wrong scheme at launch.
-
-Testing note: under `playwright-core`, `nativeTheme.themeSource` appears to do nothing, because Playwright emulates `prefers-color-scheme: light` by default and that overrides what Electron reports. Call `page.emulateMedia({ colorScheme: null })` first to hand control back to the app.
-
-Never drive the Electron UI with ad-hoc Playwright settings. Use `npm run test:isolation`
-or reproduce its complete `ADEO_UI_TEST` environment so a test cannot fall back to the
-development database, settings, protocol handler, or background reminder services.
-
-### Smart lists
-A smart list (`smart_lists` table, `/smart-lists` endpoints) is **only a named query string** — the server never parses it. Running one (from the sidebar or the view picker) loads its text into the search field and switches to Query mode, so there is no separate filtering path: `parseQuery`/`compilePredicate`/`getSearchMatches` do all the work.
-
-Two different questions, and they have different answers (`src/renderer/activeSmartList.ts`):
-- **Which one is *running*** is *derived*, never stored — `activeSmartList()`: a smart list is running iff the search bar holds exactly its query.
-- **Which one the bar is *working on*** is `associatedSmartList()`, and it is the one the UI actually uses. Refining a saved query is how you edit a smart list, and the refined text matches nothing, so the association is carried in `state.smartListOrigin` and reported with an `edited` flag. An exact match always wins and re-adopts the origin, so a query typed by hand that happens to equal a saved one is still recognised. Origin is dropped by `clearSearch`, by leaving Query mode, by emptying the query, and by deleting the smart list it points at.
-
-Everything a query needs beyond its own text lives in the view bar, never inside the search input, which holds the query and nothing else. Beside the name it shows exactly one set of actions: `Save as smart list` (a bare search), `Edit` (running unchanged), `Update` + `Save as new` (edited), or a name input (naming). `Update` is a bare `updateSmartListQuery` with no modal and no name to retype; the modal (`#smart-list-overlay`) is the *full* editor, reached from `Edit` and the sidebar menu. `viewBar.ts` renders and dispatches CustomEvents (`select-list`, `run-smart-list`, `smart-list-create`, `smart-list-update`) that `index.ts` executes — that is what keeps it a leaf `lists.ts`, `smartLists.ts`, `tasks.ts` and `querySearch.ts` can all call without a cycle. The search selectors it needs live in `searchMatches.ts` for the same reason.
-
-"Saved filter" was the original name. `initialize_db` carries a guarded `ALTER TABLE saved_filters RENAME TO smart_lists` that must stay *before* the `CREATE TABLE IF NOT EXISTS`, or the create wins and the old rows are stranded.
-
-Adding a task while a query is in the bar seeds the new task from **the query on screen**, saved or not (`activeTemplate()` parses `state.searchQuery`, so an edited query seeds from the edit rather than from the version it was saved as). `deriveTemplate` (`src/renderer/smartListTemplate.ts`, kept pure and dom-free like `query.ts` so `scripts/query-selftest.mjs` can exercise it) inverts the AST: a `term` using `:` under only `and` nodes is a straight assignment; `OR`, `NOT`, ranges (`~ != < <= > >=`), `text`/`details`, and fields constrained twice with different values are collected into `skipped` and surfaced in the add-task row rather than guessed at. `none` values (`list:none`, `due:none`, `repeat:none`, `done:false`) are assignable because they equal a new task's defaults, so they need no assignment at all; `done:true` is the one value that assigns a *non*-default, creating an already-completed task (`TaskSeed.done` → `POST /tasks`), which is why the hints row carries a `Done` chip — such a task disappears on creation while Show completed is off. This is why Adeo's smart lists accept new tasks where macOS Reminders' only do for a single list.
-
-Where the task lands when the query does not name exactly one list: `state.selectedListId`, i.e. the list the view was in underneath the smart list (All lists ⇒ unfiled). A list named in the query that no longer exists is never recreated — it is reported and the fallback applies. A *tag* named in the query that does not exist yet **is** created, the same way typing `#todo` in the add-task input would, so a smart list written before its tag exists still produces a task that lands in it.
-
-`POST /tasks` accepts optional `priority`/`reminderDate`/`reminderTime`/`repeatRule`/`repeatStart` for this; they were previously hardcoded to defaults.
-
-### Quick Add options
-The compose row's **metadata row** (`#compose-meta-row`, `src/renderer/composeOptions.ts`) exposes Task list, Priority and Reminder date for the *next* task, without turning the add field into a command syntax. It is static markup in `index.html`, not generated — `refs` in `dom.ts` resolves at import (`byId` runs once), so anything not present at load time is `null` forever. It carries **no visible labels**: the field name lives in each trigger's `aria-label` (`Task list: <value>`, `Priority: None`, `Reminder: Select date`), and the row itself is a `role="group"` named `Details for the next task`. There is **no disclosure toggle** — an earlier `#compose-options-toggle` / `#compose-options-panel` was removed.
-
-Visibility is a **single derived predicate** (`shouldShowComposeMeta()`) with one applier (`syncComposeMetaRow()`), so the row's shown/hidden state can never disagree with what produced it — the same discipline as `activeSmartList()`. The row shows while any of these holds: focus is inside `.compose-block`, `#message-input` holds a non-empty draft, or a compose surface (list menu, priority menu, date popover) is open. The predicate is written over **open surfaces, not DOM containment**, on purpose: the date popover is appended to `document.body` (outside the block) and pressing the mouse on a role-less priority `<div>` row blurs the trigger to `<body>` before the click lands — a `:focus-within` rule would collapse the row in both cases. `.compose-meta-row[hidden] { display: none }` is load-bearing (its own `display: flex` beats the UA `[hidden]` rule). Layout shift on every reveal/collapse is accepted, not reserved against.
-
-**Hidden ⟺ at defaults.** Every shown → hidden transition (the activity rule *or* Escape) runs `resetComposeOptions()`, so a hidden row can never leave metadata silently armed. `state.composeMetaDismissed` is the transient flag Escape sets so the predicate does not immediately re-show the row against a still-non-empty draft; it clears when focus leaves the block and re-enters.
-
-`state.composeListId` is tri-state (`undefined | null | number`), unlike the edit dialog's `modalSelectedListId`: `undefined` means untouched (inherit the precedence chain), `null` means the user explicitly chose "No list", and a number is an explicit list. **While untouched the trigger names the *resolved* destination** — the list the task would actually reach — via `resolveComposeDestination()` (`activeSmartList.ts`): `state.composeListId ?? resolveTemplateNames(activeTemplate()).listId ?? state.selectedListId`. Displaying the resolution must never write it back into `state.composeListId`, or a view change would strand a stale override. `paintComposeListLabel()` is repainted on the view (`selectList`), search-query (`applySearchQuery`) and list-mutation (`loadLists`) paths — the same edits `renderTemplateHints()` follows. `data-set` on the field wrapper and trigger still marks an *explicit* override, distinct from a matching resolved name.
-
-Compose values beat everything else: `addTask()` (`actions.ts`) resolves the destination list through the same `resolveComposeDestination()` the trigger uses (compose beats the running smart list's `list:` term beats the sidebar selection), and builds the task's seed as `{ ...templateSeed(template), ...composeSeed() }` so an explicit priority/reminder wins field-by-field. Success announces `Added "<title>" to <list>.` via `#compose-status`, naming the destination from the same computation.
-
-`renderTemplateHints()` (`activeSmartList.ts`) now describes **only the running query** — compose overrides show on the row's own triggers, and the hidden ⟺ defaults invariant means there is never any armed compose metadata to summarise while the row is hidden. It stays hidden when nothing is running.
-
-Escape closes exactly one surface per press, each layer `stopPropagation()`-ing: the tag suggestion menu (owned by `tagInput.ts` on `#message-input`), then the reminder date popover (owned by `datepicker.ts`), then the compose list menu, then the compose priority menu, then — row shown, nothing open — **collapse the row** (`composeMetaDismissed = true`, hide + reset, focus back to `#message-input`). The keydown listener lives on `#compose-block`, not the removed panel, so Escape is catchable from inside `#message-input`. A hidden row takes no Escape and it falls through to the app's own handler. Enter never opens or is swallowed by the row; it only submits from `#message-input` or activates a control inside it.
-
-Blank submit (`actions.ts`) is checked **before** any tag is created — reordered from the original behaviour, where submitting only `#tag` text created the tag and silently added nothing. A blank submit is now a true no-op: `Enter a task before adding.`, plus focus back to the field even when Add was clicked. A recoverable save failure (`{ error }` or a thrown IPC error) preserves the whole draft — text, pending tags, chosen Options — and shows `Couldn't add the task. Your draft is kept — try Add again.`; the server's own error text is never surfaced. Both messages live in `#compose-error` (`role="alert"`); success is announced only to assistive tech via `#compose-status` (`role="status"`), since the new task row is already the visible confirmation.
+# Adeo autonomous delivery entry point
+
+Adeo is an Electron todo app with a TypeScript main/renderer and local FastAPI +
+SQLite backend. Keep this always-loaded file small; repository understanding
+must come from bounded reconnaissance of current code and tests.
+
+## Default workflow
+
+- Ordinary development starts with `/deliver <task>`.
+- The system performs reconnaissance, records a concise repository-derived
+  Change Model, classifies risk internally, implements, runs a deterministic
+  quality gate, invokes a fresh adversarial verifier, repairs defects, and then
+  presents the product for user validation.
+- No routine FAST/STANDARD selection, mini-spec approval, readiness review or
+  implementer-authored completion declaration is allowed.
+- Humans approve genuine decisions. Machines prove behavior.
+
+Machine lifecycle lives in ignored `.claude/delivery/current.json`. Only
+`.claude/scripts/delivery.py` changes it. The implementer may produce a
+candidate in `IMPLEMENTING` or `REPAIRING`; only matching quality and verifier
+receipts can produce `READY_FOR_PRODUCT_REVIEW`.
+
+## High-risk decisions
+
+`/feature mode=full` and `/implementation-plan` remain only for durable product,
+architecture, migration, persistence, security, compatibility or public
+contract decisions discovered by `/deliver`. Low/medium work proceeds without
+human approval unless repository evidence exposes a real ambiguity.
+
+## Fresh sessions
+
+- At clean stage boundaries, repeated no-progress corrections, model switches,
+  or around 70–75% context usage, invoke `/handoff`.
+- The user then runs `/clear <task-name>` and `/start`; never clear on the
+  user's behalf.
+- `/start` loads machine state, Git summaries, open defects and at most five
+  handoff paths—not prior transcripts or broad documentation trees.
+- Use `/compact` only when no safe handoff boundary exists.
+
+## Context and safety
+
+Use [`docs/agent/quick-start.md`](docs/agent/quick-start.md) for fresh repository
+orientation and [`docs/agent/architecture/README.md`](docs/agent/architecture/README.md)
+as a scoped router. Repository code and executable evidence are authoritative.
+
+Preserve destructive-action, protected-path, real-data, secret, external-write,
+security and scope-expansion boundaries. Electron behavior must use isolated
+test harnesses. The complete operating guide is [`.claude/HELP.md`](.claude/HELP.md).

@@ -1,39 +1,28 @@
 ---
 name: start
-description: Resume an active /deliver lifecycle from machine state without trusting stale handoff intent.
+description: Resume an active delivery from compact machine state with Haiku orchestration.
 argument-hint: '[task=<short-name>]'
+model: haiku
+effort: low
 disable-model-invocation: true
 ---
 
-Resume machine-owned delivery; do not reconstruct conversation history.
+Resume from machine state, not conversation history.
 
-1. Run `python3 .claude/scripts/delivery.py status --json`.
-2. Inspect `git status --short`, `git diff --stat`, and `git diff --name-only`.
-3. Before reading the handoff, validate delivery intent:
-   - `/deliver` target must be `production`;
-   - `target_consistent` must be true when a Change Model exists;
-   - production implementation locations must not be only Storybook/`ui-ux/ux/`.
-4. If an old handoff/model targeted a prototype that was merely supplied as a
-   reference, **do not resume it**. Use `delivery.py retarget --target production`
-   with the actual shipping task/reference, then restart from `UNDERSTANDING`.
-5. Otherwise read only the original task, compact Change Model, open structured
-   defects and latest bounded handoff. Load only the exact `read_first` paths or
-   smallest affected production subset.
+1. Run `delivery.py status --json` plus `git status --short`, `git diff --stat`,
+   and `git diff --name-only`.
+2. Read only task, compact Change Model, open defects, and at most the checkpoint's
+   `read_first` paths. Do not load old transcripts or broad docs.
+3. Route by state:
+   - `UNDERSTANDING` / `IMPLEMENTING`: invoke Sonnet `implementer`.
+   - `BLOCKED_DECISION`: ask only the unresolved human decision.
+   - `REPAIRING`: if open defects are `manual-qa`, try Haiku `qa-repairer`; if it
+     says `ESCALATE_TO_SONNET`, invoke Sonnet `implementer`. Other repairs use
+     Sonnet `implementer`.
+   - `VERIFYING`: invoke exactly the compact status `verification_route`.
+   - `READY_FOR_MANUAL_QA`: run `delivery.py report` and stop for human testing.
+   - `NEEDS_HUMAN_REVIEW`: stop autonomous work.
+   - `DONE` / `FAILED`: do not resume.
 
-Do not initially load old transcripts, archived plans, whole source trees or
-complete logs.
-
-State handling:
-
-- `UNDERSTANDING`: production `/deliver` → claim `implementer`; `architect` only
-  for genuine high-risk decisions. Never claim `product-designer` merely because
-  a Storybook prototype is referenced.
-- `BLOCKED_DECISION`: ask only the genuine decision / complete authorization.
-- `IMPLEMENTING` / `REPAIRING`: resume the existing single owner when valid; for
-  production delivery the implementation owner is `implementer`.
-- `VERIFYING`: invoke only the runtime-authorized verifier mode.
-- `NEEDS_HUMAN_REVIEW`: stop autonomous work.
-- `READY_FOR_PRODUCT_REVIEW`: run `delivery.py report`, but only after target
-  consistency and production-path quality checks have passed.
-
-Repository reality and the explicit shipping intent beat a stale handoff.
+A stale prototype-target model must be retargeted; reference artifacts never
+become production implementation scope.

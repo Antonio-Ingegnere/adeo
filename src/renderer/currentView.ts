@@ -5,7 +5,7 @@
 //
 // Nothing new is stored. state.selectedListId survives underneath a running search, which is
 // exactly what lets clearing the search drop the user back into the list they were in.
-import type { SmartList } from '../types.js';
+import type { Board, SmartList } from '../types.js';
 import { associatedSmartList } from './activeSmartList.js';
 import { isSearching } from './searchMatches.js';
 import { state } from './state.js';
@@ -13,9 +13,19 @@ import { state } from './state.js';
 export type View =
   | { kind: 'list'; id: number | null }
   | { kind: 'smart'; smartList: SmartList; edited: boolean }
-  | { kind: 'search' };
+  | { kind: 'search' }
+  | { kind: 'board'; board: Board | null };
 
 export const currentView = (): View => {
+  // The board replaces the single view while it is open; it is not a search or a list.
+  if (state.boardMode) {
+    return {
+      kind: 'board',
+      board: state.activeBoardId !== null
+        ? state.boards.find((b) => b.id === state.activeBoardId) ?? null
+        : null,
+    };
+  }
   if (isSearching() || state.searchQuery.trim()) {
     const association = associatedSmartList();
     if (association) {
@@ -35,6 +45,12 @@ export const isListInView = (id: number | null): boolean => {
 export const isSmartListInView = (id: number): boolean => {
   const view = currentView();
   return view.kind === 'smart' && view.smartList.id === id;
+};
+
+/** True when this saved board is the open board view. */
+export const isBoardInView = (id: number): boolean => {
+  const view = currentView();
+  return view.kind === 'board' && view.board?.id === id;
 };
 
 /**

@@ -52,6 +52,7 @@ const draftNonEmpty = (): boolean => Boolean(refs.input && refs.input.value.trim
 
 /** Single source of truth for whether the metadata row is shown. */
 const shouldShowComposeMeta = (): boolean =>
+  !state.boardMode &&
   !state.composeMetaDismissed &&
   (focusWithinComposeBlock() || draftNonEmpty() || anyComposeSurfaceOpen());
 

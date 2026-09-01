@@ -258,6 +258,20 @@ body {
   z-index: 10;
 }
 
+/* The board's source picker ("＋ Add column" and each column header) is anchored inside
+   .board-columns, which is a scroll container (overflow-x:auto forces the visible y-axis to
+   auto), so an absolutely-positioned menu is clipped on both axes. It is rendered position:
+   fixed instead, with viewport coordinates computed in board.ts (positionBoardSourceMenu):
+   below the trigger, flipped up when it would overflow the viewport bottom, clamped
+   horizontally, height capped to the free viewport space. Kept below the modal scrim (900). */
+.board-source-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  max-height: none;
+  z-index: 800;
+}
+
 .view-menu-item {
   width: 100%;
   border: none;
@@ -3397,7 +3411,6 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
   box-shadow: var(--shadow-card);
-  overflow: visible;
 }
 
 .board-column__header {

@@ -262,25 +262,53 @@ try {
     await page.locator('#board-toast .board-toast__action', { hasText: 'Dismiss' }).click();
   }
 
-  // ---- 6. Best-effort: inline preview + warning + "Move anyway" ----------------------
+  // ---- 6. Best-effort: modal dialog + message + buttons --------------------------------
   {
     await addColumn(smartBest); // #tag AND due<=2999-12-31 -> range is skipped
     await openMoveMenu(listA, t3);
     await page
       .locator('.board-move-menu .list-menu-item', { hasText: `Move to "${smartBest}"` })
       .click();
-    await page.locator('.board-preview').waitFor({ state: 'visible' });
+    await page.locator('#board-move-overlay.open').waitFor({ state: 'visible' });
     check(
-      (await page.locator('.board-preview .template-warning').count()) === 1,
-      '6: the preview shows the "not applied" warning',
+      /may not stay in/i.test(
+        (await page.locator('#board-move-message').textContent()) || '',
+      ),
+      '6: the dialog message mentions "may not stay in"',
     );
     check(
-      (await page.locator('.board-preview .board-preview__actions button', { hasText: 'Move anyway' }).count()) === 1,
-      '6: the primary action is "Move anyway"',
+      (await page.locator('#board-move-confirm').count()) === 1,
+      '6: "Move task anyway" button exists',
     );
-    await page.locator('.board-preview button', { hasText: 'Cancel' }).click();
-    await page.waitForTimeout(150);
-    check((await page.locator('.board-preview').count()) === 0, '6: Cancel dismisses the preview');
+    check(
+      (await page.locator('#board-move-open').count()) === 1,
+      '6: "Open task" button exists',
+    );
+    check(
+      (await page.locator('#board-move-cancel').count()) === 1,
+      '6: "Cancel" button exists',
+    );
+    check(
+      (await page.locator('#board-move-confirm').textContent()) === 'Move task anyway',
+      '6: confirm button has correct text',
+    );
+    check(
+      (await page.locator('#board-move-open').textContent()) === 'Open task',
+      '6: open button has correct text',
+    );
+    check(
+      (await page.locator('#board-move-cancel').textContent()) === 'Cancel',
+      '6: cancel button has correct text',
+    );
+    await page.locator('#board-move-cancel').click();
+    check(
+      !(await page.locator('#board-move-overlay').evaluate((el) => el.classList.contains('open'))),
+      '6: Cancel dismisses the dialog',
+    );
+    check(
+      (await page.locator(`.board-column:has-text("${smartBest}") .task-row .task-text`, { hasText: t3 }).count()) === 0,
+      '6: task did not move (still in original column)',
+    );
   }
 
   // ---- 7. Blocked: destination is aria-disabled with a reason ------------------------

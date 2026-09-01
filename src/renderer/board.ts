@@ -658,12 +658,8 @@ const buildBoardCard = (
       } else if (plan.verdict === 'best-effort') {
         item.textContent = `Move to "${otherRef.label}"…`;
         item.addEventListener('click', () => {
-          state.boardPreview = {
-            destColumnId: otherCol.clientId,
-            fromColumnId: column.clientId,
-            taskId: task.id,
-          };
           state.boardOpenMoveMenu = null;
+          showBoardMoveDialog(task, column.clientId, otherCol.clientId, ref, otherRef, plan);
           renderBoard();
         });
       } else {
@@ -718,13 +714,6 @@ const buildPreview = (
     chips.appendChild(chip);
   });
   if (plan.changes.length) box.appendChild(chips);
-
-  if (plan.skipped.length) {
-    const warn = document.createElement('span');
-    warn.className = 'template-warning';
-    warn.textContent = `⚠ not applied: ${plan.skipped.join(', ')} — the task may not stay in this column`;
-    box.appendChild(warn);
-  }
 
   const note = document.createElement('p');
   note.className = 'board-preview__note';
@@ -1005,11 +994,7 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
       return;
     }
     if (plan.verdict === 'best-effort') {
-      state.boardPreview = {
-        destColumnId: col.clientId,
-        fromColumnId: fromCol.clientId,
-        taskId: task.id,
-      };
+      showBoardMoveDialog(task, fromCol.clientId, col.clientId, fromRef, ref, plan);
       renderBoard();
       return;
     }
@@ -1019,6 +1004,88 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
   el.appendChild(body);
   return el;
 };
+
+/**
+ * Modal dialog for best-effort board move confirmation. Shows when the user
+ * selects a destination that the move cannot fully cover, and provides options
+ * to proceed, open the task for editing, or cancel.
+ */
+let pendingBoardMoveData: {
+  task: Task;
+  fromClientId: string;
+  toClientId: string;
+  from: BoardColumnRef;
+  to: BoardColumnRef;
+  plan: BoardMovePlan;
+} | null = null;
+
+const showBoardMoveDialog = (
+  task: Task,
+  fromClientId: string,
+  toClientId: string,
+  from: BoardColumnRef,
+  to: BoardColumnRef,
+  plan: BoardMovePlan,
+): void => {
+  const overlay = refs.boardMoveOverlay;
+  const messageEl = refs.boardMoveMessage;
+  if (!overlay || !messageEl) return;
+
+  pendingBoardMoveData = { task, fromClientId, toClientId, from, to, plan };
+
+  let message = `These changes don't cover the whole filter, so the task may not stay in "${plan.destinationLabel}".`;
+  if (!plan.staysInSource) {
+    message += ` Moves out of the "${plan.sourceLabel}" list.`;
+  }
+  messageEl.textContent = message;
+  overlay.classList.add('open');
+};
+
+const closeBoardMoveDialog = (): void => {
+  const overlay = refs.boardMoveOverlay;
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  pendingBoardMoveData = null;
+};
+
+const initBoardMoveDialog = (): void => {
+  if (!refs.boardMoveOverlay) return;
+
+  // Confirm button: perform the move
+  refs.boardMoveConfirm?.addEventListener('click', () => {
+    const d = pendingBoardMoveData;
+    closeBoardMoveDialog();
+    if (d) void performMove(d.task, d.fromClientId, d.toClientId, d.from, d.to, d.plan);
+  });
+
+  // Cancel button: just close
+  refs.boardMoveCancel?.addEventListener('click', () => {
+    closeBoardMoveDialog();
+  });
+
+  // Open task button: close dialog and dispatch open event
+  refs.boardMoveOpen?.addEventListener('click', () => {
+    const id = pendingBoardMoveData?.task.id;
+    closeBoardMoveDialog();
+    if (id != null) document.dispatchEvent(new CustomEvent('open-edit-modal', { detail: { taskId: id } }));
+  });
+
+  // Overlay backdrop click
+  refs.boardMoveOverlay.addEventListener('click', (event) => {
+    if (event.target === refs.boardMoveOverlay) {
+      closeBoardMoveDialog();
+    }
+  });
+
+  // Escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !refs.boardMoveOverlay?.hidden) {
+      closeBoardMoveDialog();
+    }
+  });
+};
+
+initBoardMoveDialog();
 
 const renderToast = (): void => {
   const host = refs.boardToastEl;
@@ -1076,6 +1143,7 @@ export const renderBoard = (): void => {
   if (!state.boardMode) {
     region.hidden = true;
     if (refs.tasksSection) refs.tasksSection.hidden = false;
+    closeBoardMoveDialog();
     return;
   }
   region.hidden = false;

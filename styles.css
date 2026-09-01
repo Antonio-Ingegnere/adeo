@@ -1135,6 +1135,11 @@ body {
   padding: 20px;
 }
 
+.board-move-message {
+  margin: 0 0 var(--space-4, 16px);
+  line-height: 1.5;
+}
+
 /* Fixed height, not auto: the dialog must not resize as you move between General and
    Shortcuts, so short panels end early and leave space rather than shrinking the box.
    .modal sets height:80vh AND max-height:900px, so both have to be overridden here.

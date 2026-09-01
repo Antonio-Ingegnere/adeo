@@ -242,9 +242,8 @@ export const renderViewBar = () => {
   }
 
   if (view.kind === 'board') {
-    refs.viewBarActions.appendChild(
-      action('Leave board', 'Return to the single view', () => emit('leave-board-view')),
-    );
+    // The board area has no "Leave board" action: leaving happens via the
+    // sidebar list / smart-list / board pills or the view picker.
     return;
   }
 

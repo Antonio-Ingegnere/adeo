@@ -192,6 +192,24 @@ try {
     '1: each column is a role="group"',
   );
 
+  // ---- 1b. the boards area carries no "Leave board" control and no view-count ----------
+  check(
+    (await page.getByRole('button', { name: 'Leave board' }).count()) === 0,
+    '1b: no "Leave board" button anywhere while a board is open',
+  );
+  check(
+    await page.locator('#board-toggle').isHidden(),
+    '1b: the #board-toggle button is hidden while a board is open',
+  );
+  check(
+    (await page.locator('#board-region .board-column__count').count()) === 0,
+    '1b: no per-column task-count element in the board region',
+  );
+  check(
+    (await page.locator('#board-region .view-count').count()) === 0,
+    '1b: no .view-count element in the board region',
+  );
+
   // ---- 2. reorder a column (keyboard-operable header menu) -----------------------------
   {
     const before = await columnByNameAll();

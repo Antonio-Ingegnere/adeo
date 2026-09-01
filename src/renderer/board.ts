@@ -827,10 +827,6 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
   header.appendChild(pickerWrap);
 
   const tasks = ref ? columnTasks(ref) : [];
-  const count = document.createElement('span');
-  count.className = 'view-count board-column__count';
-  count.textContent = ref ? `· ${openCount(tasks)}` : '';
-  header.appendChild(count);
 
   const menuBtn = document.createElement('button');
   menuBtn.type = 'button';
@@ -1138,8 +1134,14 @@ export const renderBoard = (): void => {
   // Drop any scroll/resize listeners from a source picker that is about to be rebuilt.
   boardSourceMenuCleanup?.();
 
-  refs.boardToggle?.setAttribute('aria-pressed', String(state.boardMode));
-  if (refs.boardToggle) refs.boardToggle.textContent = state.boardMode ? 'Leave board' : 'Board';
+  if (refs.boardToggle) {
+    // The board area carries no "Leave board" control: while a board is open the
+    // toggle is removed entirely (leaving happens via the sidebar pills / view
+    // picker). Outside board mode it is the plain "Board" entry point again.
+    refs.boardToggle.textContent = 'Board';
+    refs.boardToggle.setAttribute('aria-pressed', String(state.boardMode));
+    refs.boardToggle.hidden = state.boardMode;
+  }
   if (!state.boardMode) {
     region.hidden = true;
     if (refs.tasksSection) refs.tasksSection.hidden = false;

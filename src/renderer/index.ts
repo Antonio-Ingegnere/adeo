@@ -311,8 +311,10 @@ const runSmartList = (smartListId: number) => {
   const smartList = state.smartLists.find((f) => f.id === smartListId);
   if (!smartList || !refs.listsSearchInput) return;
   // the *association*, so that clicking the pill of a smart list you have edited puts its
-  // saved query back rather than reading as "clear this"
-  const current = associatedSmartList();
+  // saved query back rather than reading as "clear this". While a board is open the single
+  // view is the board, not whatever query still sits in the (hidden) search bar, so coming
+  // from a board always *activates* the smart list rather than reading as a toggle-off.
+  const current = state.boardMode ? null : associatedSmartList();
   const alreadyRunning = current?.smartList.id === smartList.id && !current.edited;
   // clicking the running smart list clears it, matching how list and tag pills toggle
   const nextQuery = alreadyRunning ? '' : smartList.query;

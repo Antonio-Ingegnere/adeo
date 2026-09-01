@@ -1086,6 +1086,10 @@ body {
   align-items: center;
   justify-content: center;
   padding: 16px;
+  /* Above in-page positioned chrome such as the board column headers (z-index: 2),
+     which otherwise paint over the dialog. Stays below .date-picker-popover (1000),
+     which is opened from inside the modal. */
+  z-index: 900;
 }
 
 .overlay.open {

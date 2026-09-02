@@ -910,7 +910,7 @@ body {
   background: transparent;
   border: none;
   border-radius: 0;
-  font-size: var(--font-l);
+  font-size: var(--font-s);
   text-align: left;
   cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease, border-radius 120ms ease;
@@ -936,6 +936,7 @@ body {
   opacity: 0;
   visibility: hidden;
   transition: opacity 120ms ease, visibility 120ms ease;
+  font-size: 14px;
 }
 
 .list-drag-handle svg {
@@ -986,6 +987,7 @@ body {
   opacity: 0;
   visibility: hidden;
   transition: opacity 120ms ease, visibility 120ms ease, background-color 120ms ease;
+  font-size: 14px;
 }
 
 .list-menu-btn:hover {
@@ -998,6 +1000,7 @@ body {
   width: 18px;
   height: 18px;
   fill: currentColor;
+  flex-shrink: 0;
 }
 
 .list-menu {
@@ -2562,10 +2565,6 @@ kbd {
 /* ---------- Smart lists ----------
    A smart list is a named query. Its pill reuses .list-pill wholesale; only the query
    preview under the name is new. */
-
-.smart-list-pill .list-pill-label {
-  font-size: var(--font-m);
-}
 
 .smart-list-query-label {
   margin: 12px 0 4px;

@@ -57,9 +57,16 @@ const announce = (message: string): void => {
 // free vertical space. It stays a DOM child of its trigger wrap, so the existing outside-click
 // / Escape close logic (closeBoardMenus) is unaffected. Repositioned on scroll + resize while
 // open; the listeners are torn down on the next renderBoard.
+//
+// The board card "Move to" popover (.board-move-menu) reuses this exact mechanism via
+// mountBoardSourceMenu: anchored to the move button and rendered position:fixed so it
+// overlays the column instead of being clipped inside .board-column__body (overflow-y:auto).
 const BOARD_MENU_GAP = 4;
 const BOARD_MENU_MARGIN = 8;
 const BOARD_MENU_MIN_HEIGHT = 96;
+// A chain of teardown callbacks: more than one fixed board menu (the source picker and the
+// move popover) can be mounted in a single render, and each must drop its scroll/resize
+// listeners on the next renderBoard.
 let boardSourceMenuCleanup: (() => void) | null = null;
 
 const positionBoardSourceMenu = (menu: HTMLElement, trigger: HTMLElement): void => {
@@ -96,9 +103,11 @@ const mountBoardSourceMenu = (menu: HTMLElement, trigger: HTMLElement): void => 
   requestAnimationFrame(reposition);
   window.addEventListener('scroll', reposition, true);
   window.addEventListener('resize', reposition);
+  const previousCleanup = boardSourceMenuCleanup;
   boardSourceMenuCleanup = () => {
     window.removeEventListener('scroll', reposition, true);
     window.removeEventListener('resize', reposition);
+    previousCleanup?.();
     boardSourceMenuCleanup = null;
   };
 };
@@ -607,7 +616,11 @@ const buildBoardCard = (
   const moveBtn = document.createElement('button');
   moveBtn.type = 'button';
   moveBtn.className = 'view-bar-action board-card__move';
-  moveBtn.textContent = 'Move to…';
+  moveBtn.setAttribute('aria-label', 'Move to…');
+  moveBtn.title = 'Move to…';
+  moveBtn.innerHTML =
+    `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">` +
+    `<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h20"/></svg>`;
   moveBtn.setAttribute('aria-haspopup', 'menu');
   const menuOpen =
     state.boardOpenMoveMenu?.taskId === task.id &&
@@ -616,6 +629,7 @@ const buildBoardCard = (
   if (others.length === 0) {
     moveBtn.disabled = true;
     moveBtn.title = 'No other columns';
+    moveBtn.setAttribute('aria-label', 'No other columns');
   }
   moveBtn.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -623,7 +637,15 @@ const buildBoardCard = (
     state.boardPreview = null;
     renderBoard();
   });
-  row.appendChild(moveBtn);
+
+  // Keep the menu a DOM child of this wrap (so the existing outside-click / Escape close
+  // logic and click.stopPropagation still apply), but it renders position:fixed and is
+  // anchored to the button in viewport space by mountBoardSourceMenu below.
+  const moveButtonWrap = document.createElement('div');
+  moveButtonWrap.style.position = 'relative';
+  moveButtonWrap.style.display = 'inline-flex';
+  moveButtonWrap.appendChild(moveBtn);
+  row.appendChild(moveButtonWrap);
 
   if (menuOpen && others.length) {
     const menu = document.createElement('div');
@@ -670,7 +692,14 @@ const buildBoardCard = (
       }
       menu.appendChild(item);
     });
-    row.appendChild(menu);
+    moveButtonWrap.appendChild(menu);
+
+    // Render the popover position:fixed, anchored to the move button in viewport space, so
+    // it overlays the column instead of being clipped inside .board-column__body
+    // (overflow-y:auto) for a task near the bottom of the column. Reuses the source-picker
+    // mount: below the button, flips above when it would overflow the viewport bottom,
+    // clamps horizontally, caps its height to the free space.
+    mountBoardSourceMenu(menu, moveBtn);
   }
 
   // inline preview / confirm for a best-effort move on this card+destination

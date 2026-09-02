@@ -199,6 +199,24 @@ try {
     '1: each column is a role="group"',
   );
 
+  // ---- 1b. the move control renders as an icon, not a text label ----------------------
+  {
+    const moveBtn = cardIn(listA, t1).locator('.board-card__move');
+    await moveBtn.waitFor({ state: 'visible' });
+    check(
+      (await moveBtn.locator('svg').count()) === 1,
+      '1b: move control renders exactly one inline SVG icon',
+    );
+    check(
+      ((await moveBtn.textContent()) || '').trim() === '',
+      '1b: move control has no visible text label',
+    );
+    check(
+      (await moveBtn.getAttribute('aria-label')) === 'Move to…',
+      '1b: move control keeps its action text as an accessible name',
+    );
+  }
+
   // ---- 1a. long card metadata wraps onto several lines inside the fixed column ---------
   {
     const meta = cardIn(listA, t1).locator('.task-reminder');
@@ -282,6 +300,26 @@ try {
   // ---- 4. List -> List move: listId write + Undo restores the snapshot ---------------
   {
     await openMoveMenu(listA, t1);
+
+    // D-003 regression: the move popover must render position:fixed and overlay the column
+    // (fully inside the viewport), not be clipped inside .board-column__body's scroll box.
+    const menuGeom = await page.locator('.board-move-menu').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const body = el.closest('.board-column__body');
+      return {
+        position: getComputedStyle(el).position,
+        bottom: r.bottom,
+        top: r.top,
+        viewportBottom: window.innerHeight,
+        bodyBottom: body ? body.getBoundingClientRect().bottom : null,
+      };
+    });
+    check(menuGeom.position === 'fixed', '4: move popover renders position:fixed');
+    check(
+      menuGeom.top >= 0 && menuGeom.bottom <= menuGeom.viewportBottom + 0.5,
+      '4: move popover stays fully within the viewport (not clipped below the column)',
+    );
+
     await page
       .locator('.board-move-menu .list-menu-item', { hasText: `Move to "${listB}"` })
       .click();

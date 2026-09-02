@@ -3510,15 +3510,38 @@ kbd {
   margin-left: auto;
   flex: 0 0 auto;
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: var(--font-xs);
-  padding: var(--space-4) var(--space-8);
+  padding: var(--space-4);
 }
 
+.board-card__move svg {
+  width: 14px;
+  height: 14px;
+}
+
+.board-card__move svg path {
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Anchored to the .board-card__move button but rendered position:fixed (coordinates from
+   positionBoardSourceMenu in board.ts) so the popover overlays the column instead of being
+   clipped inside .board-column__body (overflow-y:auto) for a task near the column bottom.
+   Kept below the modal scrim (900), matching .board-source-menu. */
 .board-move-menu {
-  top: 110%;
-  right: var(--space-4);
-  left: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: auto;
+  max-height: none;
   min-width: 200px;
+  z-index: 800;
 }
 
 .board-move-menu .list-menu-item[aria-disabled='true'] {

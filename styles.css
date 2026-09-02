@@ -1010,16 +1010,18 @@ body {
 
 /* D-003 (reopen of D-002): the hover kebab is 26px tall and only
    visibility:hidden -- not display:none, not absolute -- so it stays in the
-   flex flow and, being the tallest child, forced every .list-pill row that
-   carries it (real lists, smart lists, boards, tags) to 26 + 2*4 = 34px, while
-   label-only rows like "All lists" sat at 14 + 8 = 22px. Symmetric negative
-   block margins collapse its contribution to the flex line back to the 14px
-   label/handle metric without changing the button's rendered 26px box, its
-   18px icon, its centring or its hover chip. Scoped to .list-pill so the
-   board-column .list-menu-btn (a normal-flow header control) is untouched. */
+   flex flow. In .list-pill rows (real lists, smart lists, tags), we scope the
+   button's box to 20px (padding 1px, so painted box 22px) to fit within the
+   22px row height; symmetric negative margins (3px each) collapse its flex-line
+   contribution to 20 - 3 - 3 = 14px (the label/handle metric) to keep row
+   height at 22px without protrusion. The base .list-menu-btn stays 26px for
+   board-column header controls. The 18px icon and centering are unchanged. */
 .list-pill .list-menu-btn {
-  margin-top: -6px;
-  margin-bottom: -6px;
+  width: 20px;
+  height: 20px;
+  padding: 1px;
+  margin-top: -3px;
+  margin-bottom: -3px;
 }
 
 .list-menu-btn svg {

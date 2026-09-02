@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
@@ -13,17 +14,22 @@ import subprocess
 import sys
 import tempfile
 import time
+import statistics
+import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-VERSION = 1
+VERSION = 2
+LEGACY_VERSION = 1
 DELIVERY_TARGETS = {"production", "prototype"}
 REFERENCE_PREFIXES = ("ui-ux/ux/", ".storybook/")
 PRODUCTION_PREFIXES = ("src/", "server/", "migrations/", "public/")
 PRODUCTION_FILES = {"index.html", "styles.css", "package.json", "tsconfig.json", "tsconfig.renderer.json"}
 STATE_RELATIVE = Path(".claude/delivery/current.json")
+METRICS_RELATIVE = Path("docs/agent/delivery-metrics.jsonl")
+METRICS_DASHBOARD_RELATIVE = Path(".claude/metrics/dashboard.html")
 ACTIVE_STATES = {
     "UNDERSTANDING",
     "BLOCKED_DECISION",
@@ -56,8 +62,8 @@ VERIFIER_BUDGETS = {
 MAX_VERIFIER_DEFECTS = 3
 MAX_ADVERSARIAL_SCENARIOS = 3
 MAX_MANUAL_QA_DEFECTS = 3
-MAX_MANUAL_QA_BATCHES = 3
 MAX_MANUAL_QA_REOPENS = 1
+MAX_HAIKU_QA_ATTEMPTS = 2
 QA_REPAIR_ROUTES = {"qa-repairer", "qa-repairer-sonnet"}
 FEATURE_CHECK_PATTERNS = (
     re.compile(r"^node scripts/[A-Za-z0-9_./-]+-selftest\.mjs$"),
@@ -145,10 +151,57 @@ def run_git(root: Path, *args: str) -> bytes:
     return result.stdout
 
 
-def repository_paths(root: Path) -> list[str]:
+def decode_z(raw: bytes) -> list[str]:
+    return [item.decode("utf-8") for item in raw.split(b"\0") if item]
+
+
+def legacy_repository_paths(root: Path) -> list[str]:
     raw = run_git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
-    paths = [item.decode("utf-8") for item in raw.split(b"\0") if item]
-    return sorted(set(paths))
+    return sorted(set(decode_z(raw)))
+
+
+def legacy_full_snapshot(root: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for relative in legacy_repository_paths(root):
+        path = root / relative
+        if path.is_file() or path.is_symlink():
+            result[relative] = hash_path(path)
+    return result
+
+
+def legacy_full_fingerprint(root: Path) -> str:
+    encoded = json.dumps(
+        legacy_full_snapshot(root), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def git_head(root: Path) -> str:
+    return run_git(root, "rev-parse", "HEAD").decode("utf-8", errors="replace").strip()
+
+
+def tracked_paths_at(root: Path, revision: str = "HEAD") -> set[str]:
+    return set(decode_z(run_git(root, "ls-tree", "-r", "--name-only", "-z", revision)))
+
+
+def current_untracked_paths(root: Path) -> set[str]:
+    return set(decode_z(run_git(root, "ls-files", "--others", "--exclude-standard", "-z")))
+
+
+def tracked_diff_paths(root: Path, revision: str) -> set[str]:
+    return set(
+        decode_z(
+            run_git(
+                root,
+                "diff",
+                "--name-only",
+                "--no-renames",
+                "-z",
+                revision,
+                "--",
+            )
+        )
+    )
 
 
 def hash_path(path: Path) -> str:
@@ -161,27 +214,164 @@ def hash_path(path: Path) -> str:
     return digest.hexdigest()
 
 
-def snapshot(root: Path) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for relative in repository_paths(root):
-        path = root / relative
-        if path.is_file() or path.is_symlink():
-            result[relative] = hash_path(path)
-    return result
+def path_state(root: Path, relative: str) -> dict[str, Any]:
+    path = root / relative
+    if not path.exists() and not path.is_symlink():
+        return {"exists": False}
+    if not (path.is_file() or path.is_symlink()):
+        return {"exists": False}
+    if path.is_symlink():
+        kind = "symlink"
+    else:
+        kind = "executable" if os.access(path, os.X_OK) else "file"
+    return {"exists": True, "kind": kind, "sha256": hash_path(path)}
 
 
-def fingerprint(files: dict[str, str]) -> str:
-    encoded = json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
-    return sorted(
-        path
-        for path in set(before) | set(after)
-        if before.get(path) != after.get(path)
+def ignored_delivery_path(relative: str) -> bool:
+    normalized = relative.replace("\\", "/")
+    return (
+        normalized.startswith(".claude/")
+        or normalized == str(METRICS_RELATIVE).replace("\\", "/")
+        or normalized.startswith("ui-ux/ux/baselines/images/")
+        or normalized.startswith("ui-ux/ux/reviews/evidence/")
+        or ("/" not in normalized and normalized.startswith(".claude") and normalized.endswith(".zip"))
+        or ("/" not in normalized and normalized.startswith("adeo-claude-") and normalized.endswith(".zip"))
     )
 
+
+def sparse_baseline(root: Path) -> dict[str, Any]:
+    """Capture only information Git cannot reconstruct later.
+
+    Clean tracked files are already represented by HEAD. We persist hashes only
+    for paths that were dirty/untracked at delivery start so candidate changes
+    can be measured relative to the user's pre-existing working tree.
+    """
+    head = git_head(root)
+    tracked_dirty = tracked_diff_paths(root, head)
+    untracked = current_untracked_paths(root)
+    dirty: dict[str, Any] = {}
+    for relative in sorted(tracked_dirty | untracked):
+        if ignored_delivery_path(relative):
+            continue
+        dirty[relative] = {
+            "origin": "untracked" if relative in untracked else "tracked",
+            **path_state(root, relative),
+        }
+    return {"head": head, "dirty": dirty}
+
+
+def baseline_is_sparse(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and isinstance(value.get("head"), str)
+        and isinstance(value.get("dirty"), dict)
+    )
+
+
+def hash_git_blob(root: Path, revision: str, relative: str) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(root), "show", f"{revision}:{relative}"],
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
+def migrate_legacy_baseline(root: Path, legacy: dict[str, Any]) -> dict[str, Any]:
+    """Compact a v1 full-repository hash map using the current HEAD as anchor.
+
+    Delivery workers are forbidden from committing, so active v1 deliveries are
+    expected to still be on the same HEAD. The migration keeps exact v1 hashes
+    only where the old working tree differed from HEAD; clean PNGs/assets/docs
+    disappear from current.json entirely.
+    """
+    head = git_head(root)
+    tracked = tracked_paths_at(root, head)
+    dirty: dict[str, Any] = {}
+
+    for relative, old_hash in legacy.items():
+        if not isinstance(relative, str) or not isinstance(old_hash, str):
+            continue
+        if ignored_delivery_path(relative):
+            continue
+        if relative in tracked:
+            head_hash = hash_git_blob(root, head, relative)
+            if head_hash == old_hash:
+                continue
+            dirty[relative] = {
+                "origin": "tracked",
+                "exists": True,
+                "sha256": old_hash,
+            }
+        else:
+            dirty[relative] = {
+                "origin": "untracked",
+                "exists": True,
+                "sha256": old_hash,
+            }
+
+    # A tracked file absent from the old full snapshot was deleted at baseline.
+    for relative in sorted(tracked - set(legacy)):
+        if ignored_delivery_path(relative):
+            continue
+        dirty[relative] = {"origin": "tracked", "exists": False}
+
+    return {"head": head, "dirty": dirty, "migrated_from": "v1-full-snapshot"}
+
+
+def baseline_state_for_path(baseline: dict[str, Any], relative: str) -> dict[str, Any] | None:
+    dirty = baseline.get("dirty") or {}
+    item = dirty.get(relative)
+    if not isinstance(item, dict):
+        return None
+    return {key: item[key] for key in ("exists", "kind", "sha256") if key in item}
+
+
+def path_state_matches(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+    return all(actual.get(key) == value for key, value in expected.items())
+
+
+def candidate_changed_paths(root: Path, baseline: dict[str, Any]) -> list[str]:
+    if not baseline_is_sparse(baseline):
+        raise DeliveryError("Delivery baseline is not sparse; reload state to migrate it")
+    head = str(baseline["head"])
+    dirty = baseline.get("dirty") or {}
+    current_diff = tracked_diff_paths(root, head)
+    current_untracked = current_untracked_paths(root)
+    candidates = current_diff | current_untracked | set(dirty)
+    changed: list[str] = []
+    for relative in sorted(candidates):
+        if ignored_delivery_path(relative):
+            continue
+        baseline_state = baseline_state_for_path(baseline, relative)
+        current_state = path_state(root, relative)
+        if baseline_state is not None:
+            if not path_state_matches(baseline_state, current_state):
+                changed.append(relative)
+            continue
+        # A path that was clean at start is changed iff Git/untracked discovery
+        # says it now differs from HEAD.
+        if relative in current_diff or relative in current_untracked:
+            changed.append(relative)
+    return changed
+
+
+def candidate_snapshot(root: Path, baseline: dict[str, Any]) -> dict[str, Any]:
+    return {
+        relative: path_state(root, relative)
+        for relative in candidate_changed_paths(root, baseline)
+    }
+
+
+def fingerprint_candidate(root: Path, baseline: dict[str, Any]) -> str:
+    payload = {
+        "head": baseline.get("head"),
+        "paths": candidate_snapshot(root, baseline),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 def slugify(task: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", task.lower()).strip("-")[:48]
@@ -195,6 +385,16 @@ def read_json(path: Path) -> dict[str, Any]:
         raise DeliveryError(f"Cannot read JSON from {path}: {exc}") from exc
     if not isinstance(value, dict):
         raise DeliveryError(f"Expected a JSON object in {path}")
+    return value
+
+
+def read_json_stdin() -> dict[str, Any]:
+    try:
+        value = json.load(sys.stdin)
+    except json.JSONDecodeError as exc:
+        raise DeliveryError(f"Cannot read Change Model JSON from stdin: {exc}") from exc
+    if not isinstance(value, dict):
+        raise DeliveryError("Expected a JSON object on stdin")
     return value
 
 
@@ -456,6 +656,419 @@ def ensure_budget(state: dict[str, Any]) -> dict[str, Any]:
     return budget
 
 
+def ensure_metrics(state: dict[str, Any]) -> dict[str, Any]:
+    metrics = state.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}
+        state["metrics"] = metrics
+    defaults = {
+        "sonnet_implementation_passes": 0,
+        "sonnet_full_verifier_passes": 0,
+        "sonnet_reopen_passes": 0,
+        "sonnet_qa_escalation_passes": 0,
+        "haiku_agent_passes": 0,
+        "haiku_qa_attempts": 0,
+        "qa_escalations_to_sonnet": 0,
+        "qa_batches": 0,
+        "reopens": 0,
+    }
+    for key, value in defaults.items():
+        metrics.setdefault(key, value)
+    metrics.setdefault("partial", bool(state.get("baseline_migration")))
+    return metrics
+
+
+def metric_increment(state: dict[str, Any], key: str, amount: int = 1) -> None:
+    metrics = ensure_metrics(state)
+    metrics[key] = int(metrics.get(key, 0)) + amount
+
+
+def metrics_path(root: Path) -> Path:
+    return root / METRICS_RELATIVE
+
+
+def accepted_metric_record(state: dict[str, Any], reason: str, accepted_at: str) -> dict[str, Any]:
+    metrics = ensure_metrics(state)
+    risk = str((state.get("change_model") or {}).get("risk") or "unknown")
+    expensive = (
+        int(metrics.get("sonnet_implementation_passes", 0))
+        + int(metrics.get("sonnet_full_verifier_passes", 0))
+        + int(metrics.get("sonnet_reopen_passes", 0))
+        + int(metrics.get("sonnet_qa_escalation_passes", 0))
+    )
+    return {
+        "delivery_id": state.get("id"),
+        "task": state.get("task"),
+        "delivery_target": delivery_target(state),
+        "risk": risk,
+        "started_at": state.get("created_at"),
+        "accepted_at": accepted_at,
+        "outcome": "accepted",
+        "sonnet_implementation_passes": int(metrics.get("sonnet_implementation_passes", 0)),
+        "sonnet_full_verifier_passes": int(metrics.get("sonnet_full_verifier_passes", 0)),
+        "sonnet_reopen_passes": int(metrics.get("sonnet_reopen_passes", 0)),
+        "sonnet_qa_escalation_passes": int(metrics.get("sonnet_qa_escalation_passes", 0)),
+        "haiku_agent_passes": int(metrics.get("haiku_agent_passes", 0)),
+        "haiku_qa_attempts": int(metrics.get("haiku_qa_attempts", 0)),
+        "qa_escalations_to_sonnet": int(metrics.get("qa_escalations_to_sonnet", 0)),
+        "qa_batches": int(metrics.get("qa_batches", 0)),
+        "reopens": int(metrics.get("reopens", 0)),
+        "expensive_reasoning_passes": expensive,
+        "manual_acceptance": True,
+        "metrics_partial": bool(metrics.get("partial", False)),
+        "acceptance_note": reason.strip(),
+    }
+
+
+def append_metric_record(root: Path, record: dict[str, Any]) -> bool:
+    """Append one immutable JSONL record; repeated acceptance stays idempotent."""
+    target = metrics_path(root)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    delivery_id = str(record.get("delivery_id") or "")
+    if target.is_file() and delivery_id:
+        try:
+            for line in target.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    existing = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(existing, dict) and str(existing.get("delivery_id") or "") == delivery_id:
+                    return False
+        except OSError as exc:
+            raise DeliveryError(f"Cannot read delivery metrics ledger {target}: {exc}") from exc
+    try:
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+    except OSError as exc:
+        raise DeliveryError(f"Cannot append delivery metrics ledger {target}: {exc}") from exc
+    return True
+
+
+def load_metric_records(root: Path) -> tuple[list[dict[str, Any]], int]:
+    # Read the append-only metrics ledger without mutating it.
+    target = metrics_path(root)
+    if not target.is_file():
+        return [], 0
+    records: list[dict[str, Any]] = []
+    malformed = 0
+    try:
+        lines = target.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise DeliveryError(f"Cannot read delivery metrics ledger {target}: {exc}") from exc
+    for line in lines:
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            item = json.loads(text)
+        except json.JSONDecodeError:
+            malformed += 1
+            continue
+        if not isinstance(item, dict):
+            malformed += 1
+            continue
+        records.append(item)
+    return records, malformed
+
+
+def metric_int(record: dict[str, Any], key: str) -> int:
+    try:
+        return int(record.get(key, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def metric_float_mean(values: list[int]) -> float:
+    return round(float(statistics.mean(values)), 2) if values else 0.0
+
+
+def metric_dashboard_payload(root: Path) -> dict[str, Any]:
+    records, malformed = load_metric_records(root)
+    accepted = [
+        item for item in records
+        if item.get("outcome") == "accepted" and bool(item.get("manual_acceptance", False))
+    ]
+    complete = [item for item in accepted if not bool(item.get("metrics_partial", False))]
+    basis = complete if complete else accepted
+    expensive = [metric_int(item, "expensive_reasoning_passes") for item in basis]
+    qa_batches = [metric_int(item, "qa_batches") for item in basis]
+    escalated = [item for item in basis if metric_int(item, "qa_escalations_to_sonnet") > 0]
+    reopened = [item for item in basis if metric_int(item, "reopens") > 0]
+
+    distribution = {"0": 0, "1": 0, "2": 0, "3": 0, "4+": 0}
+    for value in expensive:
+        key = str(value) if value <= 3 else "4+"
+        distribution[key] += 1
+
+    attention: list[dict[str, Any]] = []
+    for item in accepted:
+        reasons: list[str] = []
+        exp = metric_int(item, "expensive_reasoning_passes")
+        haiku_qa = metric_int(item, "haiku_qa_attempts")
+        escalations = metric_int(item, "qa_escalations_to_sonnet")
+        reopens = metric_int(item, "reopens")
+        if exp >= 3:
+            reasons.append(f"{exp} expensive reasoning passes")
+        if haiku_qa >= 2:
+            reasons.append(f"{haiku_qa} Haiku QA attempts")
+        if escalations:
+            reasons.append(f"{escalations} QA escalation(s) to Sonnet")
+        if reopens:
+            reasons.append(f"{reopens} reopen(s)")
+        if bool(item.get("metrics_partial", False)):
+            reasons.append("partial pre-metrics history")
+        if reasons:
+            attention.append({
+                "delivery_id": item.get("delivery_id"),
+                "task": item.get("task") or item.get("delivery_id") or "unknown delivery",
+                "reasons": reasons,
+                "accepted_at": item.get("accepted_at"),
+            })
+
+    return {
+        "ledger": str(METRICS_RELATIVE),
+        "records_total": len(records),
+        "accepted_total": len(accepted),
+        "complete_total": len(complete),
+        "partial_total": len(accepted) - len(complete),
+        "malformed_lines": malformed,
+        "averages_basis": "complete" if complete else ("all accepted" if accepted else "none"),
+        "avg_expensive_reasoning_passes": metric_float_mean(expensive),
+        "median_expensive_reasoning_passes": round(float(statistics.median(expensive)), 2) if expensive else 0.0,
+        "avg_qa_batches": metric_float_mean(qa_batches),
+        "qa_escalation_rate_pct": round((len(escalated) / len(basis) * 100.0), 1) if basis else 0.0,
+        "reopen_rate_pct": round((len(reopened) / len(basis) * 100.0), 1) if basis else 0.0,
+        "distribution": distribution,
+        "accepted": accepted,
+        "attention": attention,
+    }
+
+
+def truncate_metric_text(value: Any, width: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= width:
+        return text
+    return text[: max(1, width - 1)] + "…"
+
+
+def command_metrics_terminal(root: Path, limit: int) -> None:
+    payload = metric_dashboard_payload(root)
+    accepted = payload["accepted"]
+    if not accepted:
+        print("DELIVERY METRICS")
+        print(f"No accepted delivery records yet. Ledger: {METRICS_RELATIVE}")
+        if payload["malformed_lines"]:
+            print(f"Warning: {payload['malformed_lines']} malformed ledger line(s) ignored.")
+        return
+
+    print("DELIVERY METRICS")
+    print(
+        f"Accepted {payload['accepted_total']} | complete {payload['complete_total']} | "
+        f"partial {payload['partial_total']} | averages use {payload['averages_basis']} records"
+    )
+    print(
+        f"Avg expensive {payload['avg_expensive_reasoning_passes']:.2f} | "
+        f"median {payload['median_expensive_reasoning_passes']:.2f} | "
+        f"avg QA batches {payload['avg_qa_batches']:.2f} | "
+        f"Sonnet escalation {payload['qa_escalation_rate_pct']:.1f}% | "
+        f"reopen {payload['reopen_rate_pct']:.1f}%"
+    )
+    if payload["malformed_lines"]:
+        print(f"Warning: {payload['malformed_lines']} malformed ledger line(s) ignored.")
+
+    print("\nExpensive reasoning passes")
+    distribution = payload["distribution"]
+    max_count = max(distribution.values()) if distribution else 0
+    for key in ("0", "1", "2", "3", "4+"):
+        count = distribution[key]
+        bar_len = round((count / max_count) * 20) if max_count else 0
+        print(f"  {key:>2} {'█' * bar_len:<20} {count}")
+
+    print("\nRecent accepted deliveries")
+    print(f"{'Feature':44} {'Risk':7} {'Exp':>3} {'HQA':>3} {'QA':>2} {'Esc':>3} {'Re':>2} Flag")
+    print("-" * 82)
+    recent = accepted[-limit:]
+    for item in reversed(recent):
+        exp = metric_int(item, "expensive_reasoning_passes")
+        hqa = metric_int(item, "haiku_qa_attempts")
+        qa = metric_int(item, "qa_batches")
+        esc = metric_int(item, "qa_escalations_to_sonnet")
+        reopens = metric_int(item, "reopens")
+        flag = "RED" if exp >= 3 or esc else ("WARN" if hqa >= 2 or reopens else "OK")
+        if bool(item.get("metrics_partial", False)):
+            flag = "PARTIAL"
+        print(
+            f"{truncate_metric_text(item.get('task') or item.get('delivery_id'), 44):44} "
+            f"{truncate_metric_text(item.get('risk') or 'unknown', 7):7} "
+            f"{exp:>3} {hqa:>3} {qa:>2} {esc:>3} {reopens:>2} {flag}"
+        )
+
+    if payload["attention"]:
+        print("\nAttention")
+        for item in payload["attention"][-limit:]:
+            reasons = "; ".join(item["reasons"])
+            print(f"- {truncate_metric_text(item['task'], 70)}: {reasons}")
+
+
+def metric_trend_svg(records: list[dict[str, Any]]) -> str:
+    points_source = records[-30:]
+    if not points_source:
+        return '<div class="empty">No accepted deliveries yet.</div>'
+    values = [metric_int(item, "expensive_reasoning_passes") for item in points_source]
+    width, height = 760, 190
+    left, right, top, bottom = 35, 15, 20, 35
+    plot_w = width - left - right
+    plot_h = height - top - bottom
+    ceiling = max(4, max(values) if values else 0)
+    if len(values) == 1:
+        xs = [left + plot_w / 2]
+    else:
+        xs = [left + (idx * plot_w / (len(values) - 1)) for idx in range(len(values))]
+    ys = [top + plot_h - (value / ceiling * plot_h) for value in values]
+    polyline = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+    circles = "".join(
+        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3"><title>{html.escape(str(points_source[idx].get("task") or "delivery"))}: {values[idx]}</title></circle>'
+        for idx, (x, y) in enumerate(zip(xs, ys))
+    )
+    grid = "".join(
+        f'<line x1="{left}" y1="{top + plot_h - (level / ceiling * plot_h):.1f}" x2="{width-right}" y2="{top + plot_h - (level / ceiling * plot_h):.1f}" class="grid" />'
+        f'<text x="{left-8}" y="{top + plot_h - (level / ceiling * plot_h) + 4:.1f}" text-anchor="end">{level}</text>'
+        for level in range(0, ceiling + 1)
+    )
+    return (
+        f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Expensive reasoning passes per accepted delivery">'
+        f'{grid}<polyline points="{polyline}" class="trend" />{circles}'
+        f'<text x="{width/2:.0f}" y="{height-5}" text-anchor="middle">last {len(values)} accepted deliveries →</text>'
+        '</svg>'
+    )
+
+
+def render_metrics_html(payload: dict[str, Any]) -> str:
+    accepted = payload["accepted"]
+    distribution = payload["distribution"]
+    max_dist = max(distribution.values()) if distribution else 0
+    bars = []
+    for key in ("0", "1", "2", "3", "4+"):
+        count = distribution[key]
+        pct = (count / max_dist * 100.0) if max_dist else 0.0
+        bars.append(
+            f'<div class="bar-row"><span>{key}</span><div class="bar-track"><div class="bar" style="width:{pct:.1f}%"></div></div><strong>{count}</strong></div>'
+        )
+
+    rows = []
+    for item in reversed(accepted[-50:]):
+        exp = metric_int(item, "expensive_reasoning_passes")
+        hqa = metric_int(item, "haiku_qa_attempts")
+        esc = metric_int(item, "qa_escalations_to_sonnet")
+        reopens = metric_int(item, "reopens")
+        klass = "bad" if exp >= 3 or esc else ("warn" if hqa >= 2 or reopens else "good")
+        if bool(item.get("metrics_partial", False)):
+            klass = "partial"
+        rows.append(
+            "<tr>"
+            f'<td><div class="task">{html.escape(str(item.get("task") or item.get("delivery_id") or ""))}</div>'
+            f'<div class="muted">{html.escape(str(item.get("accepted_at") or ""))}</div></td>'
+            f'<td>{html.escape(str(item.get("risk") or "unknown"))}</td>'
+            f'<td class="num {klass}">{exp}</td>'
+            f'<td class="num">{hqa}</td>'
+            f'<td class="num">{metric_int(item, "qa_batches")}</td>'
+            f'<td class="num">{esc}</td>'
+            f'<td class="num">{reopens}</td>'
+            f'<td><span class="pill {klass}">{klass}</span></td>'
+            "</tr>"
+        )
+
+    attention = []
+    for item in reversed(payload["attention"][-20:]):
+        attention.append(
+            '<div class="attention-item">'
+            f'<strong>{html.escape(str(item["task"]))}</strong>'
+            f'<div>{html.escape(" · ".join(item["reasons"]))}</div>'
+            '</div>'
+        )
+    if not attention:
+        attention.append('<div class="empty">No deliveries currently cross the attention thresholds.</div>')
+
+    generated = utc_now()
+    malformed_note = (
+        f'<div class="warning">{payload["malformed_lines"]} malformed JSONL line(s) were ignored.</div>'
+        if payload["malformed_lines"] else ""
+    )
+    return f'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adeo Delivery Metrics</title>
+<style>
+:root {{ color-scheme: light dark; --bg:#0f1115; --panel:#171a21; --text:#e8eaf0; --muted:#9aa3b2; --line:#2a3040; --good:#62d394; --warn:#f4c95d; --bad:#ff6b6b; --accent:#7aa2f7; }}
+@media (prefers-color-scheme: light) {{ :root {{ --bg:#f5f7fb; --panel:#fff; --text:#1b2130; --muted:#667085; --line:#e4e7ec; --good:#16834a; --warn:#a36a00; --bad:#c93434; --accent:#356fe0; }} }}
+* {{ box-sizing:border-box; }} body {{ margin:0; font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }}
+main {{ max-width:1180px; margin:0 auto; padding:32px 22px 60px; }} h1 {{ margin:0 0 4px; font-size:28px; }} h2 {{ margin:0 0 16px; font-size:18px; }} .muted {{ color:var(--muted); font-size:12px; }}
+.grid-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:24px 0; }} .card,.panel {{ background:var(--panel); border:1px solid var(--line); border-radius:12px; }} .card {{ padding:16px; }} .value {{ font-size:27px; font-weight:700; margin-top:5px; }}
+.layout {{ display:grid; grid-template-columns:minmax(0,2fr) minmax(260px,1fr); gap:16px; margin-bottom:16px; }} .panel {{ padding:18px; overflow:hidden; }} @media(max-width:800px) {{ .layout {{ grid-template-columns:1fr; }} }}
+svg {{ width:100%; min-height:180px; }} svg text {{ fill:var(--muted); font-size:11px; }} .grid {{ stroke:var(--line); stroke-width:1; }} .trend {{ fill:none; stroke:var(--accent); stroke-width:3; stroke-linejoin:round; stroke-linecap:round; }} circle {{ fill:var(--accent); }}
+.bar-row {{ display:grid; grid-template-columns:28px 1fr 30px; gap:9px; align-items:center; margin:10px 0; }} .bar-track {{ height:10px; background:var(--line); border-radius:999px; overflow:hidden; }} .bar {{ height:100%; background:var(--accent); border-radius:999px; }}
+table {{ width:100%; border-collapse:collapse; min-width:760px; }} th,td {{ border-bottom:1px solid var(--line); text-align:left; padding:10px 8px; vertical-align:top; }} th {{ color:var(--muted); font-size:12px; font-weight:600; }} .table-wrap {{ overflow:auto; }} .task {{ max-width:520px; }} .num {{ text-align:right; font-variant-numeric:tabular-nums; }} .num.good {{ color:var(--good); }} .num.warn {{ color:var(--warn); }} .num.bad {{ color:var(--bad); font-weight:700; }}
+.pill {{ display:inline-block; padding:2px 7px; border:1px solid currentColor; border-radius:999px; font-size:11px; }} .pill.good {{ color:var(--good); }} .pill.warn {{ color:var(--warn); }} .pill.bad {{ color:var(--bad); }} .pill.partial {{ color:var(--muted); }}
+.attention-item {{ padding:11px 0; border-bottom:1px solid var(--line); }} .attention-item:last-child {{ border-bottom:0; }} .attention-item div {{ color:var(--muted); margin-top:3px; }} .empty {{ color:var(--muted); }} .warning {{ border:1px solid var(--warn); color:var(--warn); padding:10px 12px; border-radius:8px; margin:12px 0; }}
+footer {{ color:var(--muted); margin-top:18px; font-size:12px; }}
+</style>
+</head>
+<body><main>
+<h1>Adeo delivery metrics</h1>
+<div class="muted">Append-only source: {html.escape(str(payload["ledger"]))} · generated {html.escape(generated)}</div>
+{malformed_note}
+<div class="grid-cards">
+  <div class="card"><div class="muted">Accepted features</div><div class="value">{payload["accepted_total"]}</div><div class="muted">{payload["complete_total"]} complete · {payload["partial_total"]} partial</div></div>
+  <div class="card"><div class="muted">Avg expensive passes</div><div class="value">{payload["avg_expensive_reasoning_passes"]:.2f}</div><div class="muted">median {payload["median_expensive_reasoning_passes"]:.2f}</div></div>
+  <div class="card"><div class="muted">Sonnet escalation rate</div><div class="value">{payload["qa_escalation_rate_pct"]:.1f}%</div><div class="muted">QA repair escalation</div></div>
+  <div class="card"><div class="muted">Reopen rate</div><div class="value">{payload["reopen_rate_pct"]:.1f}%</div><div class="muted">human-reopened bugs</div></div>
+  <div class="card"><div class="muted">Avg QA batches</div><div class="value">{payload["avg_qa_batches"]:.2f}</div><div class="muted">averages use {html.escape(str(payload["averages_basis"]))}</div></div>
+</div>
+<div class="layout">
+  <section class="panel"><h2>Expensive reasoning passes / feature</h2>{metric_trend_svg(accepted)}</section>
+  <section class="panel"><h2>Distribution</h2>{''.join(bars)}</section>
+</div>
+<section class="panel" style="margin-bottom:16px"><h2>Recent deliveries</h2><div class="table-wrap"><table>
+<thead><tr><th>Feature</th><th>Risk</th><th class="num">Exp</th><th class="num">Haiku QA</th><th class="num">QA</th><th class="num">Esc</th><th class="num">Reopen</th><th>Signal</th></tr></thead>
+<tbody>{''.join(rows) if rows else '<tr><td colspan="8" class="empty">No accepted deliveries yet.</td></tr>'}</tbody></table></div></section>
+<section class="panel"><h2>Attention</h2>{''.join(attention)}</section>
+<footer>Thresholds: RED = ≥3 expensive passes or Sonnet QA escalation; WARN = ≥2 Haiku QA attempts or reopen. Partial records are retained but excluded from averages while complete records exist.</footer>
+</main></body></html>'''
+
+
+def command_metrics(root: Path, *, as_json: bool, html_view: bool, open_view: bool, limit: int) -> None:
+    if limit < 1 or limit > 100:
+        raise DeliveryError("metrics --limit must be between 1 and 100")
+    payload = metric_dashboard_payload(root)
+    if as_json:
+        compact = {key: value for key, value in payload.items() if key != "accepted"}
+        compact["recent"] = payload["accepted"][-limit:]
+        print(json.dumps(compact, indent=2, sort_keys=True))
+        return
+    if html_view or open_view:
+        target = root / METRICS_DASHBOARD_RELATIVE
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            target.write_text(render_metrics_html(payload), encoding="utf-8")
+        except OSError as exc:
+            raise DeliveryError(f"Cannot write metrics dashboard {target}: {exc}") from exc
+        print(f"Metrics dashboard: {target}")
+        if open_view:
+            try:
+                opened = webbrowser.open(target.resolve().as_uri(), new=2)
+            except Exception as exc:
+                raise DeliveryError(f"Dashboard generated but browser open failed: {exc}") from exc
+            if not opened:
+                print("Browser did not confirm opening; open the printed dashboard path manually.", file=sys.stderr)
+        return
+    command_metrics_terminal(root, limit)
+
+
 def add_observation(state: dict[str, Any], text: str, *, severity: str = "note") -> None:
     observations = state.setdefault("observations", [])
     observations.append(
@@ -470,9 +1083,9 @@ def add_observation(state: dict[str, Any], text: str, *, severity: str = "note")
         del observations[:-20]
 
 
-def current_snapshot(root: Path) -> tuple[dict[str, str], str]:
-    files = snapshot(root)
-    return files, fingerprint(files)
+def current_snapshot(root: Path, baseline: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    files = candidate_snapshot(root, baseline)
+    return files, fingerprint_candidate(root, baseline)
 
 
 def load_state(root: Path, *, refresh_ready: bool = True) -> dict[str, Any]:
@@ -480,16 +1093,47 @@ def load_state(root: Path, *, refresh_ready: bool = True) -> dict[str, Any]:
     if not target.is_file():
         raise DeliveryError("No active delivery. Start one with /deliver <task>.")
     state = read_json(target)
-    if state.get("version") != VERSION:
+    version = state.get("version")
+    migrated = False
+    if version == LEGACY_VERSION:
+        legacy = state.get("baseline")
+        if not isinstance(legacy, dict):
+            raise DeliveryError("Legacy delivery baseline has invalid shape")
+        legacy_current = legacy_full_fingerprint(root)
+        state["baseline"] = migrate_legacy_baseline(root, legacy)
+        state["version"] = VERSION
+        new_current = fingerprint_candidate(root, state["baseline"])
+        for receipt_key in ("quality", "verifier", "verifier_claim"):
+            receipt = state.get(receipt_key)
+            if isinstance(receipt, dict) and receipt.get("fingerprint") == legacy_current:
+                receipt["fingerprint"] = new_current
+                if receipt_key == "quality":
+                    receipt["changed_paths"] = candidate_changed_paths(root, state["baseline"])
+        state["baseline_migration"] = {
+            "from_version": LEGACY_VERSION,
+            "at": utc_now(),
+            "receipt_rebased": any(
+                isinstance(state.get(key), dict)
+                and state[key].get("fingerprint") == new_current
+                for key in ("quality", "verifier", "verifier_claim")
+            ),
+        }
+        migrated = True
+    elif version != VERSION:
         raise DeliveryError("Unsupported delivery state version")
+    if not baseline_is_sparse(state.get("baseline")):
+        raise DeliveryError("Delivery baseline has invalid sparse shape")
     ensure_budget(state)
+    ensure_metrics(state)
     # v1 compatibility: old runtimes called this product review even though UI
     # still required human acceptance. Treat it as manual-QA readiness.
     if state.get("state") == "READY_FOR_PRODUCT_REVIEW":
         state["state"] = "READY_FOR_MANUAL_QA"
+        migrated = True
+    if migrated:
         write_state(root, state)
     if refresh_ready and state.get("state") == "READY_FOR_MANUAL_QA":
-        _, current = current_snapshot(root)
+        _, current = current_snapshot(root, state["baseline"])
         verified = (state.get("verifier") or {}).get("fingerprint")
         if current != verified:
             add_defect(
@@ -830,7 +1474,10 @@ def validate_verifier_report(
                     )
 
 
-def command_start(root: Path, task: str, target_kind: str, references: list[str] | None = None) -> None:
+def new_delivery_state(
+    root: Path, task: str, target_kind: str, references: list[str] | None = None
+) -> dict[str, Any]:
+    """Build a new delivery state without splitting start/claim protocol across LLM turns."""
     validate_string(task, "task")
     if target_kind not in DELIVERY_TARGETS:
         raise DeliveryError(f"Unsupported delivery target `{target_kind}`")
@@ -842,8 +1489,8 @@ def command_start(root: Path, task: str, target_kind: str, references: list[str]
             raise DeliveryError(
                 f"Delivery `{existing.get('id')}` is still {existing.get('state')}; resume it instead"
             )
-    baseline = snapshot(root)
-    state = {
+    baseline = sparse_baseline(root)
+    return {
         "version": VERSION,
         "id": f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{slugify(task)}",
         "state": "UNDERSTANDING",
@@ -875,14 +1522,55 @@ def command_start(root: Path, task: str, target_kind: str, references: list[str]
         },
         "handoff": None,
     }
+
+
+def command_start(root: Path, task: str, target_kind: str, references: list[str] | None = None) -> None:
+    """Low-level backwards-compatible start. New controllers should use `begin`."""
+    state = new_delivery_state(root, task, target_kind, references)
     write_state(root, state)
     print(f"{state['id']}: UNDERSTANDING")
 
 
-def command_model(root: Path, model_file: str) -> None:
+def command_begin(
+    root: Path,
+    task: str,
+    target_kind: str,
+    references: list[str] | None = None,
+    as_json: bool = False,
+) -> None:
+    """Atomically create a delivery and its single initial execution-worker claim."""
+    state = new_delivery_state(root, task, target_kind, references)
+    role = "implementer" if target_kind == "production" else "product-designer"
+    claim = {
+        "id": f"W-{role}-{int(time.time())}",
+        "role": role,
+        "phase": "UNDERSTANDING",
+        "claimed_at": utc_now(),
+    }
+    state["worker_claim"] = claim
+    write_state(root, state)
+    payload = {
+        "delivery_id": state["id"],
+        "state": state["state"],
+        "delivery_target": target_kind,
+        "worker_claim": claim,
+        "next": {"action": "invoke-worker", "agent": role},
+    }
+    if as_json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"{state['id']}: UNDERSTANDING; worker={role}")
+
+
+def command_model(root: Path, model_file: str | None, from_stdin: bool) -> None:
     state = load_state(root)
     require_state(state, {"UNDERSTANDING", "BLOCKED_DECISION"}, "record a Change Model")
-    model = read_json(Path(model_file).resolve())
+    if from_stdin:
+        model = read_json_stdin()
+    elif model_file:
+        model = read_json(Path(model_file).resolve())
+    else:
+        raise DeliveryError("Record the Change Model with exactly one of --stdin or --file")
     validate_change_model(model, delivery_target(state))
     state["change_model"] = model
     ensure_budget(state)
@@ -896,6 +1584,28 @@ def command_model(root: Path, model_file: str) -> None:
         state["state"] = "IMPLEMENTING"
     write_state(root, state)
     print(f"{state['id']}: {state['state']} ({model['risk']} risk)")
+
+
+def command_model_template(root: Path) -> None:
+    state = load_state(root)
+    require_state(state, {"UNDERSTANDING", "BLOCKED_DECISION"}, "inspect the Change Model contract")
+    template = {
+        "target": delivery_target(state),
+        "intent": str(state.get("task") or ""),
+        "current_system": "",
+        "domain": "",
+        "flow": [],
+        "invariants": [],
+        "implementation_location": [],
+        "affected": [],
+        "do_not_change": [],
+        "unknowns": [],
+        "risk": "low",
+        "evidence": [],
+        "feature_checks": [],
+        "decision_required": False,
+    }
+    print(json.dumps(template, indent=2, ensure_ascii=False))
 
 
 def command_authorize(root: Path, reason: str) -> None:
@@ -981,6 +1691,17 @@ def command_quality(root: Path) -> None:
             "Quality gate refused: no execution worker claim. Claim exactly one owner "
             "with `delivery.py worker-claim --role ...` before candidate work."
         )
+    if worker_claim.get("role") == "implementer":
+        if previous_state == "REPAIRING" and state.get("qa_repair_route") == "qa-repairer":
+            metric_increment(state, "haiku_agent_passes")
+        elif previous_state == "REPAIRING" and state.get("qa_repair_route") == "qa-repairer-sonnet":
+            if state.get("qa_escalation"):
+                metric_increment(state, "sonnet_qa_escalation_passes")
+            else:
+                metric_increment(state, "sonnet_reopen_passes")
+        else:
+            metric_increment(state, "sonnet_implementation_passes")
+
     # Candidate construction is over; any later repair gets a new single-owner
     # claim. This prevents one phase from fanning out into multiple workers.
     state["worker_claim"] = None
@@ -996,8 +1717,8 @@ def command_quality(root: Path) -> None:
     if not isinstance(model, dict):
         raise DeliveryError("Delivery has no Change Model")
     validate_change_model(model, delivery_target(state))
-    before_checks = snapshot(root)
-    paths = changed_paths(state.get("baseline", {}), before_checks)
+    before_checks = candidate_snapshot(root, state["baseline"])
+    paths = candidate_changed_paths(root, state["baseline"])
     target_error = validate_candidate_target(state, paths) if paths else None
     if target_error is not None:
         defect = add_defect(
@@ -1060,8 +1781,9 @@ def command_quality(root: Path) -> None:
                 failure = check
                 break
 
-    after_checks, candidate = current_snapshot(root)
-    if failure is None and fingerprint(before_checks) != candidate:
+    after_checks, candidate = current_snapshot(root, state["baseline"])
+    before_fingerprint = hashlib.sha256(json.dumps({"head": state["baseline"].get("head"), "paths": before_checks}, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if failure is None and before_fingerprint != candidate:
         failure = "repository-stability"
         results.append(
             {
@@ -1075,7 +1797,7 @@ def command_quality(root: Path) -> None:
     receipt = {
         "passed": failure is None,
         "fingerprint": candidate,
-        "changed_paths": changed_paths(state.get("baseline", {}), after_checks),
+        "changed_paths": candidate_changed_paths(root, state["baseline"]),
         "checks": results,
         "completed_at": utc_now(),
     }
@@ -1122,7 +1844,7 @@ def command_verifier_claim(root: Path, as_json: bool) -> None:
     quality = state.get("quality") or {}
     if not quality.get("passed"):
         raise DeliveryError("Verifier budget requires a passing quality receipt")
-    _, current = current_snapshot(root)
+    _, current = current_snapshot(root, state["baseline"])
     if current != quality.get("fingerprint"):
         state["state"] = "REPAIRING"
         state["quality"] = None
@@ -1177,7 +1899,7 @@ def command_verifier(root: Path, report_file: str, verdict: str) -> None:
     quality = state.get("quality") or {}
     if not quality.get("passed"):
         raise DeliveryError("Independent verification requires a passing quality receipt")
-    _, current = current_snapshot(root)
+    _, current = current_snapshot(root, state["baseline"])
     if current != quality.get("fingerprint"):
         add_defect(
             state,
@@ -1204,6 +1926,11 @@ def command_verifier(root: Path, report_file: str, verdict: str) -> None:
 
     report = read_json(Path(report_file).resolve())
     validate_verifier_report(report, verdict, mode, state)
+    route = str(claim.get("route") or verification_route(state))
+    if mode == "full" and route == "verifier":
+        metric_increment(state, "sonnet_full_verifier_passes")
+    else:
+        metric_increment(state, "haiku_agent_passes")
     receipt = {
         **report,
         "fingerprint": current,
@@ -1412,7 +2139,7 @@ def qa_bootstrap_state(root: Path, defects_file: str) -> dict[str, Any]:
     the imported defects may be repaired, followed by deterministic quality and
     targeted verification.
     """
-    baseline = snapshot(root)
+    baseline = sparse_baseline(root)
     source = Path(defects_file).name
     state = {
         "version": VERSION,
@@ -1475,13 +2202,73 @@ def qa_bootstrap_state(root: Path, defects_file: str) -> dict[str, Any]:
     return state
 
 
+def normalized_manual_bug_identity(item: dict[str, Any]) -> str:
+    """Return a stable identity for manual-QA records that predate explicit bug IDs.
+
+    Explicit ids remain authoritative. Legacy/inline findings get a deterministic AUTO id
+    from the human-visible problem statement plus reproduction steps, so the same report
+    can be recognized as a reopen without hand-editing machine state.
+    """
+    explicit = item.get("manual_bug_id")
+    if explicit is not None and str(explicit).strip():
+        return str(explicit).strip()
+    actual = " ".join(str(item.get("actual") or "").split()).casefold()
+    reproduction = [" ".join(str(value).split()).casefold() for value in item.get("reproduction", [])]
+    material = json.dumps({"actual": actual, "reproduction": reproduction}, sort_keys=True, ensure_ascii=False)
+    return "AUTO-" + hashlib.sha256(material.encode("utf-8")).hexdigest()[:12]
+
+
+def ensure_manual_bug_ids(state: dict[str, Any]) -> None:
+    """Backfill stable ids onto legacy manual-QA history deterministically."""
+    for item in state.get("defects", []):
+        if item.get("source") == "manual-qa" and not str(item.get("manual_bug_id") or "").strip():
+            item["manual_bug_id"] = normalized_manual_bug_identity(item)
+            item["manual_bug_id_generated"] = True
+
+
 def manual_bug_history(state: dict[str, Any], manual_bug_id: str) -> list[dict[str, Any]]:
+    ensure_manual_bug_ids(state)
     return [
         item
         for item in state.get("defects", [])
         if item.get("source") == "manual-qa"
         and str(item.get("manual_bug_id") or "") == manual_bug_id
     ]
+
+
+def compact_manual_qa_history(state: dict[str, Any]) -> list[dict[str, Any]]:
+    ensure_manual_bug_ids(state)
+    result: list[dict[str, Any]] = []
+    for item in state.get("defects", []):
+        if item.get("source") != "manual-qa":
+            continue
+        result.append({
+            "defect_id": item.get("id"),
+            "manual_bug_id": item.get("manual_bug_id"),
+            "generated_id": bool(item.get("manual_bug_id_generated")),
+            "status": item.get("status"),
+            "actual": item.get("actual"),
+            "reopen_count": int(item.get("reopen_count", 0)),
+            "repair_route": item.get("repair_route"),
+            "created_at": item.get("created_at"),
+        })
+    return result
+
+
+def command_qa_history(root: Path, as_json: bool) -> None:
+    state = load_state(root)
+    rows = compact_manual_qa_history(state)
+    if as_json:
+        print(json.dumps({"delivery_id": state.get("id"), "state": state.get("state"), "defects": rows}, indent=2, sort_keys=True))
+        return
+    if not rows:
+        print("No manual-QA defect history.")
+        return
+    for item in rows:
+        print(
+            f"{item['defect_id']} manual={item['manual_bug_id']} status={item['status']} "
+            f"reopens={item['reopen_count']} :: {item['actual']}"
+        )
 
 
 def command_qa_fix(root: Path, defects_file: str) -> None:
@@ -1511,9 +2298,10 @@ def command_qa_fix(root: Path, defects_file: str) -> None:
     for item in defects:
         if not isinstance(item, dict):
             raise DeliveryError("Every manual-QA defect must be an object")
-        manual_bug_id = item.get("manual_bug_id")
+        manual_bug_id = normalized_manual_bug_identity(item)
+        item["manual_bug_id"] = manual_bug_id
         reopen_count = 0
-        if manual_bug_id is not None:
+        if manual_bug_id:
             history = manual_bug_history(state, str(manual_bug_id))
             if history:
                 reopen_count = max(int(x.get("reopen_count", 0)) for x in history) + 1
@@ -1536,16 +2324,9 @@ def command_qa_fix(root: Path, defects_file: str) -> None:
         classifications.append((item, reopen_count))
 
     budget = ensure_budget(state)
-    # The ordinary new-defect discovery budget remains capped. A first reopen is
-    # allowed even after that cap because it is evidence that a prior repair was
-    # not actually accepted by the human tester, not a fresh exploratory batch.
-    if contains_new and budget.get("manual_qa_batches", 0) >= MAX_MANUAL_QA_BATCHES:
-        state["state"] = "NEEDS_HUMAN_REVIEW"
-        write_state(root, state)
-        raise DeliveryError(
-            "Manual-QA new-defect batch budget exhausted. Reopen an existing bug separately "
-            "or make an explicit human decision."
-        )
+    # Human-triggered QA batches are not an autonomy budget: every /qa-fix invocation is
+    # already an explicit human authorization to process another batch. Bound work inside
+    # the batch (max defects, Haiku attempts, reopen count), never the number of human QA passes.
 
     repair_route = "qa-repairer-sonnet" if max_reopen >= 1 else "qa-repairer"
     for item, reopen_count in classifications:
@@ -1571,10 +2352,16 @@ def command_qa_fix(root: Path, defects_file: str) -> None:
         defect["manual_category"] = category
         defect["reopen_count"] = reopen_count
         defect["repair_route"] = repair_route
-        if item.get("manual_bug_id") is not None:
-            defect["manual_bug_id"] = str(item.get("manual_bug_id"))
+        defect["manual_bug_id"] = str(item.get("manual_bug_id"))
+        if str(item.get("manual_bug_id", "")).startswith("AUTO-"):
+            defect["manual_bug_id_generated"] = True
         if item.get("manual_status"):
             defect["manual_status"] = str(item.get("manual_status"))
+
+    metric_increment(state, "qa_batches")
+    reopened_count = sum(1 for _, reopen_count in classifications if reopen_count >= 1)
+    if reopened_count:
+        metric_increment(state, "reopens", reopened_count)
 
     if contains_new:
         budget["manual_qa_batches"] = int(budget.get("manual_qa_batches", 0)) + 1
@@ -1588,6 +2375,9 @@ def command_qa_fix(root: Path, defects_file: str) -> None:
     state["worker_claim"] = None
     state["verification_mode"] = "targeted"
     state["qa_repair_route"] = repair_route
+    state["qa_attempts_current_batch"] = 0
+    state["qa_attempt"] = None
+    state["qa_escalation"] = None
     write_state(root, state)
     kind = "reopen" if max_reopen >= 1 else "new"
     print(
@@ -1595,19 +2385,200 @@ def command_qa_fix(root: Path, defects_file: str) -> None:
     )
 
 
+def command_qa_attempt(root: Path) -> None:
+    """Authorize one bounded Haiku manual-QA repair attempt.
+
+    The orchestrator calls this immediately before each fresh/resumed qa-repairer
+    invocation. It is deliberately machine-counted so repeated cheap-model loops
+    cannot hide behind one QA batch.
+    """
+    state = load_state(root)
+    require_state(state, {"REPAIRING"}, "start a Haiku manual-QA repair attempt")
+    if state.get("qa_repair_route") != "qa-repairer":
+        raise DeliveryError(
+            "Haiku QA attempts are allowed only while qa_repair_route=qa-repairer; "
+            "obey the current route instead."
+        )
+    attempts = int(state.get("qa_attempts_current_batch", 0))
+    if attempts >= MAX_HAIKU_QA_ATTEMPTS:
+        state["state"] = "NEEDS_HUMAN_REVIEW"
+        state["worker_claim"] = None
+        add_observation(
+            state,
+            f"Haiku manual-QA repair failed to converge after {attempts} attempts; "
+            "human may use /qa-escalate to authorize Sonnet medium.",
+            severity="blocking",
+        )
+        write_state(root, state)
+        raise DeliveryError(
+            f"Haiku manual-QA repair attempt budget exhausted ({attempts}/{MAX_HAIKU_QA_ATTEMPTS}). "
+            "Delivery moved to NEEDS_HUMAN_REVIEW; use /qa-escalate <reason> for explicit Sonnet escalation."
+        )
+    attempts += 1
+    state["qa_attempts_current_batch"] = attempts
+    metric_increment(state, "haiku_qa_attempts")
+    # Every attempt is a new bounded worker lease, even when Claude resumes a prior
+    # qa-repairer context. This prevents one stale claim from masking repeated work.
+    state["worker_claim"] = None
+    state["qa_attempt"] = {
+        "number": attempts,
+        "max": MAX_HAIKU_QA_ATTEMPTS,
+        "recorded_at": utc_now(),
+    }
+    write_state(root, state)
+    print(f"{state['id']}: Haiku QA attempt {attempts}/{MAX_HAIKU_QA_ATTEMPTS} authorized")
+
+
+def command_qa_escalate(
+    root: Path,
+    reason: str,
+    observed_haiku_attempts: int | None = None,
+    defect_id: str | None = None,
+    manual_bug_id: str | None = None,
+) -> None:
+    """Human-authorized narrow escalation to Sonnet medium.
+
+    Two legal entry points exist:
+    1. an active/non-converging Haiku batch (REPAIRING/NEEDS_HUMAN_REVIEW);
+    2. READY_FOR_MANUAL_QA where the human explicitly selects a previously recorded
+       manual-QA defect that still needs a stronger repair.
+    """
+    state = load_state(root)
+    require_state(
+        state,
+        {"REPAIRING", "NEEDS_HUMAN_REVIEW", "READY_FOR_MANUAL_QA"},
+        "escalate manual-QA repair to Sonnet",
+    )
+    validate_string(reason, "reason")
+    ensure_manual_bug_ids(state)
+    route = state.get("qa_repair_route")
+    if route == "qa-repairer-sonnet":
+        print(f"{state['id']}: QA repair is already escalated to qa-repairer-sonnet")
+        return
+
+    direct_from_manual_qa = route is None and state.get("state") in {"READY_FOR_MANUAL_QA", "NEEDS_HUMAN_REVIEW"}
+    selected: list[dict[str, Any]] = []
+    if direct_from_manual_qa:
+        if bool(defect_id) == bool(manual_bug_id):
+            raise DeliveryError(
+                "Escalating from READY_FOR_MANUAL_QA requires exactly one selector: "
+                "--defect-id D-... or --manual-bug-id <id>. Use `delivery.py qa-history --json` to resolve it."
+            )
+        for item in state.get("defects", []):
+            if item.get("source") != "manual-qa":
+                continue
+            if defect_id and str(item.get("id")) == defect_id:
+                selected.append(item)
+            elif manual_bug_id and str(item.get("manual_bug_id")) == manual_bug_id:
+                selected.append(item)
+        if not selected:
+            selector = defect_id or manual_bug_id
+            raise DeliveryError(f"No manual-QA defect matches escalation selector {selector!r}")
+        # manual_bug_id may have several historical records; reactivate only the newest one.
+        selected = [selected[-1]]
+        target = selected[0]
+        prior_status = str(target.get("status") or "")
+        if prior_status == "verified-repaired":
+            reopen_count = int(target.get("reopen_count", 0)) + 1
+            if reopen_count > MAX_MANUAL_QA_REOPENS:
+                state["state"] = "NEEDS_HUMAN_REVIEW"
+                write_state(root, state)
+                raise DeliveryError(
+                    f"Manual QA bug {target.get('manual_bug_id')} has already consumed its one autonomous reopen. "
+                    "Keep it in human review rather than starting another autonomous repair."
+                )
+            target["reopen_count"] = reopen_count
+            metric_increment(state, "reopens")
+        target["status"] = "open"
+        target["repair_route"] = "qa-repairer-sonnet"
+        metric_increment(state, "qa_batches")
+        budget = ensure_budget(state)
+        budget["manual_qa_batches"] = int(budget.get("manual_qa_batches", 0)) + 1
+        budget["human_extra_repairs"] = int(budget.get("human_extra_repairs", 0)) + 1
+        budget["human_extra_targeted"] = int(budget.get("human_extra_targeted", 0)) + 1
+        ensure_budget(state)
+        state["quality"] = None
+        state["verifier"] = None
+        state["verifier_claim"] = None
+        state["worker_claim"] = None
+        state["verification_mode"] = "targeted"
+        state["qa_attempts_current_batch"] = 0
+        state["qa_attempt"] = None
+        attempts = 0
+    else:
+        if route != "qa-repairer":
+            raise DeliveryError(
+                "QA escalation requires an active qa-repairer route, or an explicit defect selector "
+                "from READY_FOR_MANUAL_QA. "
+                f"Current route is {route!r}."
+            )
+        open_manual = [
+            item for item in state.get("defects", [])
+            if item.get("source") == "manual-qa" and item.get("status") == "open"
+        ]
+        if not open_manual:
+            raise DeliveryError("QA escalation requires at least one open manual-QA defect")
+        attempts = int(state.get("qa_attempts_current_batch", 0))
+        if observed_haiku_attempts is not None:
+            if not (0 <= observed_haiku_attempts <= 20):
+                raise DeliveryError("Observed Haiku QA attempt backfill must be between 0 and 20")
+            if observed_haiku_attempts < attempts:
+                raise DeliveryError(
+                    f"Observed Haiku QA attempts ({observed_haiku_attempts}) cannot be lower than "
+                    f"the machine-recorded count ({attempts})"
+                )
+            if observed_haiku_attempts > attempts:
+                metric_increment(state, "haiku_qa_attempts", observed_haiku_attempts - attempts)
+                attempts = observed_haiku_attempts
+                state["qa_attempts_current_batch"] = attempts
+        elif attempts == 0:
+            ensure_metrics(state)["partial"] = True
+
+    state["state"] = "REPAIRING"
+    state["qa_repair_route"] = "qa-repairer-sonnet"
+    state["worker_claim"] = None
+    state["verifier_claim"] = None
+    state["qa_escalation"] = {
+        "from": "manual-qa" if direct_from_manual_qa else "qa-repairer",
+        "to": "qa-repairer-sonnet",
+        "reason": reason.strip(),
+        "defect_ids": [item.get("id") for item in selected] if direct_from_manual_qa else [],
+        "after_haiku_attempts": attempts,
+        "attempts_backfilled": observed_haiku_attempts is not None,
+        "attempts_untracked": (not direct_from_manual_qa and observed_haiku_attempts is None and attempts == 0),
+        "recorded_at": utc_now(),
+    }
+    metric_increment(state, "qa_escalations_to_sonnet")
+    add_observation(
+        state,
+        f"Human authorized Sonnet/medium QA escalation after {attempts} Haiku attempt(s): {reason.strip()}",
+        severity="note",
+    )
+    write_state(root, state)
+    print(
+        f"{state['id']}: REPAIRING (route=qa-repairer-sonnet, "
+        f"human escalation after {attempts} Haiku attempt(s))"
+    )
+
+
 def command_qa_accept(root: Path, reason: str) -> None:
     state = load_state(root)
     require_state(state, {"READY_FOR_MANUAL_QA"}, "accept manual QA")
     validate_string(reason, "reason")
-    _, current = current_snapshot(root)
+    _, current = current_snapshot(root, state["baseline"])
     verified = (state.get("verifier") or {}).get("fingerprint")
     if not verified or current != verified:
         raise DeliveryError("Manual QA cannot accept a candidate that differs from its verifier receipt")
+    accepted_at = utc_now()
+    record = accepted_metric_record(state, reason, accepted_at)
+    appended = append_metric_record(root, record)
     state["state"] = "DONE"
-    state["manual_qa_acceptance"] = {"reason": reason.strip(), "accepted_at": utc_now()}
+    state["manual_qa_acceptance"] = {"reason": reason.strip(), "accepted_at": accepted_at}
     state["handoff"] = None
+    state["metrics_recorded"] = True
     write_state(root, state)
-    print(f"{state['id']}: DONE (manual QA accepted)")
+    suffix = "metrics appended" if appended else "metrics already present"
+    print(f"{state['id']}: DONE (manual QA accepted; {suffix})")
 
 
 def command_resume_human(
@@ -1667,7 +2638,7 @@ def command_retarget(
             "task": new_task,
             "delivery_target": target_kind,
             "reference_artifacts": [item.strip() for item in (references or []) if item.strip()],
-            "baseline": snapshot(root),
+            "baseline": sparse_baseline(root),
             "change_model": None,
             "authorization": None,
             "quality": None,
@@ -1701,6 +2672,21 @@ def command_retarget(
     write_state(root, state)
     print(f"{state['id']}: UNDERSTANDING (retargeted to {target_kind})")
 
+def command_migrate_state(root: Path) -> None:
+    target = state_path(root)
+    if not target.is_file():
+        print("No active delivery state to migrate.")
+        return
+    before_size = target.stat().st_size
+    state = load_state(root, refresh_ready=False)
+    after_size = target.stat().st_size
+    dirty_count = len((state.get("baseline") or {}).get("dirty", {}))
+    print(
+        f"{state.get('id')}: state v{state.get('version')} sparse baseline "
+        f"({dirty_count} pre-existing dirty paths; {before_size} -> {after_size} bytes)"
+    )
+
+
 def command_fail(root: Path, reason: str) -> None:
     state = load_state(root)
     require_state(state, ACTIVE_STATES, "mark delivery failed")
@@ -1719,9 +2705,8 @@ def status_payload(root: Path, *, full: bool = False) -> dict[str, Any]:
     ``status --full --json`` only for debugging the delivery runtime itself.
     """
     state = load_state(root)
-    current = snapshot(root)
-    changed = changed_paths(state.get("baseline", {}), current)
-    current_fp = fingerprint(current)
+    changed = candidate_changed_paths(root, state["baseline"])
+    current_fp = fingerprint_candidate(root, state["baseline"])
     if full:
         return {
             **state,
@@ -1752,12 +2737,16 @@ def status_payload(root: Path, *, full: bool = False) -> dict[str, Any]:
         "worker_claim": state.get("worker_claim"),
         "verification_mode": state.get("verification_mode"),
         "qa_repair_route": state.get("qa_repair_route"),
+        "qa_attempts_current_batch": int(state.get("qa_attempts_current_batch", 0)),
+        "qa_attempt_limit": MAX_HAIKU_QA_ATTEMPTS,
+        "qa_escalation": state.get("qa_escalation"),
         "verification_route": verification_route(state) if state.get("state") == "VERIFYING" else None,
+        "metrics": ensure_metrics(state),
         "budget": {
             "full": [budget["full_verifier_runs"], budget["max_full_verifier_runs"]],
             "targeted": [budget["targeted_verifier_runs"], budget["max_targeted_verifier_runs"]],
             "repairs": [budget["repair_cycles"], budget["max_repair_cycles"]],
-            "manual_qa_batches": [budget.get("manual_qa_batches", 0), MAX_MANUAL_QA_BATCHES],
+            "manual_qa_batches": budget.get("manual_qa_batches", 0),
         },
         "quality": {
             "passed": quality.get("passed"),
@@ -1895,13 +2884,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-root")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    start = sub.add_parser("start")
+    start = sub.add_parser("start", help="low-level backwards-compatible state creation")
     start.add_argument("--task", required=True)
     start.add_argument("--target", choices=sorted(DELIVERY_TARGETS), default="production")
     start.add_argument("--reference", action="append", default=[])
 
+    begin = sub.add_parser("begin", help="atomically start a delivery and claim its initial worker")
+    begin.add_argument("--task", required=True)
+    begin.add_argument("--target", choices=sorted(DELIVERY_TARGETS), default="production")
+    begin.add_argument("--reference", action="append", default=[])
+    begin.add_argument("--json", action="store_true")
+
     model = sub.add_parser("model")
-    model.add_argument("--file", required=True)
+    model_source = model.add_mutually_exclusive_group(required=True)
+    model_source.add_argument("--file")
+    model_source.add_argument("--stdin", action="store_true")
+
+    sub.add_parser("model-template")
 
     authorize = sub.add_parser("authorize-high")
     authorize.add_argument("--reason", required=True)
@@ -1928,6 +2927,18 @@ def build_parser() -> argparse.ArgumentParser:
     qa_fix = sub.add_parser("qa-fix")
     qa_fix.add_argument("--file", required=True)
 
+    sub.add_parser("qa-attempt")
+
+    qa_history = sub.add_parser("qa-history")
+    qa_history.add_argument("--json", action="store_true")
+
+    qa_escalate = sub.add_parser("qa-escalate")
+    qa_escalate.add_argument("--reason", required=True)
+    qa_escalate.add_argument("--observed-haiku-attempts", type=int)
+    escalation_selector = qa_escalate.add_mutually_exclusive_group()
+    escalation_selector.add_argument("--defect-id")
+    escalation_selector.add_argument("--manual-bug-id")
+
     qa_accept = sub.add_parser("qa-accept")
     qa_accept.add_argument("--reason", required=True)
 
@@ -1942,8 +2953,16 @@ def build_parser() -> argparse.ArgumentParser:
     resume.add_argument("--extra-repairs", type=int, default=1)
     resume.add_argument("--extra-targeted", type=int, default=1)
 
+    sub.add_parser("migrate-state")
+
     failed = sub.add_parser("fail")
     failed.add_argument("--reason", required=True)
+
+    metrics = sub.add_parser("metrics", help="summarize the append-only delivery metrics ledger")
+    metrics.add_argument("--json", action="store_true")
+    metrics.add_argument("--html", action="store_true", dest="html_view")
+    metrics.add_argument("--open", action="store_true", dest="open_view")
+    metrics.add_argument("--limit", type=int, default=15)
 
     status = sub.add_parser("status")
     status.add_argument("--json", action="store_true")
@@ -1964,8 +2983,12 @@ def main() -> None:
     try:
         if args.command == "start":
             command_start(root, args.task, args.target, args.reference)
+        elif args.command == "begin":
+            command_begin(root, args.task, args.target, args.reference, args.json)
         elif args.command == "model":
-            command_model(root, args.file)
+            command_model(root, args.file, args.stdin)
+        elif args.command == "model-template":
+            command_model_template(root)
         elif args.command == "authorize-high":
             command_authorize(root, args.reason)
         elif args.command == "quality":
@@ -1982,6 +3005,14 @@ def main() -> None:
             command_checkpoint(root, args.reason)
         elif args.command == "qa-fix":
             command_qa_fix(root, args.file)
+        elif args.command == "qa-attempt":
+            command_qa_attempt(root)
+        elif args.command == "qa-history":
+            command_qa_history(root, args.json)
+        elif args.command == "qa-escalate":
+            command_qa_escalate(
+                root, args.reason, args.observed_haiku_attempts, args.defect_id, args.manual_bug_id
+            )
         elif args.command == "qa-accept":
             command_qa_accept(root, args.reason)
         elif args.command == "retarget":
@@ -1993,8 +3024,18 @@ def main() -> None:
                 args.extra_repairs,
                 args.extra_targeted,
             )
+        elif args.command == "migrate-state":
+            command_migrate_state(root)
         elif args.command == "fail":
             command_fail(root, args.reason)
+        elif args.command == "metrics":
+            command_metrics(
+                root,
+                as_json=args.json,
+                html_view=args.html_view,
+                open_view=args.open_view,
+                limit=args.limit,
+            )
         elif args.command == "status":
             command_status(root, args.json, args.full)
         elif args.command == "report":

@@ -43,30 +43,69 @@ quality receipts, verifier conclusions or product approval.
 
 # Authorization
 
-If invoked by `/deliver`, your **first command** is:
+If invoked by `/deliver`, your **first command** is the compact state read:
+
+```text
+python3 .claude/scripts/delivery.py status --json
+```
+
+A new `/deliver` uses `delivery.py begin`, so `worker_claim.role` should already
+be `implementer`. Reuse that claim; do not make a redundant claim call. On a
+resumed/repair flow, if and only if compact status shows `worker_claim: null`,
+claim exactly once with:
 
 ```text
 python3 .claude/scripts/delivery.py worker-claim --role implementer --json
 ```
 
-If another role already owns the phase, stop immediately. Do not inspect more
-files and do not produce a handoff for a second agent.
-
-Then inspect state:
-
-```text
-python3 .claude/scripts/delivery.py status --json
-```
+If another role owns the phase, stop immediately. Never try `delivery.py claim`,
+never use `--agent`, and never query help/source code to guess the claim protocol.
+Do not inspect more files or produce a handoff for a second agent.
 
 Require `delivery_target: production`. If `target_consistent` is false or a
 stale Change Model targets only Storybook/`ui-ux/ux/`, stop: the delivery must
 be retargeted instead of continued. Treat `reference_artifacts` as input evidence,
 not writable scope.
 
-If state is `UNDERSTANDING`, perform the bounded reconnaissance yourself,
-construct the Change Model, record it with `delivery.py model`, and only then
-modify repository files. If state is `IMPLEMENTING` or `REPAIRING`, use the
-existing Change Model. `BLOCKED_DECISION` means stop for the genuine decision.
+If state is `UNDERSTANDING`, perform the bounded reconnaissance yourself, then
+record the Change Model through the runtime **as JSON** before modifying any
+repository file. Never create `.claude/delivery/current.md`, never write the
+Change Model into `.claude/delivery/`, and never inspect `delivery.py` source to
+discover its schema. If the contract below is ever unclear, run only
+`python3 .claude/scripts/delivery.py model-template`.
+
+Record the model in one shell call using stdin; no temporary repository file is
+needed:
+
+```bash
+python3 .claude/scripts/delivery.py model --stdin <<'JSON'
+{
+  "target": "production",
+  "intent": "Concise shipped behavior",
+  "current_system": "What exists now and causes the relevant behavior",
+  "domain": "Architectural owner / production surface",
+  "flow": ["relevant state or interaction flow"],
+  "invariants": ["behavior that must remain true"],
+  "implementation_location": ["production/path.ts"],
+  "affected": ["directly affected behavior"],
+  "do_not_change": ["explicit nearby boundary"],
+  "unknowns": [],
+  "risk": "low",
+  "evidence": [],
+  "feature_checks": [],
+  "decision_required": false
+}
+JSON
+```
+
+All keys shown above are the complete execution contract. `evidence` values, if
+used, must be runtime-known checks; `feature_checks` may contain at most five
+allowed deterministic commands. Keep the whole object under 8 KB. A narrow
+local UI removal with a clear owner and no contract/security/persistence change
+is normally `low` risk.
+
+If state is `IMPLEMENTING` or `REPAIRING`, use the existing Change Model.
+`BLOCKED_DECISION` means stop for the genuine decision.
 
 The PreToolUse hooks protect authority-bearing artifacts before each Write,
 Edit or Bash call. High-risk work is authorized only by the active delivery

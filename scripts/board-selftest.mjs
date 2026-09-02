@@ -143,9 +143,16 @@ try {
   const t3 = `Board move gamma ${randomUUID()}`;
   await page.evaluate(
     async (f) => {
-      await window.electronAPI.addTask(f.t1, f.idA);
+      const a = await window.electronAPI.addTask(f.t1, f.idA);
       await window.electronAPI.addTask(f.t2, f.idA);
       await window.electronAPI.addTask(f.t3, f.idA);
+      // long metadata: due date + reminder time + a multi-day weekly recurrence,
+      // so the board card's .task-reminder line has to wrap inside the column.
+      const t1Id = a && a.id;
+      if (t1Id) {
+        await window.electronAPI.updateTaskReminder(t1Id, '2999-12-31', '09:30');
+        await window.electronAPI.updateTaskRepeat(t1Id, 'FREQ=WEEKLY;BYDAY=TU,TH,FR', '2999-12-31');
+      }
     },
     { t1, t2, t3, idA },
   );
@@ -191,6 +198,37 @@ try {
     (await page.locator('#board-region [role="group"]').count()) >= 3,
     '1: each column is a role="group"',
   );
+
+  // ---- 1a. long card metadata wraps onto several lines inside the fixed column ---------
+  {
+    const meta = cardIn(listA, t1).locator('.task-reminder');
+    await meta.waitFor({ state: 'visible' });
+    check(
+      /Every week on Tuesday, Thursday, Friday/.test((await meta.textContent()) || ''),
+      '1a: the card shows the long multi-day recurrence summary',
+    );
+    const dims = await meta.evaluate((el) => {
+      const body = el.closest('.board-column__body');
+      return {
+        height: el.getBoundingClientRect().height,
+        overflowRight:
+          el.getBoundingClientRect().right - (body ? body.getBoundingClientRect().right : Infinity),
+        horizontalOverflow: el.scrollWidth - el.clientWidth,
+      };
+    });
+    check(
+      dims.horizontalOverflow <= 1,
+      `1a: the metadata line does not overflow its box horizontally (got ${dims.horizontalOverflow}px)`,
+    );
+    check(
+      dims.overflowRight <= 1,
+      `1a: the metadata line stays within the column body (got ${dims.overflowRight}px past)`,
+    );
+    check(
+      dims.height > 20,
+      `1a: the metadata wrapped onto more than one line (height ${dims.height}px)`,
+    );
+  }
 
   // ---- 1b. the boards area carries no "Leave board" control and no view-count ----------
   check(

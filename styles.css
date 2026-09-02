@@ -3489,6 +3489,23 @@ kbd {
   visibility: visible;
 }
 
+/* Board columns are a fixed 320px -- far narrower than the main task list -- so a
+   card whose metadata line carries a due date + reminder time + a multi-day
+   recurrence ("Every week on Tuesday, Thursday, Friday") overflowed the column.
+   Inside a board card only, drop the inline-flex/nowrap treatment so the line
+   reflows onto several lines and stays within the column; the main list keeps
+   its single-line metadata. */
+.board-card .task-reminder {
+  display: block;
+}
+
+.board-card .task-reminder-text,
+.board-card .task-repeat {
+  display: inline;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
 .board-card__move {
   margin-left: auto;
   flex: 0 0 auto;

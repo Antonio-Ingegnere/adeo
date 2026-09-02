@@ -89,6 +89,7 @@ body {
   flex-direction: column;
   align-items: stretch;
   min-width: 0;
+  gap: 12px;
 }
 
 .lists-search {
@@ -800,7 +801,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   width: 100%;
   min-width: 0;
 }
@@ -845,6 +846,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* D-003: match the 22px list-pill row so the panel header reads as one more
+     row of the same rhythm rather than a taller band. Its natural height (title
+     icon 18px + 1px nudge) is only ~19px; nothing here inflates it past 22. */
+  min-height: 22px;
 }
 
 .lists-actions {
@@ -879,6 +884,7 @@ body {
   margin: 0;
   color: var(--text-body);
   font-weight: 600;
+  font-size: 0.8em;
 }
 
 .icon-button {
@@ -887,7 +893,7 @@ body {
   cursor: pointer;
   color: var(--text-disabled);
   font-size: var(--font-l);
-  padding: 4px 6px;
+  padding: 2px 6px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -906,7 +912,10 @@ body {
 }
 
 .list-pill {
-  padding: 8px 10px;
+  /* 4px vertical keeps the row comfortably clickable with --font-s text while
+     removing the loose, oversized gap above/below the label. Horizontal stays
+     10px so the hover/selected highlight width and text alignment are unchanged. */
+  padding: 4px 10px;
   background: transparent;
   border: none;
   border-radius: 0;
@@ -975,6 +984,8 @@ body {
 }
 
 .list-menu-btn {
+  width: 26px;
+  height: 26px;
   margin-left: auto;
   border: none;
   background: transparent;
@@ -988,12 +999,32 @@ body {
   visibility: hidden;
   transition: opacity 120ms ease, visibility 120ms ease, background-color 120ms ease;
   font-size: 14px;
+  flex-shrink: 0;
 }
 
 .list-menu-btn:hover {
   color: var(--text);
   background: var(--surface-selected);
   border-radius: var(--radius-s);
+}
+
+/* D-003 (reopen of D-002): the hover kebab is 26px tall and only
+   visibility:hidden -- not display:none, not absolute -- so it stays in the
+   flex flow and, being the tallest child, forced every .list-pill row that
+   carries it (real lists, smart lists, boards, tags) to 26 + 2*4 = 34px, while
+   label-only rows like "All lists" sat at 14 + 8 = 22px. Symmetric negative
+   block margins collapse its contribution to the flex line back to the 14px
+   label/handle metric without changing the button's rendered 26px box, its
+   18px icon, its centring or its hover chip. Scoped to .list-pill so the
+   board-column .list-menu-btn (a normal-flow header control) is untouched. */
+.list-pill .list-menu-btn {
+  margin-top: -6px;
+  margin-bottom: -6px;
+}
+
+.list-menu-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .icon-more {
@@ -2549,18 +2580,16 @@ kbd {
 }
 
 .empty-state {
-  padding: 10px 12px;
+  /* D-003: 3px block padding + 1px dashed border + the 14px --font-s line box
+     = 22px, matching a list-pill row for a single-line placeholder. Longer
+     copy still wraps and grows (no fixed height), it is just not clipped. */
+  padding: 3px 12px;
   border: 1px dashed var(--border);
   border-radius: var(--radius-m);
   color: var(--text-faint);
 }
 
 /* ---------- Tags ---------- */
-
-.tags-panel,
-.smart-lists-panel {
-  margin-top: 12px;
-}
 
 /* ---------- Smart lists ----------
    A smart list is a named query. Its pill reuses .list-pill wholesale; only the query

@@ -15,7 +15,7 @@ const selectView = (listId: number | null) => {
 import { state } from './state.js';
 import { revealInScroller } from './helpers.js';
 import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
-import { createSidebarPill } from './uiElements.js';
+import { createSidebarPill, MORE_ICON_SVG } from './uiElements.js';
 
 const truncateListName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -145,11 +145,7 @@ export const renderLists = () => {
     const menuBtn = document.createElement('button');
     menuBtn.className = 'list-menu-btn';
     menuBtn.title = 'More';
-    menuBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-more">
-        <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-      </svg>
-    `;
+    menuBtn.innerHTML = MORE_ICON_SVG;
     menuBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       state.openListMenuId = state.openListMenuId === list.id ? null : list.id;

@@ -6,6 +6,16 @@
  * renderer refs, or mutable application state.
  */
 
+/**
+ * The sidebar "more" (kebab) glyph. Single source of truth so the task-row kebab and the
+ * sidebar list/tag/smart-list/board kebabs stay byte-identical -- same path, same 18px box
+ * (see .icon-more / .list-menu-btn svg in styles.css). Rendered via innerHTML by callers.
+ */
+export const MORE_ICON_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-more">' +
+  '<path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>' +
+  '</svg>';
+
 export type TagChipVariant = 'task' | 'pending' | 'filter';
 
 export type TagChipOptions = {

@@ -6,7 +6,7 @@ import { dropIndicator, refs } from './dom.js';
 import { state } from './state.js';
 import { repeatSummaryFromRule } from './repeat.js';
 import { setPriorityAttr } from './theme.js';
-import { createTagChip } from './uiElements.js';
+import { createTagChip, MORE_ICON_SVG } from './uiElements.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -411,6 +411,24 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
     row.appendChild(toggleBtn);
   }
 
+  // Trailing kebab: same hover-reveal idiom as .drag-handle, same 18px icon-more glyph as the
+  // sidebar list rows (MORE_ICON_SVG). Placed after the expand chevron. Clicking it opens the
+  // shared context menu (same as right-click), whose Delete item runs deleteTask() with the
+  // native confirm dialog.
+  const menuBtn = document.createElement('button');
+  menuBtn.type = 'button';
+  menuBtn.className = 'task-menu-btn';
+  menuBtn.title = 'Task actions';
+  menuBtn.setAttribute('aria-label', 'Task actions');
+  menuBtn.innerHTML = MORE_ICON_SVG;
+  menuBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = menuBtn.getBoundingClientRect();
+    openTaskContextMenu(task.id, rect.left, rect.bottom + 2);
+  });
+  row.appendChild(menuBtn);
+
   return row;
 };
 
@@ -580,6 +598,80 @@ const renderTasksInner = () => {
     const row = buildTaskRow(task, index, renderTasks);
     refs.tasksList?.appendChild(row);
   });
+};
+
+// --- right-click delete menu ------------------------------------------------------------
+// One reused element, not one per row. Right-click on a .task-row positions it at the pointer
+// (position:fixed, so .main-column's scroll clipping can't eat it near the last row) and shows
+// it; an outside click, Escape, scroll or a fresh right-click hides it with nothing deleted.
+// Its single "Delete" item runs the same deleteTask() flow (native confirm -> DELETE
+// /tasks/{id} -> renderTasks) as the row kebab and the keyboard shortcut.
+let taskContextMenu: HTMLElement | null = null;
+let taskContextMenuTargetId: number | null = null;
+
+const hideTaskContextMenu = () => {
+  if (taskContextMenu) taskContextMenu.style.display = 'none';
+  taskContextMenuTargetId = null;
+};
+
+const ensureTaskContextMenu = (): HTMLElement => {
+  if (taskContextMenu) return taskContextMenu;
+  const menu = document.createElement('div');
+  // Reuse the sidebar menu skin (.list-menu / .list-menu-item / .list-menu-danger); only
+  // position is overridden by .task-context-menu in styles.css.
+  menu.className = 'list-menu task-context-menu open';
+  menu.setAttribute('role', 'menu');
+  menu.style.display = 'none';
+  menu.addEventListener('click', (event) => event.stopPropagation());
+  const deleteItem = document.createElement('button');
+  deleteItem.type = 'button';
+  deleteItem.className = 'list-menu-item list-menu-danger';
+  deleteItem.setAttribute('role', 'menuitem');
+  deleteItem.textContent = 'Delete';
+  deleteItem.addEventListener('click', () => {
+    const id = taskContextMenuTargetId;
+    hideTaskContextMenu();
+    if (id !== null) void deleteTask(id);
+  });
+  menu.appendChild(deleteItem);
+  document.body.appendChild(menu);
+  taskContextMenu = menu;
+  return menu;
+};
+
+const openTaskContextMenu = (taskId: number, clientX: number, clientY: number) => {
+  const menu = ensureTaskContextMenu();
+  taskContextMenuTargetId = taskId;
+  menu.style.display = 'flex';
+  menu.style.visibility = 'hidden';
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  const margin = 8;
+  const left = Math.max(margin, Math.min(clientX, window.innerWidth - width - margin));
+  const top = Math.max(margin, Math.min(clientY, window.innerHeight - height - margin));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.visibility = 'visible';
+};
+
+let taskListMenuAttached = false;
+
+/** Wire the row right-click menu once. Safe to call on every init; it self-guards. */
+export const attachTaskListMenu = () => {
+  if (taskListMenuAttached) return;
+  taskListMenuAttached = true;
+  refs.tasksList?.addEventListener('contextmenu', (event) => {
+    const row = (event.target as HTMLElement | null)?.closest<HTMLElement>('.task-row');
+    if (!row) return;
+    event.preventDefault();
+    openTaskContextMenu(Number(row.dataset.taskId), event.clientX, event.clientY);
+  });
+  document.addEventListener('click', () => hideTaskContextMenu());
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') hideTaskContextMenu();
+  });
+  window.addEventListener('scroll', () => hideTaskContextMenu(), true);
+  window.addEventListener('resize', () => hideTaskContextMenu());
 };
 
 /**

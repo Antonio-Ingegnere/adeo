@@ -24,6 +24,7 @@ import { isTagSuggestOpen, setupTagInput } from './tagInput.js';
 import {
   attachTaskListDnD,
   attachTaskListKeyboard,
+  attachTaskListMenu,
   deleteTask,
   focusTaskEdge,
   moveTaskByOffset,
@@ -750,6 +751,7 @@ const seedThemeRadio = () => {
 const setupEvents = () => {
   attachTaskListDnD();
   attachTaskListKeyboard();
+  attachTaskListMenu();
 
   refs.addButton?.addEventListener('click', addTask);
   refs.input?.addEventListener('keypress', (event) => {

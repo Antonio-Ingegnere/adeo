@@ -1130,6 +1130,55 @@ body {
   stroke-linejoin: round;
 }
 
+/* Row kebab: the trailing control after .expand-btn. Same hover-reveal idiom as .drag-handle
+   (opacity + visibility, kept in the flex flow) and the same 18px icon-more glyph and box as
+   the sidebar .list-menu-btn. */
+.task-menu-btn {
+  margin-left: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  width: 24px;
+  flex: 0 0 24px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease, visibility 120ms ease, background-color 120ms ease;
+}
+
+.task-menu-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.task-menu-btn:hover {
+  color: var(--text);
+  background: var(--surface-selected);
+  border-radius: var(--radius-s);
+}
+
+.task-row:hover .task-menu-btn,
+.task-row:focus-within .task-menu-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Right-click delete menu. Reuses the .list-menu skin; only positioning changes -- rendered
+   position:fixed (coordinates from openTaskContextMenu in tasks.ts) so it escapes
+   .main-column's scroll clipping for a row near the bottom of the list. Placed after
+   .list-menu in source so this equal-specificity override wins. */
+.task-context-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: auto;
+  z-index: 800;
+}
+
 .overlay {
   position: fixed;
   inset: 0;

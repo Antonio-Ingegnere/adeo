@@ -37,6 +37,49 @@ export type Settings = {
    * loaded settings. Derived data: the shortcuts map above is the source of truth.
    */
   menuAccelerators: Record<string, string>;
+  /** Left-sidebar expand/collapse + selection, restored on the next launch. */
+  sidebarUi: SidebarUiState;
+  /**
+   * Last main-window geometry, persisted by the main process on window close and
+   * restored (validated + clamped to a connected display) on the next launch.
+   * `null` on a first run, so the main process falls back to its default sizing.
+   * Owned entirely by main.ts; the renderer never reads or writes it.
+   */
+  windowBounds: WindowBoundsState | null;
+};
+
+/**
+ * Persisted main-window bounds. `x`/`y` are `null` when there is no saved position
+ * (or a saved position that no longer lands on any connected display), which tells
+ * the main process to let the OS center the window. `maximized` restores a
+ * maximized window while still keeping the pre-maximize rect in `width`/`height`.
+ */
+export type WindowBoundsState = {
+  width: number;
+  height: number;
+  x: number | null;
+  y: number | null;
+  maximized: boolean;
+};
+
+/**
+ * The left sidebar's last UI state, persisted alongside the other renderer preferences in
+ * settings.json so a relaunch reopens where the user left off. `selection` names the active
+ * sidebar item; `sections` is the per-section expand/collapse state; `tagFilterId` is the
+ * standalone tag filter. Any value that no longer resolves on load falls back cleanly.
+ */
+export type SidebarUiState = {
+  sections: {
+    lists: boolean;
+    tags: boolean;
+    smartLists: boolean;
+    boards: boolean;
+  };
+  selection:
+    | { kind: 'list'; id: number | null }
+    | { kind: 'smart'; id: number }
+    | { kind: 'board'; id: number };
+  tagFilterId: number | null;
 };
 
 export type List = {
@@ -164,6 +207,7 @@ export type ElectronAPI = {
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;
+  updateSidebarUiState: (state: SidebarUiState) => Promise<{ sidebarUi: SidebarUiState }>;
   onOpenSettings: (callback: () => void) => () => void;
   onOpenShortcuts: (callback: () => void) => () => void;
   onFocusSearch: (callback: () => void) => () => void;

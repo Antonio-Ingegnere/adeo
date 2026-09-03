@@ -1,9 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, screen } from 'electron';
 import { spawn, exec, type ChildProcess } from 'child_process';
 import net from 'net';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import {
+  clampWindowBoundsToDisplays,
+  parseWindowBounds,
+  DEFAULT_WINDOW_HEIGHT,
+  DEFAULT_WINDOW_WIDTH,
+  type WindowBounds,
+} from './window-bounds';
 
 const APP_NAME = 'Adeo';
 
@@ -94,6 +101,21 @@ type DateFormat =
 // Mirrors Theme in src/types.ts by hand, as TimeFormat/DateFormat already do.
 type Theme = 'system' | 'light' | 'dark';
 
+// Mirrors SidebarUiState in src/types.ts by hand, as Theme/TimeFormat already do.
+type SidebarUiState = {
+  sections: {
+    lists: boolean;
+    tags: boolean;
+    smartLists: boolean;
+    boards: boolean;
+  };
+  selection:
+    | { kind: 'list'; id: number | null }
+    | { kind: 'smart'; id: number }
+    | { kind: 'board'; id: number };
+  tagFilterId: number | null;
+};
+
 type AppSettings = {
   showCompleted: boolean;
   timeFormat: TimeFormat;
@@ -103,6 +125,9 @@ type AppSettings = {
   // Mirrors Settings in src/types.ts by hand, as Theme/TimeFormat already do.
   shortcuts: Record<string, string[]>;
   menuAccelerators: Record<string, string>;
+  sidebarUi: SidebarUiState;
+  /** Last main-window geometry, restored (and display-clamped) on the next launch. */
+  windowBounds: WindowBounds | null;
 };
 
 /** Accelerators the menu falls back to when the stored ones are missing or unusable. */
@@ -149,6 +174,54 @@ const sanitizeMenuAccelerators = (value: unknown): Record<string, string> => {
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
+const defaultSidebarUi: SidebarUiState = {
+  sections: { lists: true, tags: true, smartLists: true, boards: true },
+  selection: { kind: 'list', id: null },
+  tagFilterId: null,
+};
+
+/**
+ * Structural only: main has no list/board registry, so "does this id still exist?" is a
+ * renderer question answered on load. Anything that is not one of the three known selection
+ * shapes, or a non-object / corrupt blob, collapses to the default (All lists, all sections
+ * expanded) — the same result as a first run.
+ */
+const sanitizeSidebarUi = (value: unknown): SidebarUiState => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...defaultSidebarUi, sections: { ...defaultSidebarUi.sections } };
+  }
+  const raw = value as Record<string, unknown>;
+  const rawSections = (raw.sections && typeof raw.sections === 'object' ? raw.sections : {}) as Record<string, unknown>;
+  const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
+
+  let selection: SidebarUiState['selection'] = { ...defaultSidebarUi.selection };
+  const rawSelection = raw.selection;
+  if (rawSelection && typeof rawSelection === 'object' && !Array.isArray(rawSelection)) {
+    const sel = rawSelection as Record<string, unknown>;
+    if (sel.kind === 'list' && (sel.id === null || (typeof sel.id === 'number' && Number.isFinite(sel.id)))) {
+      selection = { kind: 'list', id: sel.id as number | null };
+    } else if (sel.kind === 'smart' && typeof sel.id === 'number' && Number.isFinite(sel.id)) {
+      selection = { kind: 'smart', id: sel.id };
+    } else if (sel.kind === 'board' && typeof sel.id === 'number' && Number.isFinite(sel.id)) {
+      selection = { kind: 'board', id: sel.id };
+    }
+  }
+
+  const tagFilterId =
+    typeof raw.tagFilterId === 'number' && Number.isFinite(raw.tagFilterId) ? raw.tagFilterId : null;
+
+  return {
+    sections: {
+      lists: bool(rawSections.lists, defaultSidebarUi.sections.lists),
+      tags: bool(rawSections.tags, defaultSidebarUi.sections.tags),
+      smartLists: bool(rawSections.smartLists, defaultSidebarUi.sections.smartLists),
+      boards: bool(rawSections.boards, defaultSidebarUi.sections.boards),
+    },
+    selection,
+    tagFilterId,
+  };
+};
+
 const defaultSettings: AppSettings = {
   showCompleted: true,
   timeFormat: '12h',
@@ -157,6 +230,8 @@ const defaultSettings: AppSettings = {
   tagColors: true,
   shortcuts: {},
   menuAccelerators: { ...DEFAULT_MENU_ACCELERATORS },
+  sidebarUi: { ...defaultSidebarUi, sections: { ...defaultSidebarUi.sections } },
+  windowBounds: null,
 };
 
 const normalizeTheme = (value: unknown): Theme =>
@@ -177,6 +252,10 @@ const readSettings = (): AppSettings => {
         tagColors: typeof parsed.tagColors === 'boolean' ? parsed.tagColors : true,
         shortcuts: sanitizeShortcuts(parsed.shortcuts),
         menuAccelerators: sanitizeMenuAccelerators(parsed.menuAccelerators),
+        sidebarUi: sanitizeSidebarUi(parsed.sidebarUi),
+        // Type/shape validation only here; display-aware clamping happens in
+        // createWindow(), where Electron's screen module is ready.
+        windowBounds: parseWindowBounds(parsed.windowBounds),
       };
     }
   } catch {
@@ -802,10 +881,44 @@ nativeTheme.on('updated', () => {
   mainWindow?.setBackgroundColor(windowBackgroundColor());
 });
 
+// The renderer already applied its own state; this only mirrors the last window
+// geometry into settings.json (same fire-and-forget shape as update-sidebar-ui).
+const persistWindowBounds = (): void => {
+  const win = mainWindow;
+  if (!win || win.isDestroyed()) return;
+  try {
+    // getNormalBounds() is the pre-maximize/pre-fullscreen rect, so we never
+    // persist the bogus full-display size while the window is maximized.
+    const normal = win.getNormalBounds();
+    const next: WindowBounds = {
+      width: normal.width,
+      height: normal.height,
+      x: normal.x,
+      y: normal.y,
+      maximized: win.isMaximized() || win.isFullScreen(),
+    };
+    appSettings = { ...appSettings, windowBounds: next };
+    writeSettings(appSettings);
+  } catch (error) {
+    console.error('Failed to persist window bounds', error);
+  }
+};
+
 function createWindow(): void {
+  // Re-clamped every launch against the displays connected right now, so a window
+  // saved on a monitor that is no longer present can't restore off-screen. First
+  // run (no saved bounds) leaves this null and the defaults below apply.
+  const restoredBounds = clampWindowBoundsToDisplays(
+    appSettings.windowBounds,
+    screen.getAllDisplays().map((display) => display.workArea),
+  );
+
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: restoredBounds?.width ?? DEFAULT_WINDOW_WIDTH,
+    height: restoredBounds?.height ?? DEFAULT_WINDOW_HEIGHT,
+    ...(restoredBounds && restoredBounds.x !== null && restoredBounds.y !== null
+      ? { x: restoredBounds.x, y: restoredBounds.y }
+      : {}),
     minWidth: 600,
     minHeight: 480,
     backgroundColor: windowBackgroundColor(),
@@ -817,7 +930,15 @@ function createWindow(): void {
     },
   });
 
+  if (restoredBounds?.maximized) {
+    mainWindow.maximize();
+  }
+
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  // 'close' fires once, before the window is destroyed and before 'closed', so the
+  // bounds are still readable here whether the user closed the window or quit the app.
+  mainWindow.on('close', persistWindowBounds);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -1402,6 +1523,16 @@ ipcMain.handle('update-theme', async (_event, theme: Theme) => {
   appSettings = { ...appSettings, theme: nextTheme };
   writeSettings(appSettings);
   return { theme: nextTheme };
+});
+
+// The renderer owns which sidebar item is selected and which sections are open; this only
+// persists the sanitized snapshot so the next launch can restore it. Same fire-and-forget
+// shape as update-theme: the renderer already applied the change locally.
+ipcMain.handle('update-sidebar-ui', async (_event, next: unknown) => {
+  const sidebarUi = sanitizeSidebarUi(next);
+  appSettings = { ...appSettings, sidebarUi };
+  writeSettings(appSettings);
+  return { sidebarUi };
 });
 
 

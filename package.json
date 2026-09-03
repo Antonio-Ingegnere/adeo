@@ -19,6 +19,8 @@
     "test:board-move": "npm run build && node scripts/board-move-selftest.mjs",
     "test:list-pill": "npm run build && node scripts/list-pill-padding-selftest.mjs",
     "test:board": "npm run build && node scripts/board-selftest.mjs",
+    "test:sidebar-state": "npm run build && node scripts/sidebar-state-selftest.mjs",
+    "test:window-bounds": "npm run build && node scripts/window-bounds-selftest.mjs",
     "package:mac": "bash scripts/package-mac.sh",
     "package:win": "npm run build && electron-builder --win --x64",
     "package:linux": "npm run build && electron-builder --linux"

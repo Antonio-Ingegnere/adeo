@@ -50,6 +50,7 @@ import {
   updateTagsUI,
 } from './modals.js';
 import { state } from './state.js';
+import { persistSidebarUi, restoreSidebarSelection } from './sidebarUiState.js';
 import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
 import { attachDatePicker } from './datepicker.js';
@@ -106,6 +107,7 @@ const selectList = (listId: number | null) => {
   renderTasks();
   // the un-overridden Task list trigger follows the view
   paintComposeListLabel();
+  persistSidebarUi();
 };
 
 // ---------- Smart lists ----------
@@ -154,6 +156,7 @@ const clearTagFilter = () => {
   renderViewBar();
   renderTags();
   renderTasks();
+  persistSidebarUi();
 };
 
 // ---------- Settings modal ----------
@@ -337,6 +340,7 @@ const runSmartList = (smartListId: number) => {
   renderLists();
   renderBoards();
   renderViewBar();
+  persistSidebarUi();
 };
 
 /**
@@ -784,20 +788,26 @@ const setupEvents = () => {
     renderTasks();
   });
 
-  refs.listsToggle?.addEventListener('click', () => {
+  // `isTrusted` filters out init()'s synthetic chevron-sync clicks, so a first launch with no
+  // real interaction never writes a settings.json of its own.
+  refs.listsToggle?.addEventListener('click', (event) => {
     toggleListsExpanded();
+    if (event.isTrusted) persistSidebarUi();
   });
 
-  refs.tagsToggle?.addEventListener('click', () => {
+  refs.tagsToggle?.addEventListener('click', (event) => {
     toggleTagsExpanded();
+    if (event.isTrusted) persistSidebarUi();
   });
 
-  refs.smartListsToggle?.addEventListener('click', () => {
+  refs.smartListsToggle?.addEventListener('click', (event) => {
     toggleSmartListsExpanded();
+    if (event.isTrusted) persistSidebarUi();
   });
 
-  refs.boardsToggle?.addEventListener('click', () => {
+  refs.boardsToggle?.addEventListener('click', (event) => {
     toggleBoardsExpanded();
+    if (event.isTrusted) persistSidebarUi();
   });
 
   refs.addBoardBtn?.addEventListener('click', () => {
@@ -827,6 +837,7 @@ const setupEvents = () => {
     renderBoards();
     renderLists();
     renderSmartLists();
+    persistSidebarUi();
   });
 
   document.addEventListener('leave-board-view', () => {
@@ -926,6 +937,7 @@ const setupEvents = () => {
     renderViewBar();
     renderTags();
     renderTasks();
+    persistSidebarUi();
   });
 
   refs.tagFilterChip?.addEventListener('click', clearTagFilter);
@@ -1687,7 +1699,11 @@ const init = async () => {
   renderBoards();
   renderModalLists();
   renderViewBar();
-  // Initialize lists chevrons orientation
+  updatePriorityUI(state.modalPriority);
+  // loadSettings() applies the restored per-section expand/collapse state onto `state`.
+  await loadSettings();
+  // Sync each section's chevron orientation to the (now possibly restored) expanded state.
+  // Toggling twice is a no-op on the boolean but repaints the chevron from its final value.
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.listsToggle?.dispatchEvent(new Event('click'));
   refs.tagsToggle?.dispatchEvent(new Event('click'));
@@ -1697,8 +1713,6 @@ const init = async () => {
   refs.boardsToggle?.dispatchEvent(new Event('click'));
   refs.boardsToggle?.dispatchEvent(new Event('click'));
   renderViewBar();
-  updatePriorityUI(state.modalPriority);
-  await loadSettings();
   buildTimeOptions();
   updateReminderUI(state.modalReminderDate, state.modalReminderTime);
   updateRepeatUI(state.modalRepeat);
@@ -1707,6 +1721,9 @@ const init = async () => {
   await loadLists();
   await loadSmartLists();
   await loadBoardsPanel();
+  // Lists / smart lists / boards / tags are loaded now, so saved ids can be validated:
+  // replay the saved sidebar selection (and tag filter), or fall back to "All lists".
+  restoreSidebarSelection();
   window.electronAPI.notifyRendererReady();
 };
 

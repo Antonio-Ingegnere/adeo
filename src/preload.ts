@@ -6,6 +6,7 @@ import type {
   ElectronAPI,
   List,
   Settings,
+  SidebarUiState,
   SmartList,
   Tag,
   Task,
@@ -121,6 +122,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateDateFormat: (format: string) =>
     ipcRenderer.invoke('update-date-format', format) as Promise<{ dateFormat: string }>,
   updateTheme: (theme: Theme) => ipcRenderer.invoke('update-theme', theme) as Promise<{ theme: Theme }>,
+  updateSidebarUiState: (state: SidebarUiState) =>
+    ipcRenderer.invoke('update-sidebar-ui', state) as Promise<{ sidebarUi: SidebarUiState }>,
   onOpenSettings: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('open-settings', listener);

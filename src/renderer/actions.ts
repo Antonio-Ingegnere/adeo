@@ -23,6 +23,7 @@ import {
   syncComposeMetaRow,
 } from './composeOptions.js';
 import { announceComposeSuccess, showComposeError } from './composeFeedback.js';
+import { applySidebarSections, stashSidebarUi } from './sidebarUiState.js';
 
 const INLINE_TAG_RE = /(^|\s)#([A-Za-z0-9_-]+)/g;
 
@@ -171,6 +172,12 @@ export const loadSettings = async () => {
     state.theme = settings.theme ?? 'system';
     state.tagColors = settings.tagColors ?? true;
     state.shortcutOverrides = settings.shortcuts ?? {};
+    // Restored sidebar expand/collapse is applied now, before the first sidebar render;
+    // the saved selection is replayed after lists / smart lists / boards load (init()).
+    if (settings.sidebarUi) {
+      applySidebarSections(settings.sidebarUi);
+      stashSidebarUi(settings.sidebarUi);
+    }
     setKeymap(state.shortcutOverrides);
     renderShortcutHints();
     renderTasks();

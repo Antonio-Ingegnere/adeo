@@ -25,7 +25,7 @@ which creates `UNDERSTANDING` state and the initial implementer claim together. 
 controller must not split this into guessed `start`/`claim` calls. Low-level `start`
 remains only for backwards compatibility and tests.
 
-Product Designer is not a production execution owner. Both manual-QA repairers
+Product Designer is not a production execution owner. Standalone design is invoked with `/design <request>` and is allowed after terminal `DONE`/`FAILED` state when no stale claims remain. Both manual-QA repairers
 claim the same implementer role so existing mutation guards remain authoritative;
 `implementer-guard.py` also enforces the machine-selected `qa_repair_route` by
 subagent type.

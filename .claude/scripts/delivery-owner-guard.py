@@ -35,9 +35,20 @@ def runtime(role: str) -> tuple[str, str | None] | None:
         fail(role, "delivery state is unreadable")
     if not isinstance(data, dict):
         fail(role, "delivery state has invalid shape")
+    state = str(data.get("state") or "")
     claim = data.get("worker_claim")
+    verifier_claim = data.get("verifier_claim")
+
+    # A terminal delivery is historical state, not an owned execution phase.
+    # Standalone agents (notably product-designer) must remain usable after a
+    # completed/failed delivery without deleting current.json. Stale claims are
+    # intentionally *not* ignored: they indicate inconsistent machine state and
+    # should keep the guard closed until resolved.
+    if state in {"DONE", "FAILED"} and not claim and not verifier_claim:
+        return None
+
     owner = claim.get("role") if isinstance(claim, dict) else None
-    return str(data.get("state") or ""), str(owner) if owner else None
+    return state, str(owner) if owner else None
 
 
 def safe_control(command: str, role: str) -> str | None:

@@ -28,8 +28,9 @@ do not guess `claim` syntax or split initial state creation across multiple turn
      → /qa-accept: DONE
 ```
 
-Product Designer is a separate workflow and is not changed or used as the owner of
-production `/deliver` work.
+Product Designer is a separate standalone workflow and is never the owner of
+production `/deliver` work. Invoke it explicitly with `/design <request>`. A terminal
+`DONE`/`FAILED` delivery with no stale claims does not block standalone design.
 
 ## Model routing
 
@@ -41,10 +42,23 @@ production `/deliver` work.
 - `qa-repairer`: Haiku, first repair of explicit manual-QA defects, max 12 turns.
 - `qa-repairer-sonnet`: Sonnet/medium, first human reopen of the same `manual_bug_id`, max 16 turns.
 - second reopen of the same bug: stop at `NEEDS_HUMAN_REVIEW`; no third autonomous attempt.
-- `product-designer`: unchanged.
+- `/design`: Haiku/low controller for the standalone `product-designer`.
+- `product-designer`: Sonnet/medium, writes only under `ui-ux/ux/`.
 
 `delivery.py` computes `verification_route`; `verifier-guard.py` rejects the wrong
 agent type before it may read/test the repository.
+
+
+## Standalone Product Design
+
+Use `/design <request>` to invoke exactly one `product-designer` without creating a
+production delivery. `/design prototype <request>` maps directly to Explore mode;
+`requirements`, `specify`, `implementation-review`, and `audit` map to the agent's
+other defined modes. The skill performs a compact lifecycle preflight and refuses
+to run in parallel with an active delivery. `DONE` and `FAILED` are terminal history,
+so with no stale worker/verifier claims they are treated like no active delivery by
+`delivery-owner-guard.py`. The designer remains confined to `ui-ux/ux/` and cannot
+modify production code, tests, dependencies, Git state, or delivery state.
 
 ## Deterministic evidence
 

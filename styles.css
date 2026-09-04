@@ -2092,6 +2092,43 @@ kbd {
   color: var(--text-muted);
 }
 
+/* Edit Task header row: the "Edit task" heading plus the delete-task icon at the opposite
+   corner from Cancel/Save (design variant B). */
+.modal-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Unlike the row kebab (.task-menu-btn), which hides until its .task-row is hovered/focused,
+   this control has no such row to hover -- a modal heading is never a .task-row -- so it stays
+   persistently visible rather than reusing .task-menu-btn's hover-reveal opacity/visibility. */
+.modal-heading-delete-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  width: 24px;
+  flex: 0 0 24px;
+  border-radius: var(--radius-s);
+  transition: background-color 120ms ease;
+}
+
+.modal-heading-delete-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-heading-delete-btn:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
 .modal-details {
   margin-top: 12px;
   margin-bottom: -63px;

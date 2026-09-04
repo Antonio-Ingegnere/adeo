@@ -11,6 +11,7 @@ export const refs = {
   editDetailsInput: byId<HTMLTextAreaElement>('edit-details'),
   cancelEditBtn: byId<HTMLButtonElement>('cancel-edit'),
   saveEditBtn: byId<HTMLButtonElement>('save-edit'),
+  deleteEditTaskBtn: byId<HTMLButtonElement>('delete-edit-task'),
   listsList: byId<HTMLDivElement>('lists-list'),
   listsEmpty: byId<HTMLDivElement>('lists-empty'),
   listsToggle: byId<HTMLButtonElement>('lists-toggle'),

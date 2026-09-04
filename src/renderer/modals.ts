@@ -1,7 +1,7 @@
 import type { List } from '../types.js';
 import { renderListOptions, renderLists } from './lists.js';
 import { renderTags, sortTags } from './tags.js';
-import { renderTasks } from './tasks.js';
+import { deleteTask, renderTasks } from './tasks.js';
 import { renderViewBar } from './viewBar.js';
 import { refs } from './dom.js';
 import { state } from './state.js';
@@ -229,6 +229,23 @@ export const closeEditModal = () => {
   }
   if (refs.tagsMenu) {
     refs.tagsMenu.style.display = 'none';
+  }
+};
+
+/**
+ * Delete the task currently open in the Edit Task modal, via the header trash icon (design
+ * variant B). Reuses tasks.ts's deleteTask() as-is -- same confirmDeleteTask/deleteTask IPC,
+ * same state update and re-render -- then closes the modal on success. If the user cancels the
+ * native confirm, the task still exists, so the modal is left open rather than closed under them.
+ */
+export const deleteEditingTask = async (): Promise<void> => {
+  const taskId = state.editingTaskId;
+  if (!taskId) return;
+  const before = state.tasks.some((t) => t.id === taskId);
+  await deleteTask(taskId);
+  const after = state.tasks.some((t) => t.id === taskId);
+  if (before && !after) {
+    closeEditModal();
   }
 };
 

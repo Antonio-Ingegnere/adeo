@@ -17,6 +17,7 @@
     "test:isolation": "npm run build && node scripts/test-isolation-selftest.mjs",
     "test:quick-add": "npm run build && node scripts/quick-add-selftest.mjs",
     "test:task-delete": "npm run build && node scripts/task-delete-selftest.mjs",
+    "test:edit-modal-delete": "npm run build && node scripts/edit-modal-delete-selftest.mjs",
     "test:board-move": "npm run build && node scripts/board-move-selftest.mjs",
     "test:list-pill": "npm run build && node scripts/list-pill-padding-selftest.mjs",
     "test:board": "npm run build && node scripts/board-selftest.mjs",

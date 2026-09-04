@@ -340,7 +340,21 @@
         <div class="modal-content">
           <div class="modal-body">
             <div class="modal-left">
-              <h2 class="modal-heading">Edit task</h2>
+              <div class="modal-heading-row">
+                <h2 class="modal-heading">Edit task</h2>
+                <button id="delete-edit-task" class="modal-heading-delete-btn" type="button" aria-label="Delete task"
+                  title="Delete task">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-trash">
+                    <path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+                    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                    <path d="M19 6l-.867 13.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 6"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                      fill="none" />
+                    <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </button>
+              </div>
               <div class="modal-title-row">
                 <input id="edit-done" type="checkbox" />
                 <input id="edit-input" type="text" class="text-input modal-input" />

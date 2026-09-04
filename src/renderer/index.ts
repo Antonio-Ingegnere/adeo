@@ -36,6 +36,7 @@ import {
   closeEditModal,
   closeListModal,
   closeTagModal,
+  deleteEditingTask,
   openEditListModal,
   openEditModal,
   openEditTagModal,
@@ -769,6 +770,7 @@ const setupEvents = () => {
 
   refs.cancelEditBtn?.addEventListener('click', () => closeEditModal());
   refs.saveEditBtn?.addEventListener('click', () => saveEdit());
+  refs.deleteEditTaskBtn?.addEventListener('click', () => void deleteEditingTask());
   refs.editInput?.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
       saveEdit();

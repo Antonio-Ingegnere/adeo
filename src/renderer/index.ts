@@ -52,6 +52,7 @@ import {
   updateTagsUI,
 } from './modals.js';
 import { state } from './state.js';
+import { confirmApp } from './confirmDialog.js';
 import { persistSidebarUi, restoreSidebarSelection } from './sidebarUiState.js';
 import type { SmartList, Tag, Theme } from '../types.js';
 import { formatDate, positionDropdown } from './helpers.js';
@@ -247,7 +248,13 @@ const saveSmartList = async () => {
   // server's 400 so it can be offered as a choice instead of reported as a dead end.
   const clash = smartListNamed(name, state.editingSmartListId);
   if (clash) {
-    const replace = await window.electronAPI.confirmReplaceSmartList(clash.name);
+    const replace = await confirmApp({
+      heading: `A smart list named "${clash.name}" already exists.`,
+      message:
+        'Replacing it keeps the name and swaps in the query you just wrote. Tasks are kept.',
+      confirmLabel: 'Replace',
+      tone: 'neutral',
+    });
     if (!replace) {
       refs.smartListNameInput?.focus();
       refs.smartListNameInput?.select();
@@ -387,7 +394,13 @@ const createSmartListFromBar = async (name: string) => {
   try {
     const clash = smartListNamed(name, null);
     if (clash) {
-      const replace = await window.electronAPI.confirmReplaceSmartList(clash.name);
+      const replace = await confirmApp({
+        heading: `A smart list named "${clash.name}" already exists.`,
+        message:
+          'Replacing it keeps the name and swaps in the query you just wrote. Tasks are kept.',
+        confirmLabel: 'Replace',
+        tone: 'neutral',
+      });
       if (!replace) {
         showViewBarError('That name is taken.');
         return;

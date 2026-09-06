@@ -2667,6 +2667,20 @@ kbd {
   color: var(--text-on-accent);
 }
 
+/* Destructive confirm action (app confirm dialog's Delete-tone button). Text/border tint using
+   the same --danger/--danger-bg pairing already used by .list-menu-danger, not a filled
+   .btn.primary treatment -- this is not a routine primary action. */
+.acd-btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.acd-btn-danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
 .empty-state {
   /* D-003: 3px block padding + 1px dashed border + the 14px --font-s line box
      = 22px, matching a list-pill row for a single-line placeholder. Longer

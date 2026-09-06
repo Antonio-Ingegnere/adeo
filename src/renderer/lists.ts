@@ -3,6 +3,7 @@ import { refs } from './dom.js';
 import { renderTasks } from './tasks.js';
 import { isListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
+import { confirmApp } from './confirmDialog.js';
 
 /**
  * Selecting a list is a view change, and index.ts owns those -- it is the only module that can
@@ -179,7 +180,12 @@ export const renderLists = () => {
     deleteItem.textContent = 'Delete list';
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
-      const confirmDelete = await window.electronAPI.confirmDeleteList(list.name);
+      const confirmDelete = await confirmApp({
+        heading: `Delete list "${list.name}"?`,
+        message: 'The list and all of its tasks will be removed.',
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      });
       if (!confirmDelete) {
         state.openListMenuId = null;
         renderLists();

@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { makePillActivatable, revealInScroller } from './helpers.js';
 import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
 import { makeTagDot } from './tagColor.js';
+import { confirmApp } from './confirmDialog.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -173,7 +174,12 @@ export const renderTags = () => {
     deleteItem.textContent = 'Delete tag';
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
-      const confirmDelete = await window.electronAPI.confirmDeleteTag(tag.name);
+      const confirmDelete = await confirmApp({
+        heading: `Delete tag "${tag.name}"?`,
+        message: 'The tag will be removed from all tasks. Tasks are kept.',
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      });
       if (!confirmDelete) {
         state.openTagMenuId = null;
         renderTags();

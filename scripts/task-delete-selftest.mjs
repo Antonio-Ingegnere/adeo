@@ -12,9 +12,9 @@
 //   - right-click then click elsewhere dismisses the menu with no deletion
 //   - deleting the last visible task falls back to the empty state
 //
-// The confirm step is main-process dialog.showMessageBox (src/main.ts). A native modal can't
-// be driven from the page, so each scenario stubs it in the main process first:
-//   response 1 = the "Delete" button, response 0 = "Cancel".
+// The confirm step is the app-owned client-side confirm dialog (#app-confirm-overlay in
+// index.html, src/renderer/confirmDialog.ts) -- no native dialog and no main-process stubbing
+// needed. Each scenario waits for the overlay to open, then clicks its Delete or Cancel button.
 
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -79,11 +79,15 @@ try {
   const input = page.locator('#message-input');
   await input.waitFor({ state: 'visible' });
 
-  // response: 1 -> the confirm dialog's "Delete"; 0 -> "Cancel".
-  const setConfirmResponse = async (response) => {
-    await electronApp.evaluate(({ dialog }, value) => {
-      dialog.showMessageBox = async () => ({ response: value });
-    }, response);
+  const confirmOverlay = page.locator('#app-confirm-overlay');
+  const confirmConfirmBtn = page.locator('#app-confirm-confirm');
+  const confirmCancelBtn = page.locator('#app-confirm-cancel');
+
+  // Waits for the app confirm dialog to open, then clicks Delete (accept=true) or Cancel.
+  const respondToConfirm = async (accept) => {
+    await confirmOverlay.waitFor({ state: 'visible' });
+    await (accept ? confirmConfirmBtn : confirmCancelBtn).click();
+    await confirmOverlay.waitFor({ state: 'hidden' });
   };
 
   const addTask = async (text) => {
@@ -122,8 +126,8 @@ try {
     const deleteItem = menu.locator('.list-menu-item', { hasText: 'Delete' });
     check(await deleteItem.count() === 1, '1: kebab click opens the context menu with a Delete item');
 
-    await setConfirmResponse(1);
     await deleteItem.click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
     await page.waitForTimeout(200);
     check(countTasksWithText(text) === 0, '1: task removed from the database via the existing DELETE path');
@@ -149,8 +153,8 @@ try {
     await kebab.click();
     const menu = page.locator('.task-context-menu');
     await menu.waitFor({ state: 'visible' });
-    await setConfirmResponse(1);
     await menu.locator('.list-menu-item', { hasText: 'Delete' }).click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
   }
 
@@ -167,8 +171,8 @@ try {
     const deleteItem = menu.locator('.list-menu-item', { hasText: 'Delete' });
     check(await deleteItem.count() === 1, '3: the context menu offers a single Delete item');
 
-    await setConfirmResponse(1);
     await deleteItem.click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
     await page.waitForTimeout(200);
     check(countTasksWithText(text) === 0, '3: right-click Delete removed the task from the database');
@@ -190,8 +194,8 @@ try {
     const menu = page.locator('.task-context-menu');
     await menu.waitFor({ state: 'visible' });
     const deleteItem = menu.locator('.list-menu-item', { hasText: 'Delete' });
-    await setConfirmResponse(0);
     await deleteItem.click();
+    await respondToConfirm(false);
     await page.waitForTimeout(400);
     check(await row.count() === 1, '4: the row is still present after Cancel');
     check(countTasksWithText(text) === 1, '4: the task is still in the database after Cancel');
@@ -200,8 +204,8 @@ try {
     await row.hover();
     await row.locator('.task-menu-btn').click();
     await menu.waitFor({ state: 'visible' });
-    await setConfirmResponse(1);
     await menu.locator('.list-menu-item', { hasText: 'Delete' }).click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
   }
 
@@ -226,8 +230,8 @@ try {
     await row.locator('.task-menu-btn').click();
     const deleteMenu = page.locator('.task-context-menu');
     await deleteMenu.waitFor({ state: 'visible' });
-    await setConfirmResponse(1);
     await deleteMenu.locator('.list-menu-item', { hasText: 'Delete' }).click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
   }
 
@@ -237,7 +241,6 @@ try {
   {
     // clear whatever remains from earlier scenarios, then add exactly one
     const remaining = await page.locator('.task-row').count();
-    await setConfirmResponse(1);
     for (let i = 0; i < remaining; i += 1) {
       const first = page.locator('.task-row').first();
       await first.hover();
@@ -245,6 +248,7 @@ try {
       const clearMenu = page.locator('.task-context-menu');
       await clearMenu.waitFor({ state: 'visible' });
       await clearMenu.locator('.list-menu-item', { hasText: 'Delete' }).click();
+      await respondToConfirm(true);
       await first.waitFor({ state: 'detached' });
     }
     check(await page.locator('.task-row').count() === 0, '6 setup: list emptied');
@@ -257,6 +261,7 @@ try {
     const lastMenu = page.locator('.task-context-menu');
     await lastMenu.waitFor({ state: 'visible' });
     await lastMenu.locator('.list-menu-item', { hasText: 'Delete' }).click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
     await page.locator('#empty-state').waitFor({ state: 'visible' });
     check(true, '6: deleting the only task shows the empty state');

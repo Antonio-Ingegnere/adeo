@@ -800,6 +800,23 @@
         </div>
       </div>
     </div>
+    <div
+      id="app-confirm-overlay"
+      class="overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-confirm-heading"
+      aria-describedby="app-confirm-message"
+    >
+      <div class="modal modal-small">
+        <h2 id="app-confirm-heading"></h2>
+        <p id="app-confirm-message" class="board-move-message"></p>
+        <div class="modal-actions">
+          <button id="app-confirm-cancel" class="btn" type="button">Cancel</button>
+          <button id="app-confirm-confirm" class="btn" type="button"></button>
+        </div>
+      </div>
+    </div>
   </div>
   <script type="module" src="renderer/index.js"></script>
 </body>

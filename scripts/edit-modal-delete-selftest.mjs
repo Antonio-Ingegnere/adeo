@@ -7,8 +7,9 @@
 //
 // Covers only the new header trash-icon delete action added to #edit-overlay:
 //   - the icon is persistently visible (no hover needed), next to the "Edit task" heading
-//   - click -> confirm Delete -> reuses the same confirmDeleteTask/deleteTask IPC as the row
-//     kebab -> task removed from DOM and DB, and the edit modal closes
+//   - click -> confirm Delete (app-owned #app-confirm-overlay) -> reuses the same
+//     deleteTask()/deleteTask IPC as the row kebab -> task removed from DOM and DB, and the
+//     edit modal closes
 //   - click -> confirm Cancel -> task and modal are unchanged (no-op)
 
 import { spawnSync } from 'node:child_process';
@@ -73,11 +74,14 @@ try {
   const input = page.locator('#message-input');
   await input.waitFor({ state: 'visible' });
 
-  // response: 1 -> the confirm dialog's "Delete"; 0 -> "Cancel".
-  const setConfirmResponse = async (response) => {
-    await electronApp.evaluate(({ dialog }, value) => {
-      dialog.showMessageBox = async () => ({ response: value });
-    }, response);
+  const confirmOverlay = page.locator('#app-confirm-overlay');
+  const confirmConfirmBtn = page.locator('#app-confirm-confirm');
+  const confirmCancelBtn = page.locator('#app-confirm-cancel');
+
+  // Waits for the app confirm dialog to open, then clicks Delete (accept=true) or Cancel.
+  const respondToConfirm = async (accept) => {
+    await confirmOverlay.waitFor({ state: 'visible' });
+    await (accept ? confirmConfirmBtn : confirmCancelBtn).click();
   };
 
   const addTask = async (text) => {
@@ -121,8 +125,8 @@ try {
     await row.locator('.task-text').click();
     await overlay.waitFor({ state: 'visible' });
 
-    await setConfirmResponse(1);
     await headerDelete.click();
+    await respondToConfirm(true);
     await overlay.waitFor({ state: 'hidden' });
     await row.waitFor({ state: 'detached' });
     await page.waitForTimeout(200);
@@ -139,8 +143,8 @@ try {
     await row.locator('.task-text').click();
     await overlay.waitFor({ state: 'visible' });
 
-    await setConfirmResponse(0);
     await headerDelete.click();
+    await respondToConfirm(false);
     await page.waitForTimeout(400);
     check(await overlay.isVisible(), '3: the edit modal stays open after Cancel');
     check(countTasksWithText(text) === 1, '3: the task is still in the database after Cancel');
@@ -154,8 +158,8 @@ try {
     await row.locator('.task-menu-btn').click();
     const menu = page.locator('.task-context-menu');
     await menu.waitFor({ state: 'visible' });
-    await setConfirmResponse(1);
     await menu.locator('.list-menu-item', { hasText: 'Delete' }).click();
+    await respondToConfirm(true);
     await row.waitFor({ state: 'detached' });
   }
 

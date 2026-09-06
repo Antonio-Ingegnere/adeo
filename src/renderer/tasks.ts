@@ -7,6 +7,7 @@ import { state } from './state.js';
 import { repeatSummaryFromRule } from './repeat.js';
 import { setPriorityAttr } from './theme.js';
 import { createTagChip, MORE_ICON_SVG } from './uiElements.js';
+import { confirmApp } from './confirmDialog.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -470,13 +471,19 @@ export const toggleTaskDone = async (taskId: number, next?: boolean): Promise<vo
 };
 
 /**
- * Delete a task, after a native confirm. Not optimistic, unlike toggling done: this is the
+ * Delete a task, after a confirm. Not optimistic, unlike toggling done: this is the
  * one action with nothing to undo it, so nothing is removed until the server says it's gone.
  */
 export const deleteTask = async (taskId: number): Promise<void> => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!task) return;
-  if (!(await window.electronAPI.confirmDeleteTask(task.text))) return;
+  const confirmed = await confirmApp({
+    heading: `Delete task "${task.text}"?`,
+    message: 'The task will be removed. This cannot be undone.',
+    confirmLabel: 'Delete',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
   try {
     await window.electronAPI.deleteTask(taskId);
   } catch (error) {

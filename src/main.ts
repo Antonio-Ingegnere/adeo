@@ -1229,49 +1229,6 @@ ipcMain.handle('update-list-order', async (_event, orderedIds: number[]) => {
   });
 });
 
-const confirmAction = async (
-  message: string,
-  detail: string,
-  verb: string
-): Promise<boolean> => {
-  const result = await dialog.showMessageBox({
-    type: 'warning',
-    message,
-    detail,
-    buttons: ['Cancel', verb],
-    defaultId: 0,
-    cancelId: 0,
-  });
-  return result.response === 1;
-};
-
-const confirmDelete = async (message: string, detail: string): Promise<boolean> =>
-  confirmAction(message, detail, 'Delete');
-
-ipcMain.handle('confirm-delete-task', async (_event, text: string) => {
-  return confirmDelete(`Delete task "${text}"?`, 'The task will be removed. This cannot be undone.');
-});
-
-ipcMain.handle('confirm-delete-list', async (_event, name: string) => {
-  return confirmDelete(`Delete list "${name}"?`, 'The list and all of its tasks will be removed.');
-});
-
-ipcMain.handle('confirm-delete-tag', async (_event, name: string) => {
-  return confirmDelete(`Delete tag "${name}"?`, 'The tag will be removed from all tasks. Tasks are kept.');
-});
-
-ipcMain.handle('confirm-delete-smart-list', async (_event, name: string) => {
-  return confirmDelete(`Delete smart list "${name}"?`, 'Only the saved query is removed. Tasks are kept.');
-});
-
-ipcMain.handle('confirm-replace-smart-list', async (_event, name: string) => {
-  return confirmAction(
-    `A smart list named "${name}" already exists.`,
-    'Replacing it keeps the name and swaps in the query you just wrote. Tasks are kept.',
-    'Replace'
-  );
-});
-
 ipcMain.handle('add-smart-list', async (_event, name: string, query: string) => {
   const trimmedName = name?.trim();
   const trimmedQuery = query?.trim();
@@ -1375,13 +1332,6 @@ ipcMain.handle('update-board-order', async (_event, orderedIds: number[]) => {
     method: 'POST',
     body: JSON.stringify({ orderedIds }),
   });
-});
-
-ipcMain.handle('confirm-delete-board', async (_event, name: string) => {
-  return confirmDelete(
-    `Delete board "${name}"?`,
-    'Only the saved board is removed. Its Lists, Smart lists and tasks are kept.'
-  );
 });
 
 ipcMain.handle('add-tag', async (_event, name: string) => {

@@ -160,7 +160,6 @@ export type ElectronAPI = {
     repeatStart: string | null
   ) => Promise<{ id: number; repeatRule: string | null; repeatStart: string | null }>;
   deleteTask: (id: number) => Promise<{ id: number }>;
-  confirmDeleteTask: (text: string) => Promise<boolean>;
   getSettings: () => Promise<Settings>;
   updateShortcuts: (payload: {
     overrides: Record<string, string[]>;
@@ -172,7 +171,6 @@ export type ElectronAPI = {
   updateListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
   deleteList: (id: number) => Promise<{ id: number }>;
   updateListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
-  confirmDeleteList: (name: string) => Promise<boolean>;
   addTag: (name: string) => Promise<Tag | { error: string }>;
   getTags: () => Promise<Tag[]>;
   updateTagName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
@@ -182,15 +180,12 @@ export type ElectronAPI = {
   updateShowCompleted: (show: boolean) => Promise<{ showCompleted: boolean }>;
   updateTagColors: (enabled: boolean) => Promise<{ tagColors: boolean }>;
   setTaskTags: (id: number, tagIds: number[]) => Promise<{ id: number; tagIds: number[] } | { error: string }>;
-  confirmDeleteTag: (name: string) => Promise<boolean>;
   addSmartList: (name: string, query: string) => Promise<SmartList | { error: string }>;
   getSmartLists: () => Promise<SmartList[]>;
   updateSmartListName: (id: number, name: string) => Promise<{ id: number; name: string } | { error: string }>;
   updateSmartListQuery: (id: number, query: string) => Promise<{ id: number; query: string } | { error: string }>;
   deleteSmartList: (id: number) => Promise<{ id: number }>;
   updateSmartListOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
-  confirmDeleteSmartList: (name: string) => Promise<boolean>;
-  confirmReplaceSmartList: (name: string) => Promise<boolean>;
   getBoards: () => Promise<Board[]>;
   addBoard: (name: string) => Promise<Board | { error: string }>;
   updateBoardName: (
@@ -203,7 +198,6 @@ export type ElectronAPI = {
   ) => Promise<{ id: number; columns: BoardColumn[] } | { error: string }>;
   deleteBoard: (id: number) => Promise<{ id: number }>;
   updateBoardOrder: (orderedIds: number[]) => Promise<{ success: boolean }>;
-  confirmDeleteBoard: (name: string) => Promise<boolean>;
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;

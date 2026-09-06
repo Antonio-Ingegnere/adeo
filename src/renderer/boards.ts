@@ -9,6 +9,7 @@ import { isBoardInView } from './currentView.js';
 import { enterBoardView } from './board.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
+import { confirmApp } from './confirmDialog.js';
 
 const saveBoardOrder = async () => {
   try {
@@ -126,7 +127,12 @@ export const renderBoards = () => {
     deleteItem.textContent = 'Delete board';
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
-      const ok = await window.electronAPI.confirmDeleteBoard(board.name);
+      const ok = await confirmApp({
+        heading: `Delete board "${board.name}"?`,
+        message: 'Only the saved board is removed. Its Lists, Smart lists and tasks are kept.',
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      });
       if (!ok) {
         state.openBoardMenuId = null;
         renderBoards();

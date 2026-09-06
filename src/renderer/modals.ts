@@ -234,9 +234,9 @@ export const closeEditModal = () => {
 
 /**
  * Delete the task currently open in the Edit Task modal, via the header trash icon (design
- * variant B). Reuses tasks.ts's deleteTask() as-is -- same confirmDeleteTask/deleteTask IPC,
+ * variant B). Reuses tasks.ts's deleteTask() as-is -- same app confirm dialog + delete IPC,
  * same state update and re-render -- then closes the modal on success. If the user cancels the
- * native confirm, the task still exists, so the modal is left open rather than closed under them.
+ * confirm, the task still exists, so the modal is left open rather than closed under them.
  */
 export const deleteEditingTask = async (): Promise<void> => {
   const taskId = state.editingTaskId;

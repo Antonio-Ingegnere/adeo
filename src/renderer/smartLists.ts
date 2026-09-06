@@ -12,6 +12,7 @@ import {
 import { isSmartListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
+import { confirmApp } from './confirmDialog.js';
 
 const saveSmartListOrder = async () => {
   try {
@@ -122,7 +123,12 @@ export const renderSmartLists = () => {
     deleteItem.textContent = 'Delete smart list';
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
-      const confirmDelete = await window.electronAPI.confirmDeleteSmartList(smartList.name);
+      const confirmDelete = await confirmApp({
+        heading: `Delete smart list "${smartList.name}"?`,
+        message: 'Only the saved query is removed. Tasks are kept.',
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      });
       if (!confirmDelete) {
         state.openSmartListMenuId = null;
         renderSmartLists();

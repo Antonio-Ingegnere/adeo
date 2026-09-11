@@ -10,7 +10,7 @@ import { enterBoardView } from './board.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { confirmApp } from './confirmDialog.js';
-import { t } from './i18n/index.js';
+import { applyStaticTranslations, onLocaleChange, t } from './i18n/index.js';
 
 const saveBoardOrder = async () => {
   try {
@@ -62,7 +62,13 @@ export const renderBoards = () => {
   container.style.display = 'flex';
 
   if (state.boards.length === 0) {
-    if (refs.boardsEmpty) container.appendChild(refs.boardsEmpty);
+    if (refs.boardsEmpty) {
+      container.appendChild(refs.boardsEmpty);
+      // See smartLists.ts: this cached empty-state node is detached whenever there are
+      // boards, so a locale switch during that time never reaches it via document-rooted
+      // applyStaticTranslations. Re-apply now that it is back in the tree.
+      applyStaticTranslations(container);
+    }
     return;
   }
 
@@ -179,3 +185,5 @@ export const loadBoardsPanel = async () => {
     console.error('Failed to load boards', error);
   }
 };
+
+onLocaleChange(() => renderBoards());

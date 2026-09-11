@@ -4,7 +4,7 @@ import { renderTasks } from './tasks.js';
 import { isListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
 import { confirmApp } from './confirmDialog.js';
-import { onLocaleChange, t } from './i18n/index.js';
+import { applyStaticTranslations, onLocaleChange, t } from './i18n/index.js';
 
 /**
  * Selecting a list is a view change, and index.ts owns those -- it is the only module that can
@@ -117,6 +117,10 @@ export const renderLists = () => {
   if (state.lists.length === 0) {
     if (refs.listsEmpty) {
       container.appendChild(refs.listsEmpty);
+      // See smartLists.ts: this cached empty-state node is detached whenever there are
+      // lists, so a locale switch during that time never reaches it via document-rooted
+      // applyStaticTranslations. Re-apply now that it is back in the tree.
+      applyStaticTranslations(container);
     }
     return;
   }

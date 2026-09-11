@@ -7,7 +7,7 @@ import { makePillActivatable, revealInScroller } from './helpers.js';
 import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
 import { makeTagDot } from './tagColor.js';
 import { confirmApp } from './confirmDialog.js';
-import { t } from './i18n/index.js';
+import { applyStaticTranslations, onLocaleChange, t } from './i18n/index.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -95,6 +95,10 @@ export const renderTags = () => {
   if (state.tags.length === 0) {
     if (refs.tagsEmpty) {
       container.appendChild(refs.tagsEmpty);
+      // See smartLists.ts: this cached empty-state node is detached whenever there are
+      // tags, so a locale switch during that time never reaches it via document-rooted
+      // applyStaticTranslations. Re-apply now that it is back in the tree.
+      applyStaticTranslations(container);
     }
     return;
   }
@@ -211,3 +215,5 @@ export const renderTags = () => {
     container.appendChild(item);
   });
 };
+
+onLocaleChange(() => renderTags());

@@ -13,7 +13,7 @@ import { isSmartListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { confirmApp } from './confirmDialog.js';
-import { t } from './i18n/index.js';
+import { applyStaticTranslations, onLocaleChange, t } from './i18n/index.js';
 
 const saveSmartListOrder = async () => {
   try {
@@ -50,6 +50,11 @@ export const renderSmartLists = () => {
   if (state.smartLists.length === 0) {
     if (refs.smartListsEmpty) {
       container.appendChild(refs.smartListsEmpty);
+      // `applyStaticTranslations(document)` only walks nodes currently attached to the
+      // document; this cached empty-state node is detached whenever there are smart lists,
+      // so a locale switch that happens while it is detached never reaches it. Re-apply here,
+      // now that it is back in the tree, so it can't outlive the language it was built under.
+      applyStaticTranslations(container);
     }
     return;
   }
@@ -176,3 +181,5 @@ export const loadSmartLists = async () => {
     console.error('Failed to load smart lists', error);
   }
 };
+
+onLocaleChange(() => renderSmartLists());

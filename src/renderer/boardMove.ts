@@ -17,6 +17,7 @@ import { compilePredicate, parseQuery, type EvalContext } from './query.js';
 import { deriveTemplate, unparse } from './smartListTemplate.js';
 import { resolveDue } from './activeSmartList.js';
 import { state, type BoardMoveSnapshot } from './state.js';
+import { t as translate } from './i18n/index.js';
 
 export type BoardColumnRef =
   | { kind: 'list'; listId: number | null; label: string }
@@ -114,7 +115,7 @@ export const planBoardMove = (
     const targetListId = to.listId;
     const change: BoardAttrChange = {
       field: 'list',
-      chip: targetListId === null ? 'No list' : (state.lists.find((l) => l.id === targetListId)?.name ?? 'List'),
+      chip: targetListId === null ? translate('compose.noList') : (state.lists.find((l) => l.id === targetListId)?.name ?? 'List'),
       apply: (t) => {
         t.listId = targetListId;
       },
@@ -156,7 +157,7 @@ export const planBoardMove = (
   if (template.listName === null && (task.listId ?? null) !== null) {
     changes.push({
       field: 'list',
-      chip: 'No list',
+      chip: translate('compose.noList'),
       apply: (t) => {
         t.listId = null;
       },
@@ -165,7 +166,7 @@ export const planBoardMove = (
   } else if (typeof template.listName === 'string') {
     const found = state.lists.find((l) => l.name.toLowerCase() === template.listName!.toLowerCase());
     if (!found) {
-      skipped.push(`list:${template.listName} (no such list)`);
+      skipped.push(`list:${template.listName} ${translate('smartListTemplate.noSuchList')}`);
     } else if ((task.listId ?? null) !== found.id) {
       changes.push({
         field: 'list',

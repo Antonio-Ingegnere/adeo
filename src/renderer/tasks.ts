@@ -8,6 +8,7 @@ import { repeatSummaryFromRule } from './repeat.js';
 import { setPriorityAttr } from './theme.js';
 import { createTagChip, MORE_ICON_SVG } from './uiElements.js';
 import { confirmApp } from './confirmDialog.js';
+import { t, onLocaleChange } from './i18n/index.js';
 
 const removeDropIndicator = () => {
   if (dropIndicator.parentNode) {
@@ -15,7 +16,8 @@ const removeDropIndicator = () => {
   }
 };
 
-const defaultEmptyText = refs.emptyState?.textContent ?? '';
+// Re-render tasks when language changes to update repeat summaries
+onLocaleChange(() => renderTasks());
 
 export const getVisibleTasks = (): Task[] => {
   let base = state.showCompleted ? state.tasks : state.tasks.filter((t) => !t.done);
@@ -478,9 +480,10 @@ export const deleteTask = async (taskId: number): Promise<void> => {
   const task = state.tasks.find((t) => t.id === taskId);
   if (!task) return;
   const confirmed = await confirmApp({
-    heading: `Delete task "${task.text}"?`,
-    message: 'The task will be removed. This cannot be undone.',
-    confirmLabel: 'Delete',
+    heading: `${t('confirm.deleteTask.heading')} "${task.text}"?`,
+    message: t('confirm.deleteTask.message'),
+    confirmLabel: t('confirm.delete'),
+    cancelLabel: t('confirm.cancel'),
     tone: 'danger',
   });
   if (!confirmed) return;
@@ -542,8 +545,8 @@ const renderTasksInner = () => {
       // "no tasks match" would assert something about a query we could not parse
       if (refs.emptyState) {
         refs.emptyState.textContent = stale
-          ? 'The last valid query matched no tasks'
-          : 'No tasks match your search';
+          ? t('tasks.staleQueryEmpty')
+          : t('tasks.searchEmpty');
         refs.tasksList.appendChild(refs.emptyState);
       }
       return;
@@ -577,7 +580,7 @@ const renderTasksInner = () => {
     if (unlisted && unlisted.length) {
       const header = document.createElement('p');
       header.className = 'tasks-group-title';
-      header.textContent = 'No list';
+      header.textContent = t('compose.noList');
       refs.tasksList?.appendChild(header);
       unlisted.forEach((task) => {
         const index = state.tasks.findIndex((t) => t.id === task.id);
@@ -593,7 +596,10 @@ const renderTasksInner = () => {
 
   if (visibleTasks.length === 0) {
     if (refs.emptyState) {
-      refs.emptyState.textContent = defaultEmptyText;
+      // Read live from the active dictionary rather than a snapshot taken at module load: that
+      // snapshot would run before loadSettings() ever applies a non-English locale and would
+      // then permanently pin this element back to English on every empty render.
+      refs.emptyState.textContent = t('tasks.empty');
       refs.tasksList.appendChild(refs.emptyState);
     }
     return;
@@ -634,7 +640,7 @@ const ensureTaskContextMenu = (): HTMLElement => {
   deleteItem.type = 'button';
   deleteItem.className = 'list-menu-item list-menu-danger';
   deleteItem.setAttribute('role', 'menuitem');
-  deleteItem.textContent = 'Delete';
+  deleteItem.textContent = t('menu.deleteTask');
   deleteItem.addEventListener('click', () => {
     const id = taskContextMenuTargetId;
     hideTaskContextMenu();

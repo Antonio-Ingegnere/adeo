@@ -136,6 +136,7 @@ export const refs = {
   settingsSave: byId<HTMLButtonElement>('save-settings'),
   settingsCancel: byId<HTMLButtonElement>('cancel-settings'),
   dateFormatSelect: byId<HTMLSelectElement>('date-format'),
+  languageSelect: byId<HTMLSelectElement>('language-select'),
   tagColorsCheckbox: byId<HTMLInputElement>('tag-colors'),
   settingsShowCompleted: byId<HTMLInputElement>('show-completed'),
   settingsRail: byId<HTMLDivElement>('settings-rail'),

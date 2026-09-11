@@ -14,8 +14,7 @@ import { refs } from './dom.js';
 import { setSearchShortcutHint } from './querySearch.js';
 import { formatBinding } from './shortcutKeys.js';
 import { IS_MAC, getBindingsFor } from './shortcuts.js';
-
-const ADD_TASK_PLACEHOLDER = 'Add a new task';
+import { onLocaleChange, t } from './i18n/index.js';
 
 /**
  * The first binding for an action, as keycaps. Empty when the action is unbound — callers
@@ -31,7 +30,15 @@ export const renderShortcutHints = () => {
   setSearchShortcutHint(shortcutHint('search.focus'));
 
   if (refs.input) {
+    // Read the placeholder from the active dictionary every call: this runs *after* setLocale
+    // at boot (loadSettings) and would otherwise pin the field to English. The keyboard hint is
+    // appended to whatever the current language calls "Add a new task".
+    const base = t('compose.placeholder');
     const hint = shortcutHint('app.newTask');
-    refs.input.placeholder = hint ? `${ADD_TASK_PLACEHOLDER} (${hint})` : ADD_TASK_PLACEHOLDER;
+    refs.input.placeholder = hint ? `${base} (${hint})` : base;
   }
 };
+
+// A language change does not otherwise re-run this (the Settings save path calls setLocale but
+// not renderShortcutHints), so the add-task placeholder would stay in the previous language.
+onLocaleChange(renderShortcutHints);

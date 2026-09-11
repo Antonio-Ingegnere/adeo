@@ -5,6 +5,7 @@ import type {
   BoardColumnSourceKind,
   ElectronAPI,
   List,
+  LocaleCode,
   Settings,
   SidebarUiState,
   SmartList,
@@ -113,6 +114,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateDateFormat: (format: string) =>
     ipcRenderer.invoke('update-date-format', format) as Promise<{ dateFormat: string }>,
   updateTheme: (theme: Theme) => ipcRenderer.invoke('update-theme', theme) as Promise<{ theme: Theme }>,
+  updateLocale: (locale: LocaleCode) =>
+    ipcRenderer.invoke('update-locale', locale) as Promise<{ locale: LocaleCode }>,
   updateSidebarUiState: (state: SidebarUiState) =>
     ipcRenderer.invoke('update-sidebar-ui', state) as Promise<{ sidebarUi: SidebarUiState }>,
   onOpenSettings: (callback: () => void) => {

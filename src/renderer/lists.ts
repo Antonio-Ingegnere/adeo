@@ -4,6 +4,7 @@ import { renderTasks } from './tasks.js';
 import { isListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
 import { confirmApp } from './confirmDialog.js';
+import { onLocaleChange, t } from './i18n/index.js';
 
 /**
  * Selecting a list is a view change, and index.ts owns those -- it is the only module that can
@@ -48,7 +49,7 @@ export const renderListOptions = (
   if (!target) return;
   const selectedValue = selectedId !== null ? String(selectedId) : '';
   const entries = [
-    { value: '', label: 'No list', title: '' },
+    { value: '', label: t('compose.noList'), title: '' },
     ...state.lists.map((list) => {
       const { label, title } = truncateListName(list.name);
       return { value: String(list.id), label, title: title || list.name };
@@ -107,7 +108,7 @@ export const renderLists = () => {
   // what is on screen is the search rather than any list
   const allSelected = isListInView(null);
   const allItem = createSidebarPill({
-    label: 'All lists',
+    label: t('view.allLists'),
     selected: allSelected,
     onActivate: () => selectView(null),
   });
@@ -165,7 +166,7 @@ export const renderLists = () => {
 
     const renameItem = document.createElement('button');
     renameItem.className = 'list-menu-item';
-    renameItem.textContent = 'Rename list';
+    renameItem.textContent = t('menu.renameList');
     renameItem.addEventListener('click', (event) => {
       event.stopPropagation();
       const evt = new CustomEvent('open-edit-list-modal', { detail: { listId: list.id } });
@@ -177,13 +178,14 @@ export const renderLists = () => {
 
     const deleteItem = document.createElement('button');
     deleteItem.className = 'list-menu-item list-menu-danger';
-    deleteItem.textContent = 'Delete list';
+    deleteItem.textContent = t('menu.deleteList');
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
       const confirmDelete = await confirmApp({
-        heading: `Delete list "${list.name}"?`,
-        message: 'The list and all of its tasks will be removed.',
-        confirmLabel: 'Delete',
+        heading: `${t('confirm.deleteList.heading')} "${list.name}"?`,
+        message: t('confirm.deleteList.message'),
+        confirmLabel: t('confirm.delete'),
+        cancelLabel: t('confirm.cancel'),
         tone: 'danger',
       });
       if (!confirmDelete) {
@@ -239,3 +241,6 @@ export const setLists = (lists: List[]) => {
   renderLists();
   renderViewBar();
 };
+
+// Re-render the sidebar Lists section when language changes to update the "All lists" label
+onLocaleChange(() => renderLists());

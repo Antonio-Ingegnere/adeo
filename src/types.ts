@@ -17,6 +17,14 @@ export type Task = {
 /** 'system' follows the OS; the other two override it. Applied via nativeTheme.themeSource. */
 export type Theme = 'system' | 'light' | 'dark';
 
+/**
+ * UI languages Adeo ships translations for. Detected from the OS locale on first launch
+ * (falling back to 'en'), then persisted; changeable afterward from Settings > General.
+ * See src/renderer/i18n/ for the dictionaries and src/main.ts's mirrored-by-hand copy of this
+ * type (main.ts is CommonJS and cannot import the ESM-only renderer i18n module).
+ */
+export type LocaleCode = 'en' | 'es' | 'ru' | 'be' | 'pl' | 'de' | 'pt' | 'zh' | 'ko' | 'ja' | 'tr';
+
 export type Settings = {
   showCompleted: boolean;
   timeFormat: '12h' | '24h';
@@ -24,6 +32,8 @@ export type Settings = {
   theme: Theme;
   /** Tag colours on chips and dots. Off gives outlined chips and no dots. */
   tagColors: boolean;
+  /** UI language; see LocaleCode. */
+  locale: LocaleCode;
   /**
    * Rebound shortcuts only, keyed by shortcut id — not a snapshot of the whole keymap. An
    * absent id keeps its platform default, so a default improved in a later version still
@@ -201,6 +211,7 @@ export type ElectronAPI = {
   updateTimeFormat: (format: '12h' | '24h') => Promise<{ timeFormat: '12h' | '24h' }>;
   updateDateFormat: (format: string) => Promise<{ dateFormat: string }>;
   updateTheme: (theme: Theme) => Promise<{ theme: Theme }>;
+  updateLocale: (locale: LocaleCode) => Promise<{ locale: LocaleCode }>;
   updateSidebarUiState: (state: SidebarUiState) => Promise<{ sidebarUi: SidebarUiState }>;
   onOpenSettings: (callback: () => void) => () => void;
   onOpenShortcuts: (callback: () => void) => () => void;

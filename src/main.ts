@@ -101,6 +101,39 @@ type DateFormat =
 // Mirrors Theme in src/types.ts by hand, as TimeFormat/DateFormat already do.
 type Theme = 'system' | 'light' | 'dark';
 
+// Mirrors LocaleCode in src/renderer/i18n/locales.ts by hand -- that module is ESM-only
+// (renderer tsconfig) and cannot be imported from this CommonJS-compiled main process file,
+// the same reason Theme/SidebarUiState below are duplicated rather than shared.
+type LocaleCode = 'en' | 'es' | 'ru' | 'be' | 'ua' | 'pl' | 'de' | 'pt' | 'zh' | 'ko' | 'ja' | 'tr';
+const SUPPORTED_LOCALE_CODES: LocaleCode[] = [
+  'en',
+  'es',
+  'ru',
+  'be',
+  'ua',
+  'pl',
+  'de',
+  'pt',
+  'zh',
+  'ko',
+  'ja',
+  'tr',
+];
+const isSupportedLocaleCode = (value: unknown): value is LocaleCode =>
+  typeof value === 'string' && (SUPPORTED_LOCALE_CODES as string[]).includes(value);
+
+/**
+ * Maps a BCP-47-ish OS locale (`en-US`, `pt-BR`, `zh-Hans-CN`...) onto one of the twelve shipped
+ * languages using only the primary subtag. Anything unmapped -- empty, garbage, or a language
+ * Adeo does not ship -- falls back to English rather than throwing or leaving the UI blank.
+ */
+const matchSupportedLocale = (osLocale: unknown): LocaleCode => {
+  if (typeof osLocale !== 'string' || !osLocale) return 'en';
+  const primary = osLocale.toLowerCase().split(/[-_]/)[0];
+  if (primary === 'uk') return 'ua';
+  return isSupportedLocaleCode(primary) ? primary : 'en';
+};
+
 // Mirrors SidebarUiState in src/types.ts by hand, as Theme/TimeFormat already do.
 type SidebarUiState = {
   sections: {
@@ -122,6 +155,12 @@ type AppSettings = {
   dateFormat: DateFormat;
   theme: Theme;
   tagColors: boolean;
+  /**
+   * UI language. Auto-detected from the OS on first launch (see `localeNeedsAutoDetect` below)
+   * and persisted from then on, so it is never re-detected -- an explicit choice in Settings
+   * always wins over whatever the OS reports on a later launch.
+   */
+  locale: LocaleCode;
   // Mirrors Settings in src/types.ts by hand, as Theme/TimeFormat already do.
   shortcuts: Record<string, string[]>;
   menuAccelerators: Record<string, string>;
@@ -228,6 +267,7 @@ const defaultSettings: AppSettings = {
   dateFormat: 'YYYY-MM-DD',
   theme: 'system',
   tagColors: true,
+  locale: 'en',
   shortcuts: {},
   menuAccelerators: { ...DEFAULT_MENU_ACCELERATORS },
   sidebarUi: { ...defaultSidebarUi, sections: { ...defaultSidebarUi.sections } },
@@ -237,11 +277,23 @@ const defaultSettings: AppSettings = {
 const normalizeTheme = (value: unknown): Theme =>
   value === 'light' || value === 'dark' || value === 'system' ? value : defaultSettings.theme;
 
+const normalizeLocale = (value: unknown): LocaleCode =>
+  isSupportedLocaleCode(value) ? value : defaultSettings.locale;
+
+/**
+ * Set by readSettings() when the settings file predates the `locale` field or does not exist
+ * yet at all -- i.e. this is the first launch to know about languages. app.whenReady() then
+ * detects from app.getLocale() (which must not be called before 'ready') and persists the
+ * result, so every later launch reads a real, already-detected-or-chosen value here instead.
+ */
+let localeNeedsAutoDetect = false;
+
 const readSettings = (): AppSettings => {
   try {
     if (fs.existsSync(settingsPath)) {
       const raw = fs.readFileSync(settingsPath, 'utf-8');
       const parsed = JSON.parse(raw);
+      if (parsed.locale === undefined) localeNeedsAutoDetect = true;
       return {
         ...defaultSettings,
         ...parsed,
@@ -250,6 +302,7 @@ const readSettings = (): AppSettings => {
         showCompleted: typeof parsed.showCompleted === 'boolean' ? parsed.showCompleted : true,
         theme: normalizeTheme(parsed.theme),
         tagColors: typeof parsed.tagColors === 'boolean' ? parsed.tagColors : true,
+        locale: normalizeLocale(parsed.locale),
         shortcuts: sanitizeShortcuts(parsed.shortcuts),
         menuAccelerators: sanitizeMenuAccelerators(parsed.menuAccelerators),
         sidebarUi: sanitizeSidebarUi(parsed.sidebarUi),
@@ -261,6 +314,7 @@ const readSettings = (): AppSettings => {
   } catch {
     // ignore and fall back
   }
+  localeNeedsAutoDetect = true;
   return { ...defaultSettings };
 };
 
@@ -979,27 +1033,219 @@ function createWindow(): void {
 const menuAccelerator = (id: string): string =>
   safeAccelerator(id, appSettings.menuAccelerators?.[id]);
 
+/**
+ * Menu label translations for each supported locale.
+ * These match the 'menu.*' keys in src/renderer/i18n/dictionaries/*.ts
+ */
+const menuLabels: Record<LocaleCode, Record<string, string>> = {
+  en: {
+    file: 'File',
+    edit: 'Edit',
+    view: 'View',
+    help: 'Help',
+    debug: 'Debug',
+    find: 'Find',
+    showCompleted: 'Show Completed Tasks',
+    settings: 'Settings',
+    keyboardShortcuts: 'Keyboard Shortcuts',
+    showDevTools: 'Show DevTools',
+    about: 'About Adeo',
+    hide: 'Hide Adeo',
+    quit: 'Quit Adeo',
+  },
+  es: {
+    file: 'Archivo',
+    edit: 'Editar',
+    view: 'Ver',
+    help: 'Ayuda',
+    debug: 'Depuración',
+    find: 'Buscar',
+    showCompleted: 'Mostrar tareas completadas',
+    settings: 'Preferencias',
+    keyboardShortcuts: 'Atajos de teclado',
+    showDevTools: 'Mostrar herramientas de desarrollo',
+    about: 'Acerca de Adeo',
+    hide: 'Ocultar Adeo',
+    quit: 'Salir de Adeo',
+  },
+  ru: {
+    file: 'Файл',
+    edit: 'Правка',
+    view: 'Вид',
+    help: 'Справка',
+    debug: 'Отладка',
+    find: 'Поиск',
+    showCompleted: 'Показать завершённые задачи',
+    settings: 'Параметры',
+    keyboardShortcuts: 'Сочетания клавиш',
+    showDevTools: 'Показать инструменты разработчика',
+    about: 'О приложении Adeo',
+    hide: 'Скрыть Adeo',
+    quit: 'Выход из Adeo',
+  },
+  be: {
+    file: 'Файл',
+    edit: 'Правіць',
+    view: 'Прагляд',
+    help: 'Дапамога',
+    debug: 'Адладка',
+    find: 'Пошук',
+    showCompleted: 'Паказаць завершаныя задачы',
+    settings: 'Налады',
+    keyboardShortcuts: 'Клавіятурныя скарочы',
+    showDevTools: 'Паказаць інструменты распрацоўкі',
+    about: 'Аб Adeo',
+    hide: 'Схаваць Adeo',
+    quit: 'Выхад з Adeo',
+  },
+  ua: {
+    file: 'Файл',
+    edit: 'Редагувати',
+    view: 'Вигляд',
+    help: 'Довідка',
+    debug: 'Відлагодження',
+    find: 'Пошук',
+    showCompleted: 'Показати завершені завдання',
+    settings: 'Налаштування',
+    keyboardShortcuts: 'Клавіатурні скорочення',
+    showDevTools: 'Показати інструменти розробника',
+    about: 'Про Adeo',
+    hide: 'Сховати Adeo',
+    quit: 'Вийти з Adeo',
+  },
+  pl: {
+    file: 'Plik',
+    edit: 'Edycja',
+    view: 'Widok',
+    help: 'Pomoc',
+    debug: 'Debugowanie',
+    find: 'Znajdź',
+    showCompleted: 'Pokaż ukończone zadania',
+    settings: 'Ustawienia',
+    keyboardShortcuts: 'Skróty klawiszowe',
+    showDevTools: 'Pokaż narzędzia dewelopera',
+    about: 'O aplikacji Adeo',
+    hide: 'Ukryj Adeo',
+    quit: 'Zamknij Adeo',
+  },
+  de: {
+    file: 'Datei',
+    edit: 'Bearbeiten',
+    view: 'Ansicht',
+    help: 'Hilfe',
+    debug: 'Debuggen',
+    find: 'Suchen',
+    showCompleted: 'Abgeschlossene Aufgaben anzeigen',
+    settings: 'Einstellungen',
+    keyboardShortcuts: 'Tastaturkürzel',
+    showDevTools: 'Entwicklertools anzeigen',
+    about: 'Über Adeo',
+    hide: 'Adeo ausblenden',
+    quit: 'Adeo beenden',
+  },
+  pt: {
+    file: 'Arquivo',
+    edit: 'Editar',
+    view: 'Exibir',
+    help: 'Ajuda',
+    debug: 'Depuração',
+    find: 'Localizar',
+    showCompleted: 'Mostrar tarefas concluídas',
+    settings: 'Configurações',
+    keyboardShortcuts: 'Atalhos de teclado',
+    showDevTools: 'Mostrar ferramentas de desenvolvedor',
+    about: 'Sobre o Adeo',
+    hide: 'Ocultar Adeo',
+    quit: 'Sair do Adeo',
+  },
+  zh: {
+    file: '文件',
+    edit: '编辑',
+    view: '查看',
+    help: '帮助',
+    debug: '调试',
+    find: '查找',
+    showCompleted: '显示已完成的任务',
+    settings: '设置',
+    keyboardShortcuts: '键盘快捷键',
+    showDevTools: '显示开发者工具',
+    about: '关于 Adeo',
+    hide: '隐藏 Adeo',
+    quit: '退出 Adeo',
+  },
+  ko: {
+    file: '파일',
+    edit: '편집',
+    view: '보기',
+    help: '도움말',
+    debug: '디버그',
+    find: '찾기',
+    showCompleted: '완료된 작업 표시',
+    settings: '설정',
+    keyboardShortcuts: '키보드 단축키',
+    showDevTools: '개발자 도구 표시',
+    about: 'Adeo 정보',
+    hide: 'Adeo 숨기기',
+    quit: 'Adeo 종료',
+  },
+  ja: {
+    file: 'ファイル',
+    edit: '編集',
+    view: '表示',
+    help: 'ヘルプ',
+    debug: 'デバッグ',
+    find: '検索',
+    showCompleted: '完了したタスクを表示',
+    settings: '設定',
+    keyboardShortcuts: 'キーボードショートカット',
+    showDevTools: '開発者ツールを表示',
+    about: 'Adeoについて',
+    hide: 'Adeoを隠す',
+    quit: 'Adeoを終了',
+  },
+  tr: {
+    file: 'Dosya',
+    edit: 'Düzen',
+    view: 'Görünüm',
+    help: 'Yardım',
+    debug: 'Hata Ayıkla',
+    find: 'Bul',
+    showCompleted: 'Tamamlanan Görevleri Göster',
+    settings: 'Ayarlar',
+    keyboardShortcuts: 'Klavye Kısayolları',
+    showDevTools: 'Geliştirici Araçlarını Göster',
+    about: 'Adeo Hakkında',
+    hide: 'Adeo\'yu Gizle',
+    quit: 'Adeo\'dan Çık',
+  },
+};
+
+function getMenuLabels(locale: LocaleCode): Record<string, string> {
+  return menuLabels[locale] || menuLabels.en;
+}
+
 function setupMenu(window: BrowserWindow): void {
   const isMac = process.platform === 'darwin';
+  const labels = getMenuLabels(appSettings.locale);
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
       ? [
           {
             label: APP_NAME,
             submenu: [
-              { role: 'about', label: `About ${APP_NAME}` },
+              { role: 'about', label: labels.about },
               { type: 'separator' },
-              { role: 'hide', label: `Hide ${APP_NAME}` },
+              { role: 'hide', label: labels.hide },
               { role: 'hideOthers' },
               { role: 'unhide' },
               { type: 'separator' },
-              { role: 'quit', label: `Quit ${APP_NAME}` },
+              { role: 'quit', label: labels.quit },
             ],
           } as Electron.MenuItemConstructorOptions,
         ]
       : [
           {
-            label: 'File',
+            label: labels.file,
             submenu: [{ role: 'quit' }],
           } as Electron.MenuItemConstructorOptions,
         ]),
@@ -1008,7 +1254,7 @@ function setupMenu(window: BrowserWindow): void {
     // accelerators from the whole app, which is why every text field lost select-all and
     // clipboard support. Keep this submenu whenever the template changes.
     {
-      label: 'Edit',
+      label: labels.edit,
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
@@ -1030,17 +1276,17 @@ function setupMenu(window: BrowserWindow): void {
       ],
     },
     {
-      label: 'View',
+      label: labels.view,
       submenu: [
         {
-          label: 'Find',
+          label: labels.find,
           accelerator: menuAccelerator('search.focus'),
           click: () => {
             window.webContents.send('focus-search');
           },
         },
         {
-          label: 'Show Completed Tasks',
+          label: labels.showCompleted,
           type: 'checkbox',
           accelerator: menuAccelerator('view.toggleCompleted'),
           checked: showCompleted,
@@ -1052,7 +1298,7 @@ function setupMenu(window: BrowserWindow): void {
           },
         },
         {
-          label: 'Settings',
+          label: labels.settings,
           accelerator: menuAccelerator('app.settings'),
           click: () => {
             window.webContents.send('open-settings');
@@ -1061,13 +1307,13 @@ function setupMenu(window: BrowserWindow): void {
       ],
     },
     {
-      label: 'Help',
+      label: labels.help,
       role: 'help',
       submenu: [
         {
           // No accelerator on purpose: the renderer owns this key so it can offer both "?"
           // and Mod+/, which one accelerator could not. The item is here for discovery.
-          label: 'Keyboard Shortcuts',
+          label: labels.keyboardShortcuts,
           click: () => {
             window.webContents.send('open-shortcuts');
           },
@@ -1075,10 +1321,10 @@ function setupMenu(window: BrowserWindow): void {
       ],
     },
     {
-      label: 'Debug',
+      label: labels.debug,
       submenu: [
         {
-          label: 'Show DevTools',
+          label: labels.showDevTools,
           click: () => {
             if (!window.webContents.isDevToolsOpened()) {
               window.webContents.openDevTools({ mode: 'detach' });
@@ -1475,6 +1721,20 @@ ipcMain.handle('update-theme', async (_event, theme: Theme) => {
   return { theme: nextTheme };
 });
 
+// The renderer applies the dictionary swap itself (see src/renderer/i18n); this only persists
+// the choice, same fire-and-forget shape as update-theme. An unsupported code (should not
+// happen from the Settings <select>, but a corrupt IPC payload is not impossible) collapses to
+// English rather than getting written to disk.
+ipcMain.handle('update-locale', async (_event, locale: LocaleCode) => {
+  const nextLocale = normalizeLocale(locale);
+  appSettings = { ...appSettings, locale: nextLocale };
+  writeSettings(appSettings);
+  if (mainWindow) {
+    setupMenu(mainWindow);
+  }
+  return { locale: nextLocale };
+});
+
 // The renderer owns which sidebar item is selected and which sections are open; this only
 // persists the sanitized snapshot so the next launch can restore it. Same fire-and-forget
 // shape as update-theme: the renderer already applied the change locally.
@@ -1494,6 +1754,16 @@ ipcMain.handle('update-sidebar-ui', async (_event, next: unknown) => {
 // });
 
 app.whenReady().then(async () => {
+  // app.getLocale() must not be called before 'ready'; this is the earliest point a genuine
+  // first launch (or a settings file that predates the locale field) can be auto-detected.
+  // Persisting it immediately means later launches read it back in readSettings() above and
+  // never re-detect, so an explicit language choice in Settings is never overridden by this.
+  if (localeNeedsAutoDetect) {
+    appSettings = { ...appSettings, locale: matchSupportedLocale(app.getLocale()) };
+    writeSettings(appSettings);
+    localeNeedsAutoDetect = false;
+  }
+
   // Must precede createWindow(): the window's backgroundColor is read from
   // shouldUseDarkColors, so applying the stored theme later would flash the wrong scheme
   // on every launch for anyone not on 'system'.

@@ -7,6 +7,7 @@ import { makePillActivatable, revealInScroller } from './helpers.js';
 import { attachPillDnD, makeDragHandle, moveItem } from './pillDnD.js';
 import { makeTagDot } from './tagColor.js';
 import { confirmApp } from './confirmDialog.js';
+import { t } from './i18n/index.js';
 
 const truncateTagName = (text: string) => {
   const truncated = text.length > 30 ? `${text.slice(0, 30)}...` : text;
@@ -159,7 +160,7 @@ export const renderTags = () => {
 
     const renameItem = document.createElement('button');
     renameItem.className = 'list-menu-item';
-    renameItem.textContent = 'Edit tag';
+    renameItem.textContent = t('menu.editTag');
     renameItem.addEventListener('click', (event) => {
       event.stopPropagation();
       const evt = new CustomEvent('open-edit-tag-modal', { detail: { tagId: tag.id } });
@@ -171,13 +172,14 @@ export const renderTags = () => {
 
     const deleteItem = document.createElement('button');
     deleteItem.className = 'list-menu-item list-menu-danger';
-    deleteItem.textContent = 'Delete tag';
+    deleteItem.textContent = t('menu.deleteTag');
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
       const confirmDelete = await confirmApp({
-        heading: `Delete tag "${tag.name}"?`,
-        message: 'The tag will be removed from all tasks. Tasks are kept.',
-        confirmLabel: 'Delete',
+        heading: `${t('confirm.deleteTag.heading')} "${tag.name}"?`,
+        message: t('confirm.deleteTag.message'),
+        confirmLabel: t('confirm.delete'),
+        cancelLabel: t('confirm.cancel'),
         tone: 'danger',
       });
       if (!confirmDelete) {

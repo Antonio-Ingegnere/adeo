@@ -24,6 +24,7 @@ import {
 } from './composeOptions.js';
 import { announceComposeSuccess, showComposeError } from './composeFeedback.js';
 import { applySidebarSections, stashSidebarUi } from './sidebarUiState.js';
+import { setLocale, t } from './i18n/index.js';
 
 const INLINE_TAG_RE = /(^|\s)#([A-Za-z0-9_-]+)/g;
 
@@ -112,7 +113,7 @@ export const addTask = async () => {
     // the options cleared, so this is the pre-reset state and that is the post-reset state.
     renderTemplateHints(true);
     const listLabel =
-      listId === null ? 'No list' : state.lists.find((l) => l.id === listId)?.name ?? 'No list';
+      listId === null ? t('compose.noList') : state.lists.find((l) => l.id === listId)?.name ?? t('compose.noList');
     resetComposeOptions();
     syncComposeMetaRow();
     input.value = '';
@@ -171,6 +172,10 @@ export const loadSettings = async () => {
     // process via nativeTheme.themeSource, which drives prefers-color-scheme here
     state.theme = settings.theme ?? 'system';
     state.tagColors = settings.tagColors ?? true;
+    // Swaps the active dictionary and repaints every data-i18n-tagged element immediately;
+    // setLocale() itself falls back to English for anything not in SUPPORTED_LOCALES.
+    state.locale = settings.locale ?? 'en';
+    setLocale(state.locale);
     state.shortcutOverrides = settings.shortcuts ?? {};
     // Restored sidebar expand/collapse is applied now, before the first sidebar render;
     // the saved selection is replayed after lists / smart lists / boards load (init()).

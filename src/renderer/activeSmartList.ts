@@ -7,6 +7,7 @@ import { deriveTemplate } from './smartListTemplate.js';
 import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
 import { paintTagChip } from './tagColor.js';
+import { t, onLocaleChange } from './i18n/index.js';
 
 /**
  * Derived, never stored. A smart list is *running* iff the search bar currently holds exactly
@@ -155,7 +156,7 @@ export const resolveTemplateNames = (
     if (found) {
       listId = found.id;
     } else {
-      missing.push(`list:${template.listName} (no such list)`);
+      missing.push(`list:${template.listName} ${t('smartListTemplate.noSuchList')}`);
     }
   }
 
@@ -235,12 +236,12 @@ export const renderTemplateHints = (force = false) => {
   // Destination: while a search/template is running the picker names the search, not a list,
   // so this row is the only place that can say where the task will land.
   if (template?.listName === null) {
-    container.appendChild(chip('No list'));
+    container.appendChild(chip(t('compose.noList')));
   } else if (template?.listName !== undefined && !missing.length) {
     container.appendChild(chip(template.listName));
   } else {
     const fallback = state.lists.find((l) => l.id === state.selectedListId);
-    container.appendChild(chip(fallback ? fallback.name : 'No list'));
+    container.appendChild(chip(fallback ? fallback.name : t('compose.noList')));
   }
 
   if (template) {
@@ -257,24 +258,24 @@ export const renderTemplateHints = (force = false) => {
   }
 
   if (template?.priority && template.priority !== 'none') {
-    const el = chip(template.priority[0].toUpperCase() + template.priority.slice(1));
+    const el = chip(t(('priority.' + template.priority) as any));
     el.dataset.priority = template.priority;
     container.appendChild(el);
   }
   if (template?.due) {
-    container.appendChild(chip(`Due ${resolveDue(template.due)}`));
+    container.appendChild(chip(t('activeSmartList.due').replace('{date}', resolveDue(template.due))));
   }
 
-  if (template?.repeat) container.appendChild(chip(`Repeats ${template.repeat}`));
+  if (template?.repeat) container.appendChild(chip(t('activeSmartList.repeats').replace('{value}', t(('repeat.' + template.repeat) as any))));
   // a task created already complete vanishes on the spot while Show completed is off, so this
   // is the one chip that has to be there before the fact rather than explaining it after
-  if (template?.done) container.appendChild(chip('Done'));
+  if (template?.done) container.appendChild(chip(t('activeSmartList.done')));
 
   const notApplied = template ? [...template.skipped, ...missing] : [];
   if (notApplied.length) {
     const note = document.createElement('span');
     note.className = 'template-warning';
-    note.textContent = `⚠ not applied: ${notApplied.join(', ')} — the new task may not appear in this view`;
+    note.textContent = t('activeSmartList.notApplied').replace('{fields}', notApplied.join(', '));
     container.appendChild(note);
   }
 
@@ -282,3 +283,7 @@ export const renderTemplateHints = (force = false) => {
     container.style.display = 'none';
   }
 };
+
+// Re-render template hints when language changes. Force bypasses renderTemplateHints' own
+// query/list-keyed memoization, which otherwise short-circuits when only the locale changed.
+onLocaleChange(() => renderTemplateHints(true));

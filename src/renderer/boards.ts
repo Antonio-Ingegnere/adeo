@@ -10,6 +10,7 @@ import { enterBoardView } from './board.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { confirmApp } from './confirmDialog.js';
+import { t } from './i18n/index.js';
 
 const saveBoardOrder = async () => {
   try {
@@ -113,7 +114,7 @@ export const renderBoards = () => {
 
     const editItem = document.createElement('button');
     editItem.className = 'list-menu-item';
-    editItem.textContent = 'Rename board';
+    editItem.textContent = t('menu.renameBoard');
     editItem.addEventListener('click', (event) => {
       event.stopPropagation();
       state.openBoardMenuId = null;
@@ -124,13 +125,14 @@ export const renderBoards = () => {
 
     const deleteItem = document.createElement('button');
     deleteItem.className = 'list-menu-item list-menu-danger';
-    deleteItem.textContent = 'Delete board';
+    deleteItem.textContent = t('menu.deleteBoard');
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
       const ok = await confirmApp({
-        heading: `Delete board "${board.name}"?`,
-        message: 'Only the saved board is removed. Its Lists, Smart lists and tasks are kept.',
-        confirmLabel: 'Delete',
+        heading: `${t('confirm.deleteBoard.heading')} "${board.name}"?`,
+        message: t('confirm.deleteBoard.message'),
+        confirmLabel: t('confirm.delete'),
+        cancelLabel: t('confirm.cancel'),
         tone: 'danger',
       });
       if (!ok) {

@@ -13,6 +13,7 @@ import { isSmartListInView } from './currentView.js';
 import { renderViewBar } from './viewBar.js';
 import { state } from './state.js';
 import { confirmApp } from './confirmDialog.js';
+import { t } from './i18n/index.js';
 
 const saveSmartListOrder = async () => {
   try {
@@ -107,7 +108,7 @@ export const renderSmartLists = () => {
 
     const editItem = document.createElement('button');
     editItem.className = 'list-menu-item';
-    editItem.textContent = 'Edit smart list';
+    editItem.textContent = t('menu.editSmartList');
     editItem.addEventListener('click', (event) => {
       event.stopPropagation();
       document.dispatchEvent(
@@ -120,13 +121,14 @@ export const renderSmartLists = () => {
 
     const deleteItem = document.createElement('button');
     deleteItem.className = 'list-menu-item list-menu-danger';
-    deleteItem.textContent = 'Delete smart list';
+    deleteItem.textContent = t('menu.deleteSmartList');
     deleteItem.addEventListener('click', async (event) => {
       event.stopPropagation();
       const confirmDelete = await confirmApp({
-        heading: `Delete smart list "${smartList.name}"?`,
-        message: 'Only the saved query is removed. Tasks are kept.',
-        confirmLabel: 'Delete',
+        heading: `${t('confirm.deleteSmartList.heading')} "${smartList.name}"?`,
+        message: t('confirm.deleteSmartList.message'),
+        confirmLabel: t('confirm.delete'),
+        cancelLabel: t('confirm.cancel'),
         tone: 'danger',
       });
       if (!confirmDelete) {

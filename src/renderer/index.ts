@@ -1,5 +1,6 @@
 import { addTask, loadLists, loadSettings, loadTags, loadTasks } from './actions.js';
 import { refs } from './dom.js';
+import { SUPPORTED_LOCALES, setLocale, t } from './i18n/index.js';
 import { renderListOptions, renderLists, toggleListsExpanded } from './lists.js';
 import { mergeTag, renderTags, toggleTagsExpanded } from './tags.js';
 import { loadSmartLists, renderSmartLists, toggleSmartListsExpanded } from './smartLists.js';
@@ -135,7 +136,7 @@ const openSmartListModal = (smartListId?: number) => {
   showSmartListError(null);
 
   if (refs.smartListModalTitle) {
-    refs.smartListModalTitle.textContent = existing ? 'Edit smart list' : 'Save smart list';
+    refs.smartListModalTitle.textContent = existing ? t('smartListModal.editHeading') : t('smartListModal.heading');
   }
   if (refs.smartListNameInput) {
     refs.smartListNameInput.value = existing?.name ?? '';
@@ -146,7 +147,7 @@ const openSmartListModal = (smartListId?: number) => {
 
   if (!existing && !refs.smartListQueryInput?.value) {
     // nothing to save: tell the user how to get a query rather than opening an empty dialog
-    showSmartListError('Type a query in the search bar first, then save it here.');
+    showSmartListError(t('smartListModal.emptyQueryError'));
   }
 
   refs.smartListOverlay?.classList.add('open');
@@ -186,6 +187,20 @@ const labelDateFormatOptions = () => {
   }
 };
 
+/**
+ * Populated once, not in the markup: each option's visible text is its own native name (never
+ * translated) so a user who cannot read the current UI language can still recognize theirs.
+ */
+const populateLanguageOptions = () => {
+  if (!refs.languageSelect || refs.languageSelect.options.length > 0) return;
+  for (const { code, nativeName } of SUPPORTED_LOCALES) {
+    const option = document.createElement('option');
+    option.value = code;
+    option.textContent = nativeName;
+    refs.languageSelect.appendChild(option);
+  }
+};
+
 /** Seeds every control from state, since the modal keeps no scratch copy of its own. */
 const openSettingsModal = () => {
   if (!refs.settingsOverlay) return;
@@ -197,6 +212,10 @@ const openSettingsModal = () => {
   labelDateFormatOptions();
   if (refs.dateFormatSelect) {
     refs.dateFormatSelect.value = state.dateFormat;
+  }
+  populateLanguageOptions();
+  if (refs.languageSelect) {
+    refs.languageSelect.value = state.locale;
   }
   seedThemeRadio();
   if (refs.tagColorsCheckbox) refs.tagColorsCheckbox.checked = state.tagColors;
@@ -1423,15 +1442,17 @@ const setupEvents = () => {
     const selectedTheme = readSelectedTheme();
     const tagColors = refs.tagColorsCheckbox?.checked ?? true;
     const showCompleted = refs.settingsShowCompleted?.checked ?? true;
+    const selectedLocale = refs.languageSelect?.value || state.locale;
     showSettingsError(null);
     try {
-      const [timeResult, dateResult, themeResult, tagColorResult, showCompletedResult] =
+      const [timeResult, dateResult, themeResult, tagColorResult, showCompletedResult, localeResult] =
         await Promise.all([
           window.electronAPI.updateTimeFormat(selected),
           window.electronAPI.updateDateFormat(selectedDateFormat),
           window.electronAPI.updateTheme(selectedTheme),
           window.electronAPI.updateTagColors(tagColors),
           window.electronAPI.updateShowCompleted(showCompleted),
+          window.electronAPI.updateLocale(selectedLocale as typeof state.locale),
           saveShortcutSettings(),
         ]);
       state.timeFormat = timeResult.timeFormat;
@@ -1444,6 +1465,10 @@ const setupEvents = () => {
       // main rebuilt the View menu's checkbox to match; it deliberately does not echo
       // show-completed-changed back, which would double-render
       state.showCompleted = showCompletedResult.showCompleted;
+      // swaps the active dictionary and repaints every data-i18n-tagged element immediately,
+      // so the change is visible before the dialog even closes
+      state.locale = localeResult.locale;
+      setLocale(state.locale);
       buildTimeOptions();
       updateReminderUI(state.modalReminderDate, state.modalReminderTime);
       renderTags();

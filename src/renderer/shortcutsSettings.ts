@@ -8,6 +8,7 @@
 
 import { refs } from './dom.js';
 import { state } from './state.js';
+import { t, type TranslationKey } from './i18n/index.js';
 import {
   findConflicts,
   formatBinding,
@@ -30,20 +31,36 @@ import { renderShortcutHints } from './shortcutHints.js';
 import { createShortcutKeycaps } from './uiElements.js';
 
 /**
+ * Get the translated label for a shortcut ID.
+ */
+const getLabelFor = (id: string): string => {
+  const key = `shortcuts.label.${id}` as TranslationKey;
+  return t(key);
+};
+
+/**
+ * Get the translated category name.
+ */
+const getCategoryName = (category: string): string => {
+  const key = `shortcuts.category.${category}` as TranslationKey;
+  return t(key);
+};
+
+/**
  * Keys the native Edit and app menus own by role. A renderer binding could never win against
  * these anyway — Electron consumes the accelerator first — so allowing one would only produce
  * a shortcut that silently does nothing. The comment above the Edit submenu in main.ts
  * explains why those roles are load-bearing.
  */
-const RESERVED: Record<string, string> = {
-  'Mod+A': 'Select All',
-  'Mod+C': 'Copy',
-  'Mod+V': 'Paste',
-  'Mod+X': 'Cut',
-  'Mod+Z': 'Undo',
-  'Mod+Shift+Z': 'Redo',
-  'Mod+Q': 'Quit',
-  'Mod+W': 'Close Window',
+const RESERVED: Record<string, TranslationKey> = {
+  'Mod+A': 'shortcuts.ui.reserved.selectAll',
+  'Mod+C': 'shortcuts.ui.reserved.copy',
+  'Mod+V': 'shortcuts.ui.reserved.paste',
+  'Mod+X': 'shortcuts.ui.reserved.cut',
+  'Mod+Z': 'shortcuts.ui.reserved.undo',
+  'Mod+Shift+Z': 'shortcuts.ui.reserved.redo',
+  'Mod+Q': 'shortcuts.ui.reserved.quit',
+  'Mod+W': 'shortcuts.ui.reserved.closeWindow',
 };
 
 /** Working copy of the overrides, discarded on Cancel. */
@@ -66,8 +83,6 @@ const keycaps = (binding: Binding): HTMLElement => {
   return createShortcutKeycaps({ tokens });
 };
 
-const labelFor = (id: string) => SHORTCUTS.find((def) => def.id === id)?.label ?? id;
-
 /**
  * Take a binding off whoever else holds it, and say so. A modal confirm for something the
  * per-row reset already undoes would be friction without a decision behind it. Scoped:
@@ -82,7 +97,7 @@ const stealBinding = (binding: Binding, forId: string): string | null => {
   const loser = clash.ids.find((id) => id !== forId);
   if (!loser) return null;
   pending[loser] = (keymap[loser] ?? []).filter((existing) => existing !== binding);
-  return labelFor(loser);
+  return getLabelFor(loser);
 };
 
 const applyBinding = (def: ShortcutDef, binding: Binding | null) => {
@@ -94,7 +109,7 @@ const applyBinding = (def: ShortcutDef, binding: Binding | null) => {
 
   const reserved = RESERVED[binding];
   if (reserved) {
-    showError(`${formatBinding(binding, IS_MAC).join('')} belongs to ${reserved} and can't be reassigned.`);
+    showError(`${formatBinding(binding, IS_MAC).join('')} belongs to ${t(reserved)} and can't be reassigned.`);
     render();
     return;
   }
@@ -118,7 +133,7 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
 
   const label = document.createElement('span');
   label.className = 'shortcut-setting-label';
-  label.textContent = def.label;
+  label.textContent = getLabelFor(def.id);
   row.appendChild(label);
 
   const button = document.createElement('button');
@@ -128,21 +143,22 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   button.dataset.role = 'bind';
 
   const bindings = currentKeymap()[def.id] ?? [];
+  const shortcutLabel = getLabelFor(def.id);
   if (capturingId === def.id) {
     button.classList.add('is-capturing');
-    button.textContent = 'Press a key…';
-    button.setAttribute('aria-label', `Press a key for ${def.label}, or Escape to cancel`);
+    button.textContent = t('shortcuts.ui.pressKey');
+    button.setAttribute('aria-label', `${t('shortcuts.ui.pressKey')} ${shortcutLabel}, or Escape to cancel`);
   } else if (bindings.length === 0) {
     button.classList.add('is-unbound');
-    button.textContent = 'Not set';
-    button.setAttribute('aria-label', `${def.label}: not set. Click to assign a key.`);
+    button.textContent = t('shortcuts.ui.notSet');
+    button.setAttribute('aria-label', `${shortcutLabel}: ${t('shortcuts.ui.notSet')}. Click to assign a key.`);
   } else {
     // Only the first is editable here; a second binding (⌘/ and ? for help) is a shipped
     // default rather than something this row is trying to model.
     button.appendChild(keycaps(bindings[0]));
     button.setAttribute(
       'aria-label',
-      `${def.label}: ${formatBinding(bindings[0], IS_MAC).join(' ')}. Click to change.`
+      `${shortcutLabel}: ${formatBinding(bindings[0], IS_MAC).join(' ')}. Click to change.`
     );
   }
   button.addEventListener('click', () => startCapture(def));
@@ -154,8 +170,8 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   reset.dataset.id = def.id;
   reset.dataset.role = 'reset';
   reset.textContent = '↺';
-  reset.title = 'Reset to default';
-  reset.setAttribute('aria-label', `Reset ${def.label} to its default`);
+  reset.title = t('shortcuts.ui.resetToDefault');
+  reset.setAttribute('aria-label', `${t('shortcuts.ui.resetToDefault')} ${shortcutLabel}`);
   reset.addEventListener('click', () => {
     delete pending[def.id];
     showError(null);
@@ -169,8 +185,8 @@ const buildRow = (def: ShortcutDef): HTMLElement => {
   unbind.dataset.id = def.id;
   unbind.dataset.role = 'unbind';
   unbind.textContent = '✕';
-  unbind.title = 'Unbind';
-  unbind.setAttribute('aria-label', `Unbind ${def.label}`);
+  unbind.title = t('shortcuts.ui.unbind');
+  unbind.setAttribute('aria-label', `${t('shortcuts.ui.unbind')} ${shortcutLabel}`);
   unbind.addEventListener('click', () => {
     pending[def.id] = [];
     showError(null);
@@ -242,7 +258,7 @@ const render = () => {
 
     const heading = document.createElement('p');
     heading.className = 'shortcut-group-title';
-    heading.textContent = category;
+    heading.textContent = getCategoryName(category);
     refs.shortcutList.appendChild(heading);
     for (const def of defs) refs.shortcutList.appendChild(buildRow(def));
   }
@@ -330,7 +346,7 @@ export const setupShortcutSettings = () => {
 
   refs.resetShortcuts?.addEventListener('click', () => {
     pending = {};
-    showError('All shortcuts reset to their defaults.');
+    showError(t('shortcuts.ui.allReset'));
     render();
   });
 };

@@ -1,4 +1,4 @@
-import type { Board, List, SmartList, Tag, Task, Theme } from '../types';
+import type { Board, List, LocaleCode, SmartList, Tag, Task, Theme } from '../types';
 import type { CompiledPredicate, ParseError } from './query.js';
 
 /**
@@ -109,6 +109,8 @@ export type UIState = {
   timeFormat: '12h' | '24h';
   dateFormat: string;
   theme: Theme;
+  /** UI language; seeds the Settings language <select> and is applied via i18n.setLocale(). */
+  locale: LocaleCode;
   /**
    * The compose row's own draft metadata (Quick Add "Options"), distinct from the edit dialog's
    * modal* fields above: these describe the *next* task to be created from #message-input, not a
@@ -203,6 +205,7 @@ export const state: UIState = {
   timeFormat: '12h',
   dateFormat: 'YYYY-MM-DD',
   theme: 'system',
+  locale: 'en',
   composePriority: 'none',
   composeReminderDate: null,
   composeListId: undefined,

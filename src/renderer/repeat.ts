@@ -1,3 +1,5 @@
+import { t } from './i18n/index.js';
+
 const splitRrule = (rule: string) =>
   rule.split(';').reduce<Record<string, string>>((acc, part) => {
     const [key, value] = part.split('=');
@@ -8,49 +10,51 @@ const splitRrule = (rule: string) =>
 const toOrdinalLabel = (value: string) => {
   switch (value) {
     case '1':
-      return 'First';
+      return t('repeat.ordinal.first');
     case '2':
-      return 'Second';
+      return t('repeat.ordinal.second');
     case '3':
-      return 'Third';
+      return t('repeat.ordinal.third');
     case '4':
-      return 'Fourth';
+      return t('repeat.ordinal.fourth');
     case '-1':
-      return 'Last';
+      return t('repeat.ordinal.last');
     default:
-      return 'First';
+      return t('repeat.ordinal.first');
   }
 };
 
 const toWeekdayLabel = (value: string) => {
-  const map: Record<string, string> = {
-    MO: 'Monday',
-    TU: 'Tuesday',
-    WE: 'Wednesday',
-    TH: 'Thursday',
-    FR: 'Friday',
-    SA: 'Saturday',
-    SU: 'Sunday',
+  const keyMap: Record<string, string> = {
+    MO: 'weekday.mon',
+    TU: 'weekday.tue',
+    WE: 'weekday.wed',
+    TH: 'weekday.thu',
+    FR: 'weekday.fri',
+    SA: 'weekday.sat',
+    SU: 'weekday.sun',
   };
-  return map[value] ?? value;
+  const key = keyMap[value];
+  return key ? t(key as any) : value;
 };
 
 const toMonthLabel = (value: string) => {
-  const map: Record<string, string> = {
-    '1': 'January',
-    '2': 'February',
-    '3': 'March',
-    '4': 'April',
-    '5': 'May',
-    '6': 'June',
-    '7': 'July',
-    '8': 'August',
-    '9': 'September',
-    '10': 'October',
-    '11': 'November',
-    '12': 'December',
+  const keyMap: Record<string, string> = {
+    '1': 'month.january',
+    '2': 'month.february',
+    '3': 'month.march',
+    '4': 'month.april',
+    '5': 'month.may',
+    '6': 'month.june',
+    '7': 'month.july',
+    '8': 'month.august',
+    '9': 'month.september',
+    '10': 'month.october',
+    '11': 'month.november',
+    '12': 'month.december',
   };
-  return map[value] ?? value;
+  const key = keyMap[value];
+  return key ? t(key as any) : value;
 };
 
 export const repeatSummaryFromRule = (rule: string) => {
@@ -58,48 +62,86 @@ export const repeatSummaryFromRule = (rule: string) => {
   const freq = parts.FREQ ?? '';
   const interval = parts.INTERVAL ?? '1';
   if (freq === 'DAILY') {
-    return interval === '1' ? 'Every day' : `Every ${interval} days`;
+    if (interval === '1') {
+      return t('repeat.summary.everyDay');
+    }
+    return t('repeat.summary.everyNDays').replace('{n}', interval);
   }
   if (freq === 'WEEKLY') {
     const byday = parts.BYDAY ? parts.BYDAY.split(',') : [];
-    if (byday.join(',') === 'MO,TU,WE,TH,FR') return 'Every weekday';
+    if (byday.join(',') === 'MO,TU,WE,TH,FR') {
+      return t('repeat.summary.everyWeekday');
+    }
     const dayLabels = byday.map(toWeekdayLabel);
-    const weekPart = interval === '1' ? 'Every week' : `Every ${interval} weeks`;
-    return dayLabels.length ? `${weekPart} on ${dayLabels.join(', ')}` : weekPart;
+    const weekPart = interval === '1'
+      ? t('repeat.summary.everyWeek')
+      : t('repeat.summary.everyNWeeks').replace('{n}', interval);
+    if (dayLabels.length) {
+      return t('repeat.summary.onDays')
+        .replace('{base}', weekPart)
+        .replace('{days}', dayLabels.join(', '));
+    }
+    return weekPart;
   }
   if (freq === 'MONTHLY') {
-    const monthPart = interval === '1' ? 'Every month' : `Every ${interval} months`;
+    const monthPart = interval === '1'
+      ? t('repeat.summary.everyMonth')
+      : t('repeat.summary.everyNMonths').replace('{n}', interval);
     if (parts.BYMONTHDAY) {
-      return `${monthPart} on day ${parts.BYMONTHDAY}`;
+      return t('repeat.summary.onDayNum')
+        .replace('{base}', monthPart)
+        .replace('{n}', parts.BYMONTHDAY);
     }
     if (parts.BYDAY && parts.BYSETPOS) {
       const ordinal = toOrdinalLabel(parts.BYSETPOS);
       if (parts.BYDAY === 'MO,TU,WE,TH,FR') {
-        return `${monthPart} on ${ordinal} Weekday`;
+        return t('repeat.summary.onOrdinalWeekdayAny')
+          .replace('{base}', monthPart)
+          .replace('{ordinal}', ordinal);
       }
       if (parts.BYDAY === 'SA,SU') {
-        return `${monthPart} on ${ordinal} Weekend Day`;
+        return t('repeat.summary.onOrdinalWeekendDay')
+          .replace('{base}', monthPart)
+          .replace('{ordinal}', ordinal);
       }
-      return `${monthPart} on ${ordinal} ${toWeekdayLabel(parts.BYDAY)}`;
+      return t('repeat.summary.onOrdinalWeekday')
+        .replace('{base}', monthPart)
+        .replace('{ordinal}', ordinal)
+        .replace('{weekday}', toWeekdayLabel(parts.BYDAY));
     }
     return monthPart;
   }
   if (freq === 'YEARLY') {
-    const monthLabel = parts.BYMONTH ? toMonthLabel(parts.BYMONTH) : 'month';
-    if (parts.BYMONTHDAY) {
-      return `Every ${monthLabel} on day ${parts.BYMONTHDAY}`;
-    }
-    if (parts.BYDAY && parts.BYSETPOS) {
-      const ordinal = toOrdinalLabel(parts.BYSETPOS);
-      if (parts.BYDAY === 'MO,TU,WE,TH,FR') {
-        return `Every ${monthLabel} on ${ordinal} Weekday`;
+    if (parts.BYMONTH) {
+      const monthLabel = toMonthLabel(parts.BYMONTH);
+      if (parts.BYMONTHDAY) {
+        const yearlyBase = t('repeat.summary.everyYearIn').replace('{month}', monthLabel);
+        return t('repeat.summary.onDayNum')
+          .replace('{base}', yearlyBase)
+          .replace('{n}', parts.BYMONTHDAY);
       }
-      if (parts.BYDAY === 'SA,SU') {
-        return `Every ${monthLabel} on ${ordinal} Weekend Day`;
+      if (parts.BYDAY && parts.BYSETPOS) {
+        const ordinal = toOrdinalLabel(parts.BYSETPOS);
+        const yearlyPart = t('repeat.summary.everyYearIn').replace('{month}', monthLabel);
+        if (parts.BYDAY === 'MO,TU,WE,TH,FR') {
+          return t('repeat.summary.onOrdinalWeekdayAny')
+            .replace('{base}', yearlyPart)
+            .replace('{ordinal}', ordinal);
+        }
+        if (parts.BYDAY === 'SA,SU') {
+          return t('repeat.summary.onOrdinalWeekendDay')
+            .replace('{base}', yearlyPart)
+            .replace('{ordinal}', ordinal);
+        }
+        return t('repeat.summary.onOrdinalWeekday')
+          .replace('{base}', yearlyPart)
+          .replace('{ordinal}', ordinal)
+          .replace('{weekday}', toWeekdayLabel(parts.BYDAY));
       }
-      return `Every ${monthLabel} on ${ordinal} ${toWeekdayLabel(parts.BYDAY)}`;
+      return t('repeat.summary.everyYearIn').replace('{month}', monthLabel);
     }
-    return `Every ${monthLabel}`;
+    // Yearly with no BYMONTH: use everyYear (equivalent to "Every month" for consistency)
+    return t('repeat.summary.everyYear');
   }
-  return 'Repeats';
+  return t('repeat.summary.repeats');
 };

@@ -8,18 +8,19 @@ import { state } from './state.js';
 import { formatDate } from './helpers.js';
 import { asPriority, setPriorityAttr } from './theme.js';
 import { TAG_PALETTE, makeTagDot } from './tagColor.js';
+import { onLocaleChange, t } from './i18n/index.js';
 
 export const updatePriorityUI = (value: string | null) => {
   const priority = asPriority(value);
   setPriorityAttr(refs.priorityChip, priority);
   setPriorityAttr(refs.editDoneInput, priority);
   if (refs.priorityLabel) {
-    refs.priorityLabel.textContent = priority.charAt(0).toUpperCase() + priority.slice(1);
+    refs.priorityLabel.textContent = t((`priority.${priority}` as const) as Parameters<typeof t>[0]);
   }
 };
 
 const formatReminderLabel = (date: string | null, time: string | null) => {
-  if (!date && !time) return 'None';
+  if (!date && !time) return t('editModal.valueNone');
   let label = '';
   if (date) {
     label += formatDate(date);
@@ -38,7 +39,7 @@ const formatReminderLabel = (date: string | null, time: string | null) => {
       label += dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
     }
   }
-  return label || 'None';
+  return label || t('editModal.valueNone');
 };
 
 export const updateReminderUI = (date: string | null, time: string | null) => {
@@ -50,10 +51,10 @@ export const updateReminderUI = (date: string | null, time: string | null) => {
 export const updateRepeatUI = (value: string | null) => {
   if (!refs.repeatLabel) return;
   if (!value) {
-    refs.repeatLabel.textContent = 'None';
+    refs.repeatLabel.textContent = t('editModal.valueNone');
     return;
   }
-  const label = value.charAt(0).toUpperCase() + value.slice(1);
+  const label = t((`repeat.${value}` as const) as Parameters<typeof t>[0]);
   refs.repeatLabel.textContent = label;
 };
 
@@ -63,7 +64,7 @@ export const updateTagsUI = () => {
     .map((id) => state.tags.find((t) => t.id === id))
     .filter((t): t is NonNullable<typeof t> => Boolean(t));
   if (selected.length === 0) {
-    refs.tagsLabel.textContent = 'None';
+    refs.tagsLabel.textContent = t('editModal.valueNone');
   } else if (selected.length === 1) {
     refs.tagsLabel.textContent = selected[0].name;
   } else {
@@ -78,7 +79,7 @@ export const renderTagsMenu = () => {
   if (state.tags.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'tags-menu-empty';
-    empty.textContent = 'No tags yet';
+    empty.textContent = t('editModal.noTagsYet');
     container.appendChild(empty);
     return;
   }
@@ -111,6 +112,22 @@ export const renderTagsMenu = () => {
     container.appendChild(item);
   });
 };
+
+/**
+ * Re-paint value labels whenever the language changes. This runs on every setLocale call,
+ * including the initial one at boot, so an open Edit dialog will reflow when the user
+ * switches languages.
+ */
+onLocaleChange(() => {
+  // Only re-paint if a modal is open (editing a task).
+  if (state.editingTaskId) {
+    updatePriorityUI(state.modalPriority);
+    updateReminderUI(state.modalReminderDate, state.modalReminderTime);
+    updateRepeatUI(state.modalRepeat);
+    renderTagsMenu();
+    updateTagsUI();
+  }
+});
 
 const deriveRepeatLabel = (repeatRule: string | null) => {
   if (!repeatRule) return null;
@@ -419,7 +436,7 @@ export const openListModal = () => {
   refs.listOverlay.classList.add('open');
   refs.listInput.value = '';
   const heading = refs.listOverlay.querySelector('h2');
-  if (heading) heading.textContent = 'Add list';
+  if (heading) heading.textContent = t('listModal.addHeading');
   setTimeout(() => refs.listInput?.focus(), 0);
 };
 
@@ -430,7 +447,7 @@ export const openEditListModal = (listId: number) => {
   refs.listOverlay.classList.add('open');
   refs.listInput.value = list.name;
   const heading = refs.listOverlay.querySelector('h2');
-  if (heading) heading.textContent = 'Rename list';
+  if (heading) heading.textContent = t('menu.renameList');
   setTimeout(() => refs.listInput?.focus(), 0);
 };
 

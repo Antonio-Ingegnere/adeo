@@ -1,20 +1,30 @@
 import { formatDate } from './helpers.js';
+import { onLocaleChange, t } from './i18n/index.js';
 
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+const getMonthNames = () => [
+  t('month.january'),
+  t('month.february'),
+  t('month.march'),
+  t('month.april'),
+  t('month.may'),
+  t('month.june'),
+  t('month.july'),
+  t('month.august'),
+  t('month.september'),
+  t('month.october'),
+  t('month.november'),
+  t('month.december'),
 ];
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const getWeekdayLabels = () => [
+  t('weekday.mon'),
+  t('weekday.tue'),
+  t('weekday.wed'),
+  t('weekday.thu'),
+  t('weekday.fri'),
+  t('weekday.sat'),
+  t('weekday.sun'),
+];
 
 export type DateParts = { year: number; month: number; day: number };
 
@@ -91,7 +101,7 @@ export const attachDatePicker = (
     .map((label) => label.textContent?.trim() ?? '')
     .find(Boolean);
   const accessibleName =
-    options.accessibleName ?? input.getAttribute('aria-label') ?? associatedLabel ?? 'Date';
+    options.accessibleName ?? input.getAttribute('aria-label') ?? associatedLabel ?? t('datepicker.triggerDefaultLabel');
 
   const trigger = document.createElement('button');
   trigger.type = 'button';
@@ -115,7 +125,7 @@ export const attachDatePicker = (
   popover.id = pickerId;
   popover.className = 'date-picker-popover';
   popover.setAttribute('role', 'dialog');
-  popover.setAttribute('aria-label', `Choose ${accessibleName}`);
+  popover.setAttribute('aria-label', `${t('datepicker.choosePrefix')} ${accessibleName}`);
   popover.addEventListener('click', (event) => event.stopPropagation());
   (options.popoverParent ?? document.body).appendChild(popover);
 
@@ -124,7 +134,7 @@ export const attachDatePicker = (
 
   const refreshTrigger = () => {
     const rawValue = getRawValue();
-    const displayValue = rawValue ? formatValue(rawValue) : 'Select date';
+    const displayValue = rawValue ? formatValue(rawValue) : t('datepicker.selectDate');
     triggerLabel.textContent = displayValue;
     trigger.setAttribute('aria-label', `${accessibleName}: ${displayValue}`);
   };
@@ -186,7 +196,7 @@ export const attachDatePicker = (
     prevBtn.type = 'button';
     prevBtn.className = 'date-picker-nav-btn';
     prevBtn.textContent = '‹';
-    prevBtn.setAttribute('aria-label', 'Previous month');
+    prevBtn.setAttribute('aria-label', t('datepicker.previousMonth'));
     prevBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       viewMonth -= 1;
@@ -201,13 +211,13 @@ export const attachDatePicker = (
     label.id = monthLabelId;
     label.className = 'date-picker-month-label';
     label.setAttribute('aria-live', 'polite');
-    label.textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+    label.textContent = `${getMonthNames()[viewMonth]} ${viewYear}`;
 
     const nextBtn = document.createElement('button');
     nextBtn.type = 'button';
     nextBtn.className = 'date-picker-nav-btn';
     nextBtn.textContent = '›';
-    nextBtn.setAttribute('aria-label', 'Next month');
+    nextBtn.setAttribute('aria-label', t('datepicker.nextMonth'));
     nextBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       viewMonth += 1;
@@ -224,7 +234,7 @@ export const attachDatePicker = (
     const weekdaysRow = document.createElement('div');
     weekdaysRow.className = 'date-picker-weekdays';
     weekdaysRow.setAttribute('role', 'row');
-    WEEKDAY_LABELS.forEach((day) => {
+    getWeekdayLabels().forEach((day) => {
       const span = document.createElement('span');
       span.setAttribute('role', 'columnheader');
       span.textContent = day;
@@ -300,7 +310,7 @@ export const attachDatePicker = (
       dayBtn.textContent = String(cellParts.day);
       dayBtn.setAttribute(
         'aria-label',
-        `${MONTH_NAMES[cellParts.month]} ${cellParts.day}, ${cellParts.year}`,
+        `${getMonthNames()[cellParts.month]} ${cellParts.day}, ${cellParts.year}`,
       );
       dayBtn.tabIndex = cellIso === focusedDate ? 0 : -1;
 
@@ -356,7 +366,7 @@ export const attachDatePicker = (
     const todayBtn = document.createElement('button');
     todayBtn.type = 'button';
     todayBtn.className = 'date-picker-footer-btn';
-    todayBtn.textContent = 'Today';
+    todayBtn.textContent = t('datepicker.today');
     todayBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       const todayParts = getToday();
@@ -366,7 +376,7 @@ export const attachDatePicker = (
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'date-picker-footer-btn';
-    clearBtn.textContent = 'Clear';
+    clearBtn.textContent = t('datepicker.clear');
     clearBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       input.value = '';
@@ -443,12 +453,23 @@ export const attachDatePicker = (
   popover.style.display = 'none';
   refreshTrigger();
 
+  // The trigger label ("Select date" until a date is picked) is JS-generated text that
+  // applyStaticTranslations() cannot see, and every picker here is built in init() before
+  // loadSettings() runs setLocale -- so without this it stays in the boot language (English).
+  // The calendar body already re-reads t() on each open, but re-render it too if the language
+  // changes while the popover happens to be open.
+  const stopLocaleWatch = onLocaleChange(() => {
+    refreshTrigger();
+    if (isOpen) renderCalendar();
+  });
+
   return {
     trigger,
     popover,
     open: openPopover,
     close: () => closePopover(true),
     destroy: () => {
+      stopLocaleWatch();
       closePopover(false);
       trigger.remove();
       popover.remove();

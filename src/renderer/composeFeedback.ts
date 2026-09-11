@@ -1,4 +1,5 @@
 import { refs } from './dom.js';
+import { t } from './i18n/index.js';
 
 /**
  * The compose row's own feedback surfaces (#compose-status, #compose-error). Kept as a leaf
@@ -14,7 +15,7 @@ export const announceComposeSuccess = (text: string, listLabel: string) => {
     // debounced case -- do not copy that guard here.
     refs.composeStatus.textContent = '';
     requestAnimationFrame(() => {
-      if (refs.composeStatus) refs.composeStatus.textContent = `Added “${text}” to ${listLabel}.`;
+      if (refs.composeStatus) refs.composeStatus.textContent = `${t('compose.addedPrefix')} “${text}” ${t('compose.addedTo')} ${listLabel}.`;
     });
   }
   if (refs.composeError) refs.composeError.textContent = '';

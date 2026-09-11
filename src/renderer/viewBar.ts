@@ -10,6 +10,7 @@ import { currentView } from './currentView.js';
 import { getSearchMatches, isSearching, isStale } from './searchMatches.js';
 import { state } from './state.js';
 import { paintTagChip } from './tagColor.js';
+import { onLocaleChange, t } from './i18n/index.js';
 
 /** Non-null while the bar is asking for a name. `asNew` only changes the placeholder. */
 let naming: { asNew: boolean } | null = null;
@@ -58,7 +59,7 @@ const startNaming = (asNew: boolean) => {
 const commitName = () => {
   const name = namingValue.trim();
   if (!name) {
-    showViewBarError('Give the smart list a name.');
+    showViewBarError(t('viewBar.nameRequiredError'));
     return;
   }
   emit('smart-list-create', { name });
@@ -95,13 +96,13 @@ const renderViewMenu = () => {
   const view = currentView();
 
   menu.appendChild(
-    menuItem('All lists', view.kind === 'list' && view.id === null, () =>
+    menuItem(t('view.allLists'), view.kind === 'list' && view.id === null, () =>
       emit('select-list', { listId: null })
     )
   );
 
   if (state.lists.length) {
-    menu.appendChild(menuGroup('Lists'));
+    menu.appendChild(menuGroup(t('lists.title')));
     state.lists.forEach((list) => {
       menu.appendChild(
         menuItem(list.name, view.kind === 'list' && view.id === list.id, () =>
@@ -112,7 +113,7 @@ const renderViewMenu = () => {
   }
 
   if (state.smartLists.length) {
-    menu.appendChild(menuGroup('Smart lists'));
+    menu.appendChild(menuGroup(t('smartLists.title')));
     state.smartLists.forEach((smartList) => {
       menu.appendChild(
         menuItem(smartList.name, view.kind === 'smart' && view.smartList.id === smartList.id, () =>
@@ -122,10 +123,10 @@ const renderViewMenu = () => {
     });
   }
 
-  menu.appendChild(menuGroup('Boards'));
+  menu.appendChild(menuGroup(t('boards.title')));
   menu.appendChild(
     menuItem(
-      'New board',
+      t('viewBar.newBoard'),
       view.kind === 'board' && view.board === null,
       () => emit('enter-board-view', { boardId: null }),
     ),
@@ -143,19 +144,19 @@ const renderViewMenu = () => {
 
 const viewLabel = (view: ReturnType<typeof currentView>): string => {
   if (view.kind === 'smart') return view.smartList.name;
-  if (view.kind === 'search') return 'Search results';
-  if (view.kind === 'board') return view.board ? view.board.name : 'Board';
-  if (view.id === null) return 'All lists';
-  return state.lists.find((l) => l.id === view.id)?.name ?? 'All lists';
+  if (view.kind === 'search') return t('viewBar.searchResults');
+  if (view.kind === 'board') return view.board ? view.board.name : t('view.board');
+  if (view.id === null) return t('view.allLists');
+  return state.lists.find((l) => l.id === view.id)?.name ?? t('view.allLists');
 };
 
 const renderNaming = () => {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'view-bar-name-input';
-  input.placeholder = naming?.asNew ? 'New smart list name' : 'Smart list name';
+  input.placeholder = naming?.asNew ? t('viewBar.newSmartListNamePlaceholder') : t('viewBar.smartListNamePlaceholder');
   input.value = namingValue;
-  input.setAttribute('aria-label', 'Smart list name');
+  input.setAttribute('aria-label', t('viewBar.smartListNamePlaceholder'));
   input.addEventListener('input', () => {
     namingValue = input.value;
   });
@@ -183,10 +184,10 @@ const renderNaming = () => {
   }
 
   refs.viewBarActions?.appendChild(
-    action('Save', 'Save this query as a smart list', commitName, true)
+    action(t('viewBar.save'), t('viewBar.saveQueryAria'), commitName, true)
   );
   refs.viewBarActions?.appendChild(
-    action('Cancel', 'Cancel', () => {
+    action(t('confirm.cancel'), t('confirm.cancel'), () => {
       exitViewBarNaming();
       renderViewBar();
       refs.listsSearchInput?.focus();
@@ -255,21 +256,21 @@ export const renderViewBar = () => {
   if (view.kind === 'smart' && view.edited) {
     refs.viewBarActions.appendChild(
       action(
-        'Update',
-        `Save this query to "${view.smartList.name}"`,
+        t('viewBar.update'),
+        t('viewBar.updateQueryAria').replace('{label}', view.smartList.name),
         () => emit('smart-list-update'),
         true
       )
     );
     refs.viewBarActions.appendChild(
-      action('Save as new', 'Save this query as a separate smart list', () => startNaming(true))
+      action(t('viewBar.saveAsNew'), t('viewBar.saveAsNewAria'), () => startNaming(true))
     );
     return;
   }
 
   if (view.kind === 'smart') {
     refs.viewBarActions.appendChild(
-      action('Edit', `Rename or edit "${view.smartList.name}"`, () =>
+      action(t('menu.edit'), t('viewBar.editSmartListAria').replace('{label}', view.smartList.name), () =>
         emit('open-smart-list-modal', { smartListId: view.smartList.id })
       )
     );
@@ -277,6 +278,9 @@ export const renderViewBar = () => {
   }
 
   refs.viewBarActions.appendChild(
-    action('Save as smart list', 'Name this query and keep it', () => startNaming(false))
+    action(t('viewBar.saveAsSmartList'), t('viewBar.saveAsSmartListAria'), () => startNaming(false))
   );
 };
+
+// Re-render the view bar when language changes to update "All lists" in the title and menu
+onLocaleChange(() => renderViewBar());

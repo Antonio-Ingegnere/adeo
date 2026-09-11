@@ -18,6 +18,7 @@ import { attachDatePicker, isDatePickerOpen } from './datepicker.js';
 import { renderListOptions } from './lists.js';
 import { renderTemplateHints, resolveComposeDestination } from './activeSmartList.js';
 import { asPriority, setPriorityAttr } from './theme.js';
+import { onLocaleChange, t } from './i18n/index.js';
 
 const isComposeListMenuOpen = (): boolean =>
   Boolean(refs.composeListMenu && refs.composeListMenu.style.display === 'flex');
@@ -76,13 +77,13 @@ export const paintComposeListLabel = () => {
   if (!explicit && refs.composeListValue) {
     const destId = resolveComposeDestination();
     const list = destId === null ? null : state.lists.find((l) => l.id === destId) ?? null;
-    const name = list ? list.name : 'No list';
+    const name = list ? list.name : t('compose.noList');
     refs.composeListValue.textContent = name;
     if (list) refs.composeListValue.title = list.name;
     else refs.composeListValue.removeAttribute('title');
   }
-  const value = refs.composeListValue?.textContent || 'No list';
-  refs.composeListPicker?.setAttribute('aria-label', `Task list: ${value}`);
+  const value = refs.composeListValue?.textContent || t('compose.noList');
+  refs.composeListPicker?.setAttribute('aria-label', `${t('compose.listLabel')}: ${value}`);
   refs.composeListField?.setAttribute('data-set', String(explicit));
   refs.composeListPicker?.setAttribute('data-set', String(explicit));
 };
@@ -90,9 +91,9 @@ export const paintComposeListLabel = () => {
 const paintComposePriority = () => {
   const priority = asPriority(state.composePriority);
   setPriorityAttr(refs.composePriorityChip, priority);
-  const word = priority.charAt(0).toUpperCase() + priority.slice(1);
+  const word = t(`priority.${state.composePriority}` as const);
   if (refs.composePriorityValue) refs.composePriorityValue.textContent = word;
-  refs.composePriorityPicker?.setAttribute('aria-label', `Priority: ${word}`);
+  refs.composePriorityPicker?.setAttribute('aria-label', `${t('compose.priorityLabel')}: ${word}`);
   const set = state.composePriority !== 'none';
   refs.composePriorityField?.setAttribute('data-set', String(set));
   refs.composePriorityPicker?.setAttribute('data-set', String(set));
@@ -134,6 +135,16 @@ export const setupComposeOptions = () => {
   paintComposeListLabel();
   paintComposePriority();
   paintComposeReminder();
+
+  // These labels ("No list" / resolved list name, the priority word) and the picker
+  // aria-labels are built from t() here, which runs in init() before loadSettings() calls
+  // setLocale -- and paintComposePriority() is never re-run afterwards. Re-paint them (and the
+  // list menu's generated rows) whenever the language changes.
+  onLocaleChange(() => {
+    paintComposeListLabel();
+    paintComposePriority();
+    paintComposeReminder();
+  });
 
   // --- shared selection + keyboard for the list and priority menus --------------------------
   const selectComposeListItem = (item: HTMLElement) => {
@@ -269,7 +280,7 @@ export const setupComposeOptions = () => {
   wireComposeMenuKeys(refs.composePriorityMenu, '.priority-menu-item', selectComposePriorityItem);
 
   const composeDatePicker = attachDatePicker(refs.composeReminderDate, {
-    accessibleName: 'Reminder',
+    accessibleName: t('compose.reminderAria'),
   });
   // Opening the reminder popover closes the list and priority menus. Its own trigger handler
   // stopPropagation()s, so the document-level closer never sees the click; this runs right

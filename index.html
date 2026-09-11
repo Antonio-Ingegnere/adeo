@@ -19,9 +19,11 @@
           <div class="lists-search-field">
             <!-- placeholder is replaced with a platform-aware shortcut hint by applyModeUI() -->
             <input id="lists-search-input" class="lists-search-input" type="text" placeholder="Search"
+              data-i18n-placeholder="search.placeholder"
               role="combobox" aria-autocomplete="list" aria-expanded="false"
               aria-controls="query-suggest-menu" />
-            <button id="lists-search-clear" class="lists-search-clear" type="button" aria-label="Clear search">
+            <button id="lists-search-clear" class="lists-search-clear" type="button" aria-label="Clear search"
+              data-i18n-aria-label="search.clearAria">
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                 <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12 2.88 5.71 4.29 4.29l6.3 6.3 6.29-6.3z" />
               </svg>
@@ -29,43 +31,43 @@
             <!-- mutually exclusive with the suggest menu below: both sit just under the field -->
             <div id="search-status-line" class="search-status-line" style="display:none"></div>
             <div id="query-suggest-menu" class="tag-suggest-menu query-suggest-menu" role="listbox"
-              aria-label="Query suggestions"></div>
+              aria-label="Query suggestions" data-i18n-aria-label="search.suggestionsAria"></div>
           </div>
           <!-- native radios rather than role="radio": arrow-key navigation, a single tab stop
                and correct AT semantics come for free, and .visually-hidden clips rather than
                hiding so they stay focusable -->
-          <div class="search-mode-switch" role="group" aria-label="Search mode">
+          <div class="search-mode-switch" role="group" aria-label="Search mode" data-i18n-aria-label="search.modeAria">
             <label class="segmented-option">
               <input type="radio" name="search-mode" id="search-mode-simple" value="simple"
                 class="visually-hidden" checked />
-              <span>Text</span>
+              <span data-i18n="search.mode.text">Text</span>
             </label>
             <label class="segmented-option">
               <input type="radio" name="search-mode" id="search-mode-advanced" value="advanced"
                 class="visually-hidden" />
-              <span>Query</span>
+              <span data-i18n="search.mode.query">Query</span>
             </label>
           </div>
           <button id="search-help-btn" class="search-help-btn" type="button"
-            aria-label="Search help">?</button>
+            aria-label="Search help" data-i18n-aria-label="search.helpAria">?</button>
           <!-- announced separately so the transient "still typing" state never reaches a
                screen reader, which would otherwise chatter on every keystroke -->
           <span id="search-status-live" class="visually-hidden" role="status" aria-live="polite"></span>
           <div id="search-help-popover" class="search-help-popover" style="display:none">
             <!-- the two variants are swapped by applyModeUI(); advanced is the original -->
             <div id="search-help-simple">
-              <p class="search-help-title">Text search</p>
-              <p class="search-help-note">Matches task text, details and tags. Every word has to
+              <p class="search-help-title" data-i18n="search.help.textSearchTitle">Text search</p>
+              <p class="search-help-note" data-i18n="search.help.textSearchNote">Matches task text, details and tags. Every word has to
                 appear, in any order.</p>
-              <p class="search-help-title">Need to be more specific?</p>
-              <p class="search-help-note">Switch to <strong>Query</strong> for a filter language
+              <p class="search-help-title" data-i18n="search.help.moreSpecificTitle">Need to be more specific?</p>
+              <p class="search-help-note" data-i18n-html="search.help.queryHint">Switch to <strong>Query</strong> for a filter language
                 that can search by list, tag, priority, due date, repeat and completion — and
                 combine those with <code>AND</code>, <code>OR</code> and <code>NOT</code>.</p>
               <p class="search-help-example"><code>tag:errands AND due&lt;=today</code></p>
               <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
             </div>
             <div id="search-help-advanced">
-              <p class="search-help-title">Query syntax</p>
+              <p class="search-help-title" data-i18n="search.help.querySyntaxTitle">Query syntax</p>
               <table class="search-help-table">
                 <tr><td><code>text</code>, <code>details</code></td><td><code>: ~ !=</code></td></tr>
                 <tr><td><code>list</code>, <code>tag</code></td><td><code>: ~ !=</code> · <code>none</code>, <code>any</code></td></tr>
@@ -74,11 +76,11 @@
                 <tr><td><code>due</code></td><td><code>: != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday</td></tr>
                 <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly</td></tr>
               </table>
-              <p class="search-help-note">A term is <code>field:value</code>. <code>:</code> is exact,
+              <p class="search-help-note" data-i18n-html="search.help.syntaxHint">A term is <code>field:value</code>. <code>:</code> is exact,
                 <code>~</code> is contains. Combine with <code>AND</code>, <code>OR</code>, <code>NOT</code>
                 and parentheses; bare words search text.
                 Quote names with spaces or symbols: <code>list:"Foo list 1"</code>.</p>
-              <p class="search-help-title">Examples</p>
+              <p class="search-help-title" data-i18n="search.help.examplesTitle">Examples</p>
               <p class="search-help-example"><code>tag:errands AND due&lt;=today</code></p>
               <p class="search-help-example"><code>priority:high OR priority:medium</code></p>
               <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
@@ -103,11 +105,11 @@
                       d="M22 7h-9v2h9V7zm0 8h-9v2h9v-2zM10.47 2.5 6.5 6.5 4.5 4.5 3.09 5.91 6.5 9.32 11.89 3.94 10.47 2.5zm0 8L6.5 14.5 4.5 12.5 3.09 13.91 6.5 17.32 11.89 11.94 10.47 10.5z" />
                   </svg>
                 </span>
-                <p class="lists-title">Lists</p>
+                <p class="lists-title" data-i18n="lists.title">Lists</p>
               </div>
               <div class="lists-actions">
-                <button id="add-list-button" class="icon-button" aria-label="Add list">+</button>
-                <button id="lists-toggle" class="icon-button" aria-label="Toggle lists">
+                <button id="add-list-button" class="icon-button" aria-label="Add list" data-i18n-aria-label="lists.addAria">+</button>
+                <button id="lists-toggle" class="icon-button" aria-label="Toggle lists" data-i18n-aria-label="lists.toggleAria">
                   <span class="expand-chevrons" aria-hidden="true">
                     <svg viewBox="0 0 14 14" focusable="false">
                       <path d="M2 3 L7 8 L12 3" />
@@ -118,7 +120,7 @@
               </div>
             </div>
             <div id="lists-list" class="lists-list">
-              <div id="lists-empty" class="empty-state">No lists yet. Click + to add one.</div>
+              <div id="lists-empty" class="empty-state" data-i18n="lists.empty">No lists yet. Click + to add one.</div>
             </div>
           </div>
           <!-- directly under Lists, because that is what it is: a list whose membership is a
@@ -137,12 +139,12 @@
                       d="M3 6h12v2H3V6zm0 5h8v2H3v-2zm0 5h6v2H3v-2zm14.5-5.5 1.4 3.6 3.6 1.4-3.6 1.4-1.4 3.6-1.4-3.6-3.6-1.4 3.6-1.4 1.4-3.6z" />
                   </svg>
                 </span>
-                <p class="lists-title">Smart lists</p>
+                <p class="lists-title" data-i18n="smartLists.title">Smart lists</p>
               </div>
               <div class="lists-actions">
                 <button id="add-smart-list-button" class="icon-button"
-                  aria-label="Save current search as a smart list">+</button>
-                <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists">
+                  aria-label="Save current search as a smart list" data-i18n-aria-label="smartLists.addAria">+</button>
+                <button id="smart-lists-toggle" class="icon-button" aria-label="Toggle smart lists" data-i18n-aria-label="smartLists.toggleAria">
                   <span class="expand-chevrons" aria-hidden="true">
                     <svg viewBox="0 0 14 14" focusable="false">
                       <path d="M2 3 L7 8 L12 3" />
@@ -153,7 +155,7 @@
               </div>
             </div>
             <div id="smart-lists-list" class="lists-list">
-              <div id="smart-lists-empty" class="empty-state">No smart lists yet. Run a query
+              <div id="smart-lists-empty" class="empty-state" data-i18n="smartLists.empty">No smart lists yet. Run a query
                 search, then save it from the strip under the search bar.</div>
             </div>
           </div>
@@ -167,11 +169,11 @@
                     <path d="M4 5h4v14H4V5zm6 0h4v14h-4V5zm6 0h4v14h-4V5z" />
                   </svg>
                 </span>
-                <p class="lists-title">Boards</p>
+                <p class="lists-title" data-i18n="boards.title">Boards</p>
               </div>
               <div class="lists-actions">
-                <button id="add-board-button" class="icon-button" aria-label="New board">+</button>
-                <button id="boards-toggle" class="icon-button" aria-label="Toggle boards">
+                <button id="add-board-button" class="icon-button" aria-label="New board" data-i18n-aria-label="boards.addAria">+</button>
+                <button id="boards-toggle" class="icon-button" aria-label="Toggle boards" data-i18n-aria-label="boards.toggleAria">
                   <span class="expand-chevrons" aria-hidden="true">
                     <svg viewBox="0 0 14 14" focusable="false">
                       <path d="M2 3 L7 8 L12 3" />
@@ -182,7 +184,7 @@
               </div>
             </div>
             <div id="boards-list" class="lists-list">
-              <div id="boards-empty" class="empty-state">No boards yet. Click + to lay Lists and
+              <div id="boards-empty" class="empty-state" data-i18n="boards.empty">No boards yet. Click + to lay Lists and
                 Smart lists side by side.</div>
             </div>
           </div>
@@ -195,10 +197,10 @@
                       d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
                   </svg>
                 </span>
-                <p class="lists-title">Tags</p>
+                <p class="lists-title" data-i18n="tags.title">Tags</p>
               </div>
               <div class="lists-actions">
-                <button id="tags-toggle" class="icon-button" aria-label="Toggle tags">
+                <button id="tags-toggle" class="icon-button" aria-label="Toggle tags" data-i18n-aria-label="tags.toggleAria">
                   <span class="expand-chevrons" aria-hidden="true">
                     <svg viewBox="0 0 14 14" focusable="false">
                       <path d="M2 3 L7 8 L12 3" />
@@ -209,7 +211,7 @@
               </div>
             </div>
             <div id="tags-list" class="lists-list">
-              <div id="tags-empty" class="empty-state">No tags yet. Type # in a task to add one.</div>
+              <div id="tags-empty" class="empty-state" data-i18n="tags.empty">No tags yet. Type # in a task to add one.</div>
             </div>
           </div>
         </div>
@@ -226,11 +228,11 @@
               <div class="view-picker-wrap">
                 <button id="view-picker" class="view-picker" type="button" aria-haspopup="listbox"
                   aria-expanded="false">
-                  <span id="view-label">All lists</span>
+                  <span id="view-label" data-i18n="view.allLists">All lists</span>
                   <span class="view-picker-caret" aria-hidden="true">▾</span>
                 </button>
                 <div id="view-menu" class="view-menu" role="listbox"
-                  aria-label="Choose a list or smart list"></div>
+                  aria-label="Choose a list or smart list" data-i18n-aria-label="view.chooseListAria"></div>
               </div>
               <span id="view-count" class="view-count" style="display:none"></span>
               <span id="view-edited" class="view-edited" style="display:none">edited</span>
@@ -239,17 +241,18 @@
               <div id="view-bar-naming" class="view-bar-naming" style="display:none"></div>
               <div id="view-bar-actions" class="view-bar-actions"></div>
               <button id="board-toggle" class="view-bar-action" type="button" aria-pressed="false"
-                title="Lay several views side by side">Board</button>
+                title="Lay several views side by side" data-i18n-title="view.boardTitle" data-i18n="view.board">Board</button>
             </div>
             <div class="input-row">
               <div class="add-task-input-wrap">
                 <input id="message-input" type="text" placeholder="Add a new task" class="text-input"
+                  data-i18n-placeholder="compose.placeholder"
                   role="combobox" aria-autocomplete="list" aria-expanded="false"
                   aria-controls="tag-suggest-menu" />
                 <div id="tag-suggest-menu" class="tag-suggest-menu" role="listbox"
-                  aria-label="Tag suggestions"></div>
+                  aria-label="Tag suggestions" data-i18n-aria-label="compose.tagSuggestionsAria"></div>
               </div>
-              <button id="add-button" class="primary-button icon-btn" aria-label="Add task">
+              <button id="add-button" class="primary-button icon-btn" aria-label="Add task" data-i18n-aria-label="compose.addAria">
                 <svg class="icon-add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" fill="currentColor" />
                 </svg>
@@ -266,52 +269,52 @@
               <span id="compose-status" class="visually-hidden" role="status" aria-live="polite"></span>
             </div>
             <div id="compose-meta-row" class="compose-meta-row" role="group"
-              aria-label="Details for the next task" hidden>
+              aria-label="Details for the next task" data-i18n-aria-label="compose.metaRowAria" hidden>
               <div id="compose-list-field" class="compose-field compose-field--list">
                 <button id="compose-list-picker" class="reminder-picker" type="button"
                   aria-haspopup="menu" aria-expanded="false" aria-controls="compose-list-menu"
-                  aria-label="Task list">
+                  aria-label="Task list" data-i18n-aria-label="compose.listAria">
                   <span class="compose-field-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
                       <path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                     </svg>
                   </span>
-                  <span id="compose-list-value" class="compose-value">Current list</span>
+                  <span id="compose-list-value" class="compose-value" data-i18n="compose.currentList">Current list</span>
                   <span class="priority-caret" aria-hidden="true">▾</span>
                 </button>
-                <div id="compose-list-menu" class="modal-list-menu" role="menu" aria-label="Task list"></div>
+                <div id="compose-list-menu" class="modal-list-menu" role="menu" aria-label="Task list" data-i18n-aria-label="compose.listMenuAria"></div>
               </div>
               <div id="compose-priority-field" class="compose-field compose-field--priority">
                 <button id="compose-priority-picker" class="priority-picker" type="button"
                   aria-haspopup="menu" aria-expanded="false" aria-controls="compose-priority-menu"
-                  aria-label="Priority">
+                  aria-label="Priority" data-i18n-aria-label="compose.priorityAria">
                   <span id="compose-priority-chip" class="priority-chip" aria-hidden="true"></span>
-                  <span id="compose-priority-value" class="compose-value">None</span>
+                  <span id="compose-priority-value" class="compose-value" data-i18n="priority.none">None</span>
                   <span class="priority-caret" aria-hidden="true">▾</span>
                 </button>
-                <div id="compose-priority-menu" class="priority-menu" role="menu" aria-label="Priority">
+                <div id="compose-priority-menu" class="priority-menu" role="menu" aria-label="Priority" data-i18n-aria-label="compose.priorityAria">
                   <div class="priority-menu-item" data-value="none">
                     <span class="priority-chip priority-chip--none" aria-hidden="true"></span>
-                    <span>None</span>
+                    <span data-i18n="priority.none">None</span>
                   </div>
                   <div class="priority-menu-item" data-value="low">
                     <span class="priority-chip priority-chip--low" aria-hidden="true"></span>
-                    <span>Low</span>
+                    <span data-i18n="priority.low">Low</span>
                   </div>
                   <div class="priority-menu-item" data-value="medium">
                     <span class="priority-chip priority-chip--medium" aria-hidden="true"></span>
-                    <span>Medium</span>
+                    <span data-i18n="priority.medium">Medium</span>
                   </div>
                   <div class="priority-menu-item" data-value="high">
                     <span class="priority-chip priority-chip--high" aria-hidden="true"></span>
-                    <span>High</span>
+                    <span data-i18n="priority.high">High</span>
                   </div>
                 </div>
               </div>
               <div id="compose-reminder-field" class="compose-field compose-field--reminder"
                 data-menu-align="end">
-                <input id="compose-reminder-date" type="date" class="reminder-picker" aria-label="Reminder" />
+                <input id="compose-reminder-date" type="date" class="reminder-picker" aria-label="Reminder" data-i18n-aria-label="compose.reminderAria" />
               </div>
             </div>
           </div>
@@ -321,16 +324,16 @@
           <div id="add-task-template" class="add-task-template"></div>
           <div id="tasks" class="tasks-section">
             <div id="tasks-list" class="tasks-list">
-              <div id="empty-state" class="empty-state">Nothing added yet. Enter a task and hit Add.</div>
+              <div id="empty-state" class="empty-state" data-i18n="tasks.empty">Nothing added yet. Enter a task and hit Add.</div>
             </div>
           </div>
           <!-- The multi-column board. Hidden until entered; replaces the single view above.
                The board region owns its own horizontal overflow so the page never scrolls
                sideways. Built by src/renderer/board.ts. -->
-          <div id="board-region" class="board-region" role="region" aria-label="Board" hidden>
+          <div id="board-region" class="board-region" role="region" aria-label="Board" data-i18n-aria-label="board.regionAria" hidden>
             <div id="board-columns" class="board-columns"></div>
             <span id="board-live" class="visually-hidden" role="status" aria-live="polite"></span>
-            <div id="board-toast" class="board-toast" role="group" aria-label="Move result" hidden></div>
+            <div id="board-toast" class="board-toast" role="group" aria-label="Move result" data-i18n-aria-label="board.moveResultAria" hidden></div>
           </div>
         </div>
       </div>
@@ -341,9 +344,9 @@
           <div class="modal-body">
             <div class="modal-left">
               <div class="modal-heading-row">
-                <h2 class="modal-heading">Edit task</h2>
+                <h2 class="modal-heading" data-i18n="editModal.heading">Edit task</h2>
                 <button id="delete-edit-task" class="modal-heading-delete-btn" type="button" aria-label="Delete task"
-                  title="Delete task">
+                  title="Delete task" data-i18n-aria-label="editModal.deleteAria" data-i18n-title="editModal.deleteAria">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-trash">
                     <path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
                     <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" stroke="currentColor" stroke-width="2"
@@ -360,89 +363,89 @@
                 <input id="edit-input" type="text" class="text-input modal-input" />
               </div>
               <div class="modal-details">
-                <label for="edit-details" class="modal-label">Details</label>
+                <label for="edit-details" class="modal-label" data-i18n="editModal.detailsLabel">Details</label>
                 <textarea id="edit-details" rows="4" class="details-textarea"
-                  placeholder="Add optional task details in Markdown"></textarea>
+                  placeholder="Add optional task details in Markdown" data-i18n-placeholder="editModal.detailsPlaceholder"></textarea>
               </div>
             </div>
             <div class="modal-right">
               <div class="modal-right-content">
-                <h3>List</h3>
+                <h3 data-i18n="editModal.listHeading">List</h3>
                 <div class="modal-list-select-wrap reminder-select-wrap">
                   <button id="modal-list-picker" class="reminder-picker" type="button">
-                    <span id="modal-list-label">No list</span>
+                    <span id="modal-list-label" data-i18n="editModal.noList">No list</span>
                     <span class="priority-caret">▾</span>
                   </button>
                   <div id="modal-list-menu" class="modal-list-menu"></div>
                 </div>
                 <hr class="modal-list-divider" />
-                <h3>Priority</h3>
+                <h3 data-i18n="editModal.priorityHeading">Priority</h3>
                 <div class="priority-select-wrap">
                   <button id="priority-picker" class="priority-picker" type="button">
                     <span id="priority-chip" class="priority-chip" aria-hidden="true"></span>
-                    <span id="priority-label">None</span>
+                    <span id="priority-label" data-i18n="priority.none">None</span>
                     <span class="priority-caret">▾</span>
                   </button>
                   <div id="priority-menu" class="priority-menu">
                     <div class="priority-menu-item" data-value="none">
                       <span class="priority-chip priority-chip--none" aria-hidden="true"></span>
-                      <span>None</span>
+                      <span data-i18n="priority.none">None</span>
                     </div>
                     <div class="priority-menu-item" data-value="low">
                       <span class="priority-chip priority-chip--low" aria-hidden="true"></span>
-                      <span>Low</span>
+                      <span data-i18n="priority.low">Low</span>
                     </div>
                     <div class="priority-menu-item" data-value="medium">
                       <span class="priority-chip priority-chip--medium" aria-hidden="true"></span>
-                      <span>Medium</span>
+                      <span data-i18n="priority.medium">Medium</span>
                     </div>
                     <div class="priority-menu-item" data-value="high">
                       <span class="priority-chip priority-chip--high" aria-hidden="true"></span>
-                      <span>High</span>
+                      <span data-i18n="priority.high">High</span>
                     </div>
                   </div>
                 </div>
                 <hr class="modal-list-divider" />
-                <h3>Reminder</h3>
+                <h3 data-i18n="editModal.reminderHeading">Reminder</h3>
                 <div class="reminder-select-wrap">
                   <button id="reminder-picker" class="reminder-picker" type="button">
-                    <span id="reminder-label">None</span>
+                    <span id="reminder-label" data-i18n="priority.none">None</span>
                     <span class="priority-caret">▾</span>
                   </button>
                   <div id="reminder-menu" class="reminder-menu">
-                    <label for="reminder-date" class="reminder-label">Date</label>
+                    <label for="reminder-date" class="reminder-label" data-i18n="editModal.reminderDateLabel">Date</label>
                     <input id="reminder-date" type="date" class="reminder-date-input" />
-                    <label for="reminder-time" class="reminder-label">Time</label>
+                    <label for="reminder-time" class="reminder-label" data-i18n="editModal.reminderTimeLabel">Time</label>
                     <input id="reminder-time" type="time" class="reminder-time-input" list="reminder-time-options" placeholder="HH:MM" />
                     <datalist id="reminder-time-options"></datalist>
                   </div>
                 </div>
                 <hr class="modal-list-divider" />
-                <h3>Repeat</h3>
+                <h3 data-i18n="editModal.repeatHeading">Repeat</h3>
                 <div class="repeat-select-wrap reminder-select-wrap">
                   <button id="repeat-picker" class="reminder-picker" type="button">
-                    <span id="repeat-label">None</span>
+                    <span id="repeat-label" data-i18n="priority.none">None</span>
                     <span class="priority-caret">▾</span>
                   </button>
                   <div id="repeat-menu" class="repeat-menu">
-                    <button class="repeat-menu-item" type="button" data-value="daily">Daily</button>
-                    <button class="repeat-menu-item" type="button" data-value="weekdays">Weekdays</button>
-                    <button class="repeat-menu-item" type="button" data-value="weekly">Weekly</button>
-                    <button class="repeat-menu-item" type="button" data-value="monthly">Monthly</button>
-                    <button class="repeat-menu-item" type="button" data-value="yearly">Yearly</button>
-                    <button class="repeat-menu-item" type="button" data-value="custom">Custom</button>
+                    <button class="repeat-menu-item" type="button" data-value="daily" data-i18n="repeat.daily">Daily</button>
+                    <button class="repeat-menu-item" type="button" data-value="weekdays" data-i18n="repeat.weekdays">Weekdays</button>
+                    <button class="repeat-menu-item" type="button" data-value="weekly" data-i18n="repeat.weekly">Weekly</button>
+                    <button class="repeat-menu-item" type="button" data-value="monthly" data-i18n="repeat.monthly">Monthly</button>
+                    <button class="repeat-menu-item" type="button" data-value="yearly" data-i18n="repeat.yearly">Yearly</button>
+                    <button class="repeat-menu-item" type="button" data-value="custom" data-i18n="repeat.custom">Custom</button>
                   </div>
                 </div>
                 <hr class="modal-list-divider" />
-                <h3>Tags</h3>
+                <h3 data-i18n="editModal.tagsHeading">Tags</h3>
                 <div class="tags-select-wrap reminder-select-wrap">
                   <button id="tags-picker" class="reminder-picker" type="button">
-                    <span id="tags-label">None</span>
+                    <span id="tags-label" data-i18n="priority.none">None</span>
                     <span class="priority-caret">▾</span>
                   </button>
                   <div id="tags-menu" class="tags-menu">
                     <div id="tags-menu-list"></div>
-                    <input id="tags-menu-new" class="tags-menu-new-input" type="text" placeholder="New tag…" />
+                    <input id="tags-menu-new" class="tags-menu-new-input" type="text" placeholder="New tag…" data-i18n-placeholder="editModal.tagsNewPlaceholder" />
                   </div>
                 </div>
                 <hr class="modal-list-divider" />
@@ -450,8 +453,8 @@
             </div>
           </div>
           <div class="modal-actions">
-            <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel" title="Cancel">✕</button>
-            <button id="save-edit" class="btn primary icon-btn" aria-label="Save" title="Save">
+            <button id="cancel-edit" class="btn icon-btn" aria-label="Cancel" title="Cancel" data-i18n-aria-label="common.cancelAria" data-i18n-title="common.cancelAria">✕</button>
+            <button id="save-edit" class="btn primary icon-btn" aria-label="Save" title="Save" data-i18n-aria-label="common.saveAria" data-i18n-title="common.saveAria">
               <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path
                   d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -463,11 +466,11 @@
     </div>
     <div id="list-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2>Add list</h2>
-        <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" />
+        <h2 data-i18n="listModal.heading">Add list</h2>
+        <input id="list-input" type="text" class="text-input modal-input" placeholder="List name" data-i18n-placeholder="listModal.placeholder" />
         <div class="modal-actions">
-          <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list" title="Cancel">✕</button>
-          <button id="save-list" class="btn primary icon-btn" aria-label="Save list" title="Save">
+          <button id="cancel-list" class="btn icon-btn" aria-label="Cancel list" title="Cancel" data-i18n-aria-label="listModal.cancelAria" data-i18n-title="common.cancelAria">✕</button>
+          <button id="save-list" class="btn primary icon-btn" aria-label="Save list" title="Save" data-i18n-aria-label="listModal.saveAria" data-i18n-title="common.saveAria">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -478,15 +481,15 @@
     </div>
     <div id="smart-list-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2 id="smart-list-modal-title">Save smart list</h2>
-        <input id="smart-list-name-input" type="text" class="text-input modal-input" placeholder="Smart list name" />
-        <p class="modal-label smart-list-query-label">Query</p>
+        <h2 id="smart-list-modal-title" data-i18n="smartListModal.heading">Save smart list</h2>
+        <input id="smart-list-name-input" type="text" class="text-input modal-input" placeholder="Smart list name" data-i18n-placeholder="smartListModal.namePlaceholder" />
+        <p class="modal-label smart-list-query-label" data-i18n="smartListModal.queryLabel">Query</p>
         <textarea id="smart-list-query-input" class="details-textarea smart-list-query-input" rows="2"
           placeholder="list:Home AND due&lt;=today"></textarea>
         <p id="smart-list-modal-error" class="smart-list-modal-error" style="display:none"></p>
         <div class="modal-actions">
-          <button id="cancel-smart-list" class="btn icon-btn" aria-label="Cancel" title="Cancel">✕</button>
-          <button id="save-smart-list" class="btn primary icon-btn" aria-label="Save smart list" title="Save">
+          <button id="cancel-smart-list" class="btn icon-btn" aria-label="Cancel" title="Cancel" data-i18n-aria-label="smartListModal.cancelAria" data-i18n-title="common.cancelAria">✕</button>
+          <button id="save-smart-list" class="btn primary icon-btn" aria-label="Save smart list" title="Save" data-i18n-aria-label="smartListModal.saveAria" data-i18n-title="common.saveAria">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -497,14 +500,14 @@
     </div>
     <div id="tag-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2>Edit tag</h2>
-        <input id="tag-input" type="text" class="text-input modal-input" placeholder="Tag name" />
-        <p class="modal-label" id="tag-color-label">Colour</p>
+        <h2 data-i18n="tagModal.heading">Edit tag</h2>
+        <input id="tag-input" type="text" class="text-input modal-input" placeholder="Tag name" data-i18n-placeholder="tagModal.placeholder" />
+        <p class="modal-label" id="tag-color-label" data-i18n="tagModal.colorLabel">Colour</p>
         <!-- swatches are generated from TAG_PALETTE in tagColor.ts, which mirrors the server's -->
         <div id="tag-color-swatches" class="tag-swatches" role="radiogroup" aria-labelledby="tag-color-label"></div>
         <div class="modal-actions">
-          <button id="cancel-tag" class="btn icon-btn" aria-label="Cancel tag" title="Cancel">✕</button>
-          <button id="save-tag" class="btn primary icon-btn" aria-label="Save tag" title="Save">
+          <button id="cancel-tag" class="btn icon-btn" aria-label="Cancel tag" title="Cancel" data-i18n-aria-label="tagModal.cancelAria" data-i18n-title="common.cancelAria">✕</button>
+          <button id="save-tag" class="btn primary icon-btn" aria-label="Save tag" title="Save" data-i18n-aria-label="tagModal.saveAria" data-i18n-title="common.saveAria">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -516,61 +519,61 @@
     <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true"
       aria-labelledby="settings-title">
       <div class="modal modal-settings">
-        <h2 id="settings-title">Settings</h2>
+        <h2 id="settings-title" data-i18n="settings.heading">Settings</h2>
         <div class="settings-shell">
           <!-- Buttons with roving tabindex, not visually-hidden radios: the focus trap keys off
                the first and last *tabbable* element, and only tabIndex distinguishes a
                tabindex="-1" button. Radios all report 0 whether checked or not. -->
           <div id="settings-rail" class="settings-rail" role="tablist" aria-orientation="vertical"
-            aria-label="Settings sections">
+            aria-label="Settings sections" data-i18n-aria-label="settings.sectionsAria">
             <button type="button" role="tab" class="settings-tab" id="settings-tab-general"
               data-tab="general" aria-controls="settings-panel-general" aria-selected="true"
-              tabindex="0">General</button>
+              tabindex="0" data-i18n="settings.tab.general">General</button>
             <button type="button" role="tab" class="settings-tab" id="settings-tab-tasks"
               data-tab="tasks" aria-controls="settings-panel-tasks" aria-selected="false"
-              tabindex="-1">Tasks</button>
+              tabindex="-1" data-i18n="settings.tab.tasks">Tasks</button>
             <button type="button" role="tab" class="settings-tab" id="settings-tab-shortcuts"
               data-tab="shortcuts" aria-controls="settings-panel-shortcuts" aria-selected="false"
-              tabindex="-1">Shortcuts</button>
+              tabindex="-1" data-i18n="settings.tab.shortcuts">Shortcuts</button>
           </div>
           <div class="settings-panels">
             <section id="settings-panel-general" class="settings-panel" role="tabpanel"
               aria-labelledby="settings-tab-general">
               <div class="settings-panel-scroll">
                 <div class="settings-field">
-                  <p class="settings-field-label" id="theme-label">Theme</p>
+                  <p class="settings-field-label" id="theme-label" data-i18n="settings.theme.label">Theme</p>
                   <div class="settings-segmented" role="radiogroup" aria-labelledby="theme-label">
                     <label class="segmented-option">
                       <input id="theme-system" type="radio" name="theme" value="system" class="visually-hidden" checked />
-                      <span>System</span>
+                      <span data-i18n="settings.theme.system">System</span>
                     </label>
                     <label class="segmented-option">
                       <input id="theme-light" type="radio" name="theme" value="light" class="visually-hidden" />
-                      <span>Light</span>
+                      <span data-i18n="settings.theme.light">Light</span>
                     </label>
                     <label class="segmented-option">
                       <input id="theme-dark" type="radio" name="theme" value="dark" class="visually-hidden" />
-                      <span>Dark</span>
+                      <span data-i18n="settings.theme.dark">Dark</span>
                     </label>
                   </div>
-                  <p class="settings-hint">System follows your operating system's appearance setting.</p>
+                  <p class="settings-hint" data-i18n="settings.theme.hint">System follows your operating system's appearance setting.</p>
                 </div>
                 <div class="settings-field">
-                  <p class="settings-field-label" id="time-format-label">Time format</p>
+                  <p class="settings-field-label" id="time-format-label" data-i18n="settings.timeFormat.label">Time format</p>
                   <div class="settings-segmented" role="radiogroup" aria-labelledby="time-format-label">
                     <label class="segmented-option">
                       <input id="time-12" type="radio" name="time-format" value="12h" class="visually-hidden" checked />
-                      <span>12 hour</span>
+                      <span data-i18n="settings.timeFormat.12h">12 hour</span>
                     </label>
                     <label class="segmented-option">
                       <input id="time-24" type="radio" name="time-format" value="24h" class="visually-hidden" />
-                      <span>24 hour</span>
+                      <span data-i18n="settings.timeFormat.24h">24 hour</span>
                     </label>
                   </div>
-                  <p class="settings-hint">Used wherever a reminder time is shown.</p>
+                  <p class="settings-hint" data-i18n="settings.timeFormat.hint">Used wherever a reminder time is shown.</p>
                 </div>
                 <div class="settings-field">
-                  <label class="settings-field-label" for="date-format">Date format</label>
+                  <label class="settings-field-label" for="date-format" data-i18n="settings.dateFormat.label">Date format</label>
                   <!-- option text is rewritten at open time to lead with today's date; the
                        values are the source of truth and must not change -->
                   <select id="date-format" class="select-input">
@@ -585,7 +588,14 @@
                     <option value="DD MMM YYYY">DD MMM YYYY</option>
                     <option value="YYYY.MM.DD">YYYY.MM.DD</option>
                   </select>
-                  <p class="settings-hint">Date pickers still use your system's own format.</p>
+                  <p class="settings-hint" data-i18n="settings.dateFormat.hint">Date pickers still use your system's own format.</p>
+                </div>
+                <div class="settings-field">
+                  <label class="settings-field-label" for="language-select" data-i18n="settings.language.label">Language</label>
+                  <!-- options are populated at startup from SUPPORTED_LOCALES (see index.ts),
+                       each option's own visible text is its native name and is never translated -->
+                  <select id="language-select" class="select-input"></select>
+                  <p class="settings-hint" data-i18n="settings.language.hint">Applies immediately and is remembered on this computer.</p>
                 </div>
               </div>
             </section>
@@ -595,16 +605,16 @@
                 <label class="settings-toggle">
                   <input id="show-completed" type="checkbox" />
                   <span class="settings-toggle-text">
-                    <span class="settings-toggle-label">Show completed tasks</span>
-                    <span class="settings-hint">Completed tasks stay in the list instead of
+                    <span class="settings-toggle-label" data-i18n="settings.showCompleted.label">Show completed tasks</span>
+                    <span class="settings-hint" data-i18n="settings.showCompleted.hint">Completed tasks stay in the list instead of
                       disappearing. Also on the View menu.</span>
                   </span>
                 </label>
                 <label class="settings-toggle">
                   <input id="tag-colors" type="checkbox" checked />
                   <span class="settings-toggle-text">
-                    <span class="settings-toggle-label">Show tag colours</span>
-                    <span class="settings-hint">Tag chips and dots carry the tag's colour. With
+                    <span class="settings-toggle-label" data-i18n="settings.tagColors.label">Show tag colours</span>
+                    <span class="settings-hint" data-i18n="settings.tagColors.hint">Tag chips and dots carry the tag's colour. With
                       this off they are outlined instead.</span>
                   </span>
                 </label>
@@ -620,15 +630,15 @@
                    error must not shift the rows when it appears -->
               <div class="settings-panel-footer">
                 <p id="shortcut-error" class="shortcut-error" role="alert"></p>
-                <button id="reset-shortcuts" type="button" class="btn-link">Reset all to defaults</button>
+                <button id="reset-shortcuts" type="button" class="btn-link" data-i18n="settings.shortcuts.resetAll">Reset all to defaults</button>
               </div>
             </section>
           </div>
         </div>
         <div class="modal-actions">
           <p id="settings-error" class="settings-error" role="alert"></p>
-          <button id="cancel-settings" type="button" class="btn">Cancel</button>
-          <button id="save-settings" type="button" class="btn primary">Save</button>
+          <button id="cancel-settings" type="button" class="btn" data-i18n="settings.cancel">Cancel</button>
+          <button id="save-settings" type="button" class="btn primary" data-i18n="settings.save">Save</button>
         </div>
       </div>
     </div>
@@ -637,31 +647,31 @@
     <div id="shortcuts-overlay" class="overlay" role="dialog" aria-modal="true"
       aria-labelledby="shortcuts-title">
       <div class="modal modal-shortcuts">
-        <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+        <h2 id="shortcuts-title" data-i18n="shortcutsModal.heading">Keyboard shortcuts</h2>
         <div id="shortcuts-body" class="shortcuts-body"></div>
-        <p class="shortcuts-footnote">Change these in Settings, under Keyboard shortcuts.</p>
+        <p class="shortcuts-footnote" data-i18n="shortcutsModal.footnote">Change these in Settings, under Keyboard shortcuts.</p>
         <div class="modal-actions">
-          <button id="close-shortcuts" class="btn icon-btn" aria-label="Close" title="Close">✕</button>
+          <button id="close-shortcuts" class="btn icon-btn" aria-label="Close" title="Close" data-i18n-aria-label="shortcutsModal.closeAria" data-i18n-title="shortcutsModal.closeAria">✕</button>
         </div>
       </div>
     </div>
     <div id="repeat-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2>Custom repeat</h2>
+        <h2 data-i18n="repeatModal.heading">Custom repeat</h2>
         <div class="repeat-custom-section">
           <div class="repeat-line">
-            <label class="modal-label" for="repeat-start-date">Start</label>
+            <label class="modal-label" for="repeat-start-date" data-i18n="repeatModal.startLabel">Start</label>
             <input id="repeat-start-date" type="date" required class="repeat-date-input" />
             <div class="modal-right-side-fill"></div>
           </div>
           <div class="repeat-line">
-            <label class="modal-label" for="repeat-type">Repeat</label>
+            <label class="modal-label" for="repeat-type" data-i18n="repeatModal.repeatLabel">Repeat</label>
             <div class="repeat-select-wrap repeat-select-inline">
               <select id="repeat-type" class="repeat-select">
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
+                <option value="daily" data-i18n="repeat.daily">Daily</option>
+                <option value="weekly" data-i18n="repeat.weekly">Weekly</option>
+                <option value="monthly" data-i18n="repeat.monthly">Monthly</option>
+                <option value="yearly" data-i18n="repeat.yearly">Yearly</option>
               </select>
               <span class="repeat-caret" aria-hidden="true">▾</span>
             </div>
@@ -669,31 +679,31 @@
           </div>
           <div id="repeat-interval-host">
             <div class="repeat-line repeat-interval-row">
-              <label class="modal-label" for="repeat-interval">Every</label>
+              <label class="modal-label" for="repeat-interval" data-i18n="repeatModal.everyLabel">Every</label>
               <div class="repeat-inline">
               <div class="repeat-select-wrap repeat-number-inline repeat-number-inline-interval">
                 <select id="repeat-interval" class="repeat-number-select"></select>
                 <span class="repeat-caret" aria-hidden="true">▾</span>
               </div>
-              <span id="repeat-interval-unit" class="repeat-inline-label">day(s)</span>
+              <span id="repeat-interval-unit" class="repeat-inline-label" data-i18n="repeatModal.dayUnit">day(s)</span>
               </div>
             </div>
           </div>
           <div id="repeat-weekly-options" class="repeat-subsection">
-            <label class="modal-label" for="repeat-interval">On</label>
+            <label class="modal-label" for="repeat-interval" data-i18n="repeatModal.onLabel">On</label>
             <div id="repeat-weekdays" class="repeat-weekdays">
-              <button class="repeat-day-button" type="button" data-day="mon">Mon</button>
-              <button class="repeat-day-button" type="button" data-day="tue">Tue</button>
-              <button class="repeat-day-button" type="button" data-day="wed">Wed</button>
-              <button class="repeat-day-button" type="button" data-day="thu">Thu</button>
-              <button class="repeat-day-button" type="button" data-day="fri">Fri</button>
-              <button class="repeat-day-button" type="button" data-day="sat">Sat</button>
-              <button class="repeat-day-button" type="button" data-day="sun">Sun</button>
+              <button class="repeat-day-button" type="button" data-day="mon" data-i18n="weekday.mon">Mon</button>
+              <button class="repeat-day-button" type="button" data-day="tue" data-i18n="weekday.tue">Tue</button>
+              <button class="repeat-day-button" type="button" data-day="wed" data-i18n="weekday.wed">Wed</button>
+              <button class="repeat-day-button" type="button" data-day="thu" data-i18n="weekday.thu">Thu</button>
+              <button class="repeat-day-button" type="button" data-day="fri" data-i18n="weekday.fri">Fri</button>
+              <button class="repeat-day-button" type="button" data-day="sat" data-i18n="weekday.sat">Sat</button>
+              <button class="repeat-day-button" type="button" data-day="sun" data-i18n="weekday.sun">Sun</button>
             </div>
           </div>
           <div id="repeat-monthly-options" class="repeat-subsection">
             <div class="repeat-split-row">
-              <span class="modal-label repeat-split-label">On</span>
+              <span class="modal-label repeat-split-label" data-i18n="repeatModal.onLabel">On</span>
               <div class="repeat-radio-line">
                 <input type="radio" name="repeat-monthly-mode" value="day" checked />
                 <div class="repeat-radio-content">
@@ -701,7 +711,7 @@
                     <select id="repeat-monthly-day" class="repeat-number-select"></select>
                     <span class="repeat-caret" aria-hidden="true">▾</span>
                   </div>
-                  <span class="repeat-inline-label">day</span>
+                  <span class="repeat-inline-label" data-i18n="repeatModal.day">day</span>
                 </div>
               </div>
             </div>
@@ -724,14 +734,14 @@
           </div>
           <div id="repeat-yearly-options" class="repeat-subsection">
             <div class="repeat-line">
-              <label class="modal-label" for="repeat-yearly-month">Every</label>
+              <label class="modal-label" for="repeat-yearly-month" data-i18n="repeatModal.everyLabel">Every</label>
               <div class="repeat-select-wrap repeat-yearly-month-inline">
                 <select id="repeat-yearly-month" class="repeat-select-yearly-month"></select>
                 <span class="repeat-caret" aria-hidden="true">▾</span>
               </div>
             </div>
             <div class="repeat-split-row">
-              <span class="modal-label repeat-split-label">On</span>
+              <span class="modal-label repeat-split-label" data-i18n="repeatModal.onLabel">On</span>
               <div class="repeat-radio-line">
                 <input type="radio" name="repeat-yearly-mode" value="day" checked />
                 <div class="repeat-radio-content">
@@ -739,7 +749,7 @@
                     <select id="repeat-yearly-day" class="repeat-number-select"></select>
                     <span class="repeat-caret" aria-hidden="true">▾</span>
                   </div>
-                  <span class="repeat-inline-label">day</span>
+                  <span class="repeat-inline-label" data-i18n="repeatModal.day">day</span>
                 </div>
               </div>
             </div>
@@ -761,26 +771,26 @@
             </div>
           </div>
           <div class="repeat-line repeat-end-line">
-            <label class="modal-label" for="repeat-end-type">End</label>
+            <label class="modal-label" for="repeat-end-type" data-i18n="repeatModal.endLabel">End</label>
             <div class="repeat-inline">
               <div class="repeat-select-wrap repeat-end-inline">
                 <select id="repeat-end-type" class="repeat-end-select">
-                  <option value="none">No end date</option>
-                  <option value="on">On this day</option>
-                  <option value="after">After</option>
+                  <option value="none" data-i18n="repeatModal.endNone">No end date</option>
+                  <option value="on" data-i18n="repeatModal.endOn">On this day</option>
+                  <option value="after" data-i18n="repeatModal.endAfter">After</option>
                 </select>
                 <span class="repeat-caret" aria-hidden="true">▾</span>
               </div>
               <input id="repeat-end-date" type="date" class="repeat-date-input" />
               <input id="repeat-end-count" type="number" min="1" value="1" class="repeat-count-input" />
-              <span id="repeat-end-occurrences" class="repeat-inline-label">occurrences</span>
+              <span id="repeat-end-occurrences" class="repeat-inline-label" data-i18n="repeatModal.occurrences">occurrences</span>
             </div>
           </div>
           <div id="repeat-summary" class="repeat-summary"></div>
         </div>
         <div class="modal-actions">
-          <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat" title="Cancel">✕</button>
-          <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat" title="Save">
+          <button id="cancel-repeat" class="btn icon-btn" aria-label="Cancel repeat" title="Cancel" data-i18n-aria-label="repeatModal.cancelAria" data-i18n-title="common.cancelAria">✕</button>
+          <button id="save-repeat" class="btn primary icon-btn" aria-label="Save repeat" title="Save" data-i18n-aria-label="repeatModal.saveAria" data-i18n-title="common.saveAria">
             <svg class="icon-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path
                 d="M20.285 6.708a1 1 0 0 0-1.57-1.25L9.75 15.09l-3.465-3.37a1 1 0 1 0-1.39 1.44l4.2 4.083a1 1 0 0 0 1.42-.03l9.77-10.505Z" />
@@ -791,12 +801,12 @@
     </div>
     <div id="board-move-overlay" class="overlay" role="dialog" aria-modal="true">
       <div class="modal modal-small">
-        <h2>Move task</h2>
+        <h2 data-i18n="boardMoveModal.heading">Move task</h2>
         <p id="board-move-message" class="board-move-message"></p>
         <div class="modal-actions">
-          <button id="board-move-cancel" class="btn" type="button">Cancel</button>
-          <button id="board-move-open" class="btn" type="button">Open task</button>
-          <button id="board-move-confirm" class="btn primary" type="button">Move task anyway</button>
+          <button id="board-move-cancel" class="btn" type="button" data-i18n="boardMoveModal.cancel">Cancel</button>
+          <button id="board-move-open" class="btn" type="button" data-i18n="boardMoveModal.open">Open task</button>
+          <button id="board-move-confirm" class="btn primary" type="button" data-i18n="boardMoveModal.confirm">Move task anyway</button>
         </div>
       </div>
     </div>
@@ -812,7 +822,7 @@
         <h2 id="app-confirm-heading"></h2>
         <p id="app-confirm-message" class="board-move-message"></p>
         <div class="modal-actions">
-          <button id="app-confirm-cancel" class="btn" type="button">Cancel</button>
+          <button id="app-confirm-cancel" class="btn" type="button" data-i18n="appConfirm.cancel">Cancel</button>
           <button id="app-confirm-confirm" class="btn" type="button"></button>
         </div>
       </div>

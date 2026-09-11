@@ -26,6 +26,7 @@ import { repeatSummaryFromRule } from './repeat.js';
 import { formatDate } from './helpers.js';
 import { renderViewBar } from './viewBar.js';
 import { currentView } from './currentView.js';
+import { t as translate, onLocaleChange } from './i18n/index.js';
 
 let clientIdSeq = 0;
 const nextClientId = (): string => `bc-${(clientIdSeq += 1)}`;
@@ -116,7 +117,7 @@ const mountBoardSourceMenu = (menu: HTMLElement, trigger: HTMLElement): void => 
 
 export const columnRef = (col: BoardWorkingColumn): BoardColumnRef | null => {
   if (col.sourceKind === 'list') {
-    if (col.sourceId === 0) return { kind: 'list', listId: null, label: 'No list' };
+    if (col.sourceId === 0) return { kind: 'list', listId: null, label: translate('compose.noList') };
     const list = state.lists.find((l) => l.id === col.sourceId);
     return list ? { kind: 'list', listId: list.id, label: list.name } : null;
   }
@@ -473,13 +474,13 @@ const buildSourceMenu = (
   menu.className = 'view-menu board-source-menu';
   menu.style.display = 'flex';
   menu.setAttribute('role', 'listbox');
-  menu.setAttribute('aria-label', 'Choose a list or smart list');
+  menu.setAttribute('aria-label', translate('board.chooseSource'));
   menu.addEventListener('click', (event) => event.stopPropagation());
 
-  menu.appendChild(menuGroupEl('Lists'));
+  menu.appendChild(menuGroupEl(translate('lists.title')));
   menu.appendChild(
     sourceMenuItem(
-      'No list',
+      translate('compose.noList'),
       current?.sourceKind === 'list' && current.sourceId === 0,
       () => onPick('list', 0),
     ),
@@ -495,7 +496,7 @@ const buildSourceMenu = (
   });
 
   if (state.smartLists.length) {
-    menu.appendChild(menuGroupEl('Smart lists'));
+    menu.appendChild(menuGroupEl(translate('smartLists.title')));
     state.smartLists.forEach((smart) => {
       menu.appendChild(
         sourceMenuItem(
@@ -523,7 +524,7 @@ const buildBoardCard = (
   const handle = document.createElement('span');
   handle.className = 'drag-handle board-card__handle';
   handle.setAttribute('draggable', 'true');
-  handle.title = 'Drag to another column';
+  handle.title = translate('board.dragToColumn');
   handle.innerHTML =
     `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">` +
     `<path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" /></svg>`;
@@ -616,8 +617,8 @@ const buildBoardCard = (
   const moveBtn = document.createElement('button');
   moveBtn.type = 'button';
   moveBtn.className = 'view-bar-action board-card__move';
-  moveBtn.setAttribute('aria-label', 'Move to…');
-  moveBtn.title = 'Move to…';
+  moveBtn.setAttribute('aria-label', translate('board.moveTo'));
+  moveBtn.title = translate('board.moveTo');
   moveBtn.innerHTML =
     `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">` +
     `<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h20"/></svg>`;
@@ -628,8 +629,8 @@ const buildBoardCard = (
   moveBtn.setAttribute('aria-expanded', String(menuOpen));
   if (others.length === 0) {
     moveBtn.disabled = true;
-    moveBtn.title = 'No other columns';
-    moveBtn.setAttribute('aria-label', 'No other columns');
+    moveBtn.title = translate('board.noOtherColumns');
+    moveBtn.setAttribute('aria-label', translate('board.noOtherColumns'));
   }
   moveBtn.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -660,7 +661,7 @@ const buildBoardCard = (
       item.className = 'list-menu-item';
       item.setAttribute('role', 'menuitem');
       if (!otherRef) {
-        item.textContent = 'Removed source';
+        item.textContent = translate('board.removedSource');
         item.setAttribute('aria-disabled', 'true');
         item.disabled = true;
         menu.appendChild(item);
@@ -668,24 +669,24 @@ const buildBoardCard = (
       }
       const plan = planBoardMove(task, ref, otherRef);
       if (plan.verdict === 'noop') {
-        item.textContent = `Already in "${otherRef.label}"`;
+        item.textContent = translate('board.alreadyIn').replace('{label}', otherRef.label);
         item.setAttribute('aria-disabled', 'true');
         item.disabled = true;
       } else if (plan.verdict === 'blocked') {
-        item.textContent = `${otherRef.label} — can't move here`;
+        item.textContent = translate('board.cantMoveHere').replace('{label}', otherRef.label);
         item.setAttribute('aria-disabled', 'true');
-        item.setAttribute('aria-label', `Can't move to ${otherRef.label}. ${plan.note}`);
+        item.setAttribute('aria-label', translate('board.cantMoveTo').replace('{label}', otherRef.label).replace('{note}', plan.note));
         item.title = plan.note;
         item.disabled = true;
       } else if (plan.verdict === 'best-effort') {
-        item.textContent = `Move to "${otherRef.label}"…`;
+        item.textContent = translate('board.moveToNamedEllipsis').replace('{label}', otherRef.label);
         item.addEventListener('click', () => {
           state.boardOpenMoveMenu = null;
           showBoardMoveDialog(task, column.clientId, otherCol.clientId, ref, otherRef, plan);
           renderBoard();
         });
       } else {
-        item.textContent = `Move to "${otherRef.label}"`;
+        item.textContent = translate('board.moveToNamed').replace('{label}', otherRef.label);
         item.addEventListener('click', () => {
           void performMove(task, column.clientId, otherCol.clientId, ref, otherRef, plan);
         });
@@ -731,7 +732,7 @@ const buildPreview = (
   const box = document.createElement('div');
   box.className = 'board-preview template-hints';
   box.setAttribute('role', 'group');
-  box.setAttribute('aria-label', `Move "${task.text}" to "${to.label}"`);
+  box.setAttribute('aria-label', translate('board.moveTaskTo').replace('{task}', task.text).replace('{label}', to.label));
 
   const chips = document.createElement('div');
   chips.className = 'board-preview__chips';
@@ -755,7 +756,7 @@ const buildPreview = (
   const confirm = document.createElement('button');
   confirm.type = 'button';
   confirm.className = 'view-bar-action board-primary';
-  confirm.textContent = plan.verdict === 'best-effort' ? 'Move anyway' : 'Move';
+  confirm.textContent = plan.verdict === 'best-effort' ? translate('board.moveAnyway') : translate('board.move');
   confirm.addEventListener('click', () => {
     void performMove(task, fromClientId, toClientId, from, to, plan);
   });
@@ -763,7 +764,7 @@ const buildPreview = (
   const openTask = document.createElement('button');
   openTask.type = 'button';
   openTask.className = 'view-bar-action';
-  openTask.textContent = 'Open task…';
+  openTask.textContent = translate('board.openTask');
   openTask.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('open-edit-modal', { detail: { taskId: task.id } }));
   });
@@ -771,7 +772,7 @@ const buildPreview = (
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'view-bar-action';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = translate('confirm.cancel');
   cancel.addEventListener('click', () => {
     state.boardPreview = null;
     renderBoard();
@@ -833,7 +834,7 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
   const pickerOpen = state.boardOpenSourcePickerId === col.clientId;
   picker.setAttribute('aria-expanded', String(pickerOpen));
   const label = document.createElement('span');
-  label.textContent = ref ? truncate(ref.label) : 'Removed source';
+  label.textContent = ref ? truncate(ref.label) : translate('board.removedSource');
   if (ref && ref.label.length > 24) label.title = ref.label;
   picker.appendChild(label);
   const caret = document.createElement('span');
@@ -863,7 +864,7 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
   menuBtn.setAttribute('aria-haspopup', 'menu');
   const colMenuOpen = state.boardOpenColumnMenuId === col.clientId;
   menuBtn.setAttribute('aria-expanded', String(colMenuOpen));
-  menuBtn.setAttribute('aria-label', 'Column options');
+  menuBtn.setAttribute('aria-label', translate('board.columnOptions'));
   menuBtn.innerHTML = svgMore();
   menuBtn.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -893,11 +894,11 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
       }
       menu.appendChild(item);
     };
-    mkItem('Move column left', index === 0, () => moveColumn(col.clientId, -1));
-    mkItem('Move column right', index === state.boardColumns.length - 1, () =>
+    mkItem(translate('board.moveColumnLeft'), index === 0, () => moveColumn(col.clientId, -1));
+    mkItem(translate('board.moveColumnRight'), index === state.boardColumns.length - 1, () =>
       moveColumn(col.clientId, 1),
     );
-    mkItem('Remove column', false, () => removeColumn(col.clientId), true);
+    mkItem(translate('board.removeColumn'), false, () => removeColumn(col.clientId), true);
     header.appendChild(menu);
   }
 
@@ -906,8 +907,8 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
   el.setAttribute(
     'aria-label',
     ref
-      ? `${ref.label}, ${openCount(tasks)} open of ${tasks.length}`
-      : 'Column source was removed',
+      ? translate('board.columnAria').replace('{label}', ref.label).replace('{open}', String(openCount(tasks))).replace('{total}', String(tasks.length))
+      : translate('board.columnSourceRemoved'),
   );
 
   const body = document.createElement('div');
@@ -919,15 +920,15 @@ const buildColumn = (col: BoardWorkingColumn, index: number): HTMLElement => {
   if (!ref) {
     const gone = document.createElement('div');
     gone.className = 'empty-state';
-    gone.textContent = 'This source was removed. Pick another from the header, or remove the column.';
+    gone.textContent = translate('board.sourceRemovedHint');
     body.appendChild(gone);
   } else if (tasks.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent =
       ref.kind === 'list'
-        ? `Nothing in "${ref.label}" yet.`
-        : `Nothing matches "${ref.label}".`;
+        ? translate('board.nothingInList').replace('{label}', ref.label)
+        : translate('board.nothingMatches').replace('{label}', ref.label);
     body.appendChild(empty);
   } else {
     const list = document.createElement('div');
@@ -1058,9 +1059,9 @@ const showBoardMoveDialog = (
 
   pendingBoardMoveData = { task, fromClientId, toClientId, from, to, plan };
 
-  let message = `These changes don't cover the whole filter, so the task may not stay in "${plan.destinationLabel}".`;
+  let message = translate('board.filterWarning').replace('{label}', plan.destinationLabel);
   if (!plan.staysInSource) {
-    message += ` Moves out of the "${plan.sourceLabel}" list.`;
+    message += ' ' + translate('board.filterWarningSource').replace('{label}', plan.sourceLabel);
   }
   messageEl.textContent = message;
   overlay.classList.add('open');
@@ -1129,7 +1130,7 @@ const renderToast = (): void => {
     const undo = document.createElement('button');
     undo.type = 'button';
     undo.className = 'view-bar-action board-toast__action';
-    undo.textContent = 'Undo';
+    undo.textContent = translate('board.undo');
     undo.addEventListener('click', () => {
       void undoBoardMove();
     });
@@ -1139,7 +1140,7 @@ const renderToast = (): void => {
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'view-bar-action board-toast__action';
-    retry.textContent = 'Retry';
+    retry.textContent = translate('board.retry');
     retry.addEventListener('click', () => {
       const fn = lastFailedMove;
       clearToast();
@@ -1150,10 +1151,13 @@ const renderToast = (): void => {
   const dismiss = document.createElement('button');
   dismiss.type = 'button';
   dismiss.className = 'view-bar-action board-toast__action';
-  dismiss.textContent = 'Dismiss';
+  dismiss.textContent = translate('board.dismiss');
   dismiss.addEventListener('click', clearToast);
   host.appendChild(dismiss);
 };
+
+// Re-render the board when the language changes
+onLocaleChange(() => renderBoard());
 
 export const renderBoard = (): void => {
   const region = refs.boardRegion;
@@ -1167,7 +1171,7 @@ export const renderBoard = (): void => {
     // The board area carries no "Leave board" control: while a board is open the
     // toggle is removed entirely (leaving happens via the sidebar pills / view
     // picker). Outside board mode it is the plain "Board" entry point again.
-    refs.boardToggle.textContent = 'Board';
+    refs.boardToggle.textContent = translate('view.board');
     refs.boardToggle.setAttribute('aria-pressed', String(state.boardMode));
     refs.boardToggle.hidden = state.boardMode;
   }
@@ -1181,7 +1185,7 @@ export const renderBoard = (): void => {
   if (refs.tasksSection) refs.tasksSection.hidden = true;
 
   const view = currentView();
-  const boardName = view.kind === 'board' && view.board ? view.board.name : 'Board';
+  const boardName = view.kind === 'board' && view.board ? view.board.name : translate('view.board');
   region.setAttribute('aria-label', `Board: ${boardName}`);
 
   host.innerHTML = '';
@@ -1189,7 +1193,7 @@ export const renderBoard = (): void => {
   if (state.boardColumns.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'board-empty empty-state';
-    empty.textContent = `No columns yet. Add a column to start the "${boardName}" board.`;
+    empty.textContent = translate('board.noColumnsYet').replace('{board}', boardName);
     host.appendChild(empty);
   } else {
     state.boardColumns.forEach((col, index) => host.appendChild(buildColumn(col, index)));
@@ -1204,7 +1208,7 @@ export const renderBoard = (): void => {
   add.setAttribute('aria-haspopup', 'listbox');
   const addOpen = state.boardOpenSourcePickerId === ADD_PICKER;
   add.setAttribute('aria-expanded', String(addOpen));
-  add.textContent = '＋ Add column';
+  add.textContent = `＋ ${translate('board.addColumn')}`;
   add.addEventListener('click', (event) => {
     event.stopPropagation();
     state.boardOpenSourcePickerId = addOpen ? null : ADD_PICKER;

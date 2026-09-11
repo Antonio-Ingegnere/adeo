@@ -4,6 +4,7 @@ import { positionDropdown, syncComboboxAria } from './helpers.js';
 import { mergeTag, renderTags } from './tags.js';
 import { state } from './state.js';
 import { createComboboxSuggestionItem, createTagChip } from './uiElements.js';
+import { t } from './i18n/index.js';
 
 const TOKEN_RE = /(^|\s)#([A-Za-z0-9_-]*)$/;
 
@@ -38,7 +39,7 @@ export const renderPendingTags = () => {
       color: tag.color,
       colorsEnabled: state.tagColors,
       variant: 'pending',
-      title: 'Remove tag',
+      title: t('compose.removeTagAria'),
       onActivate: (event) => {
         event.preventDefault();
         event.stopPropagation();

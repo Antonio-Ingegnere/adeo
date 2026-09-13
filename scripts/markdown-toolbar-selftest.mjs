@@ -418,8 +418,8 @@ try {
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
     check(
-      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 1,
-      '13: Enter on an empty unchecked task item removes the second item (exits the list)'
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 0,
+      '13: Enter on the only (empty) task item removes it entirely (exits the list, no stray checkbox left)'
     );
     check(
       (await detailsRich.locator('p').count()) >= 1,
@@ -447,8 +447,8 @@ try {
     await modeMarkdownLabel.click();
     const md13 = await detailsTextarea.inputValue();
     check(
-      md13.includes('- [ ] ') && md13.includes('normal paragraph') && md13.includes('# Heading'),
-      `13: mixed task-list, paragraph, and heading round-trip correctly to Markdown, got: ${md13}`
+      !md13.match(/- \[ \]\s*(\n|$)/) && md13.includes('normal paragraph') && md13.includes('# Heading'),
+      `13: paragraph and heading round-trip correctly to Markdown with no leftover empty checkbox, got: ${md13}`
     );
     await closeModal();
   }
@@ -478,8 +478,8 @@ try {
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
     check(
-      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 1,
-      '14: Enter on an empty checked task item removes the second item (exits the list)'
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 0,
+      '14: Enter on the only (empty) checked task item removes it entirely (exits the list, no stray checkbox left)'
     );
     check(
       (await detailsRich.locator('p').count()) >= 1,
@@ -496,8 +496,8 @@ try {
     await modeMarkdownLabel.click();
     const md14 = await detailsTextarea.inputValue();
     check(
-      md14.includes('- [x] ') && md14.includes('text after checked exit'),
-      `14: checked task-list exit and paragraph round-trip correctly to Markdown, got: ${md14}`
+      !md14.match(/- \[x\]\s*(\n|$)/) && md14.includes('text after checked exit'),
+      `14: paragraph round-trips correctly to Markdown with no leftover empty checked checkbox, got: ${md14}`
     );
     await closeModal();
   }
@@ -607,6 +607,161 @@ try {
     check(
       !md16.match(/- \[ \]\s*\n/),
       `16: no orphan "- [ ]" entry exists in Markdown, got: ${md16}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 17. Toolbar task-list button on empty block (D-007 regression): clicking the Task List
+  //     toolbar button on an empty paragraph should leave the caret inside the new task item's
+  //     text span (immediately after the checkbox), ready for typing -- no additional click
+  //     or navigation needed. Behavior should match typing '- [ ] ' directly (the typed-shortcut path).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar task button caret placement ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Click the toolbar task button on the empty paragraph
+    await page.locator('.markdown-toolbar-btn[data-action="task"]').click();
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li input[type="checkbox"]').count()) === 1,
+      '17: toolbar task button creates an unchecked task item'
+    );
+
+    // Type immediately after clicking the toolbar button: caret should be inside the task-text span,
+    // so the text should appear inside the item, not in a separate paragraph after it.
+    await page.keyboard.type('test task');
+    const taskText = await detailsRich.locator('ul[data-list-type="task"] li .wysiwyg-task-text').innerText();
+    check(
+      taskText.includes('test task'),
+      `17: typing after toolbar task button lands inside the task item's text span, got: "${taskText}"`
+    );
+
+    // Verify no separate paragraph was created after the task item (which would indicate wrong caret placement)
+    const paraCount = await detailsRich.locator('> p').count();
+    check(
+      paraCount === 0,
+      `17: no separate paragraph after task item created, para count: ${paraCount}`
+    );
+
+    // Switch to Markdown to verify the structure round-trips correctly
+    await modeMarkdownLabel.click();
+    const md17 = await detailsTextarea.inputValue();
+    check(
+      md17.includes('- [ ] test task'),
+      `17: toolbar task item round-trips to Markdown correctly, got: ${md17}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 18. Single empty item created via bullet-to-task upgrade, then Enter (D-005 reopen):
+  //     the exact manual-QA repro -- type '- ' (bullet) then '[ ] ' (upgrades it to an empty
+  //     task item via upgradeBulletItemToTask) with no non-empty item ever preceding it, then
+  //     press Enter once. Must exit the list fully (no stray leftover checkbox), unlike the
+  //     narrower typed-shortcut path already covered by check 13.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG bullet-upgrade single empty task exit ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    await page.keyboard.type('- ');
+    await page.keyboard.type('[ ] ');
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 1,
+      '18: bullet-to-task upgrade created one empty task item'
+    );
+    await page.keyboard.press('Enter');
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 0,
+      '18: Enter on the single empty upgraded task item removes it entirely (exits the list)'
+    );
+    check(
+      (await detailsRich.locator('> p').count()) === 1,
+      '18: Enter on the single empty upgraded task item leaves exactly one paragraph'
+    );
+    await page.keyboard.type('after upgrade exit');
+    const md18Text = await detailsRich.locator('p').last().innerText();
+    check(
+      md18Text.includes('after upgrade exit'),
+      `18: typing after bullet-upgrade task exit works correctly, got: ${md18Text}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 19. Acceptance criterion: non-empty task -> Enter -> empty task -> Enter -> normal paragraph.
+  //     Also verifies the D-007 toolbar-caret fix keeps working alongside this fix: a
+  //     toolbar-inserted empty task item still gets correct caret placement for typing, but if
+  //     Enter is pressed on it immediately with no typing, it still exits like any other empty
+  //     task item (no stray checkbox left over).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG acceptance non-empty-Enter-empty-Enter-paragraph ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    await page.keyboard.type('- [ ] non-empty task');
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 1,
+      '19: created a non-empty task item'
+    );
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 2,
+      '19: Enter on the non-empty task item creates a second (empty) task item'
+    );
+    await page.keyboard.press('Enter');
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 1,
+      '19: Enter on the empty task item exits the list, leaving only the original non-empty item'
+    );
+    check(
+      (await detailsRich.locator('> p').count()) === 1,
+      '19: exiting produces exactly one normal paragraph'
+    );
+    await page.keyboard.type('normal paragraph text');
+    const acceptanceParaText = await detailsRich.locator('> p').last().innerText();
+    check(
+      acceptanceParaText.includes('normal paragraph text'),
+      `19: typing in the resulting paragraph works correctly, got: ${acceptanceParaText}`
+    );
+    await modeMarkdownLabel.click();
+    const md19 = await detailsTextarea.inputValue();
+    check(
+      md19.includes('- [ ] non-empty task') &&
+        md19.includes('normal paragraph text') &&
+        !md19.match(/- \[ \]\s*(\n|$)/),
+      `19: Markdown round-trips with the non-empty task kept and no leftover empty checkbox, got: ${md19}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 20. Toolbar-inserted empty task item followed immediately by Enter (no typing) must still
+  //     exit like any other empty task item (D-007 caret fix must not reintroduce the D-005 bug).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar empty task then Enter exits ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    await page.locator('.markdown-toolbar-btn[data-action="task"]').click();
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 1,
+      '20: toolbar task button creates one empty task item'
+    );
+    await page.keyboard.press('Enter');
+    check(
+      (await detailsRich.locator('ul[data-list-type="task"] li').count()) === 0,
+      '20: Enter immediately after toolbar-created empty task item exits the list (no stray checkbox)'
+    );
+    check(
+      (await detailsRich.locator('> p').count()) === 1,
+      '20: toolbar-created empty task item Enter-exit leaves exactly one paragraph'
     );
     await closeModal();
   }

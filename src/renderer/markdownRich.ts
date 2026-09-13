@@ -413,14 +413,16 @@ export const applyListToBlock = (block: HTMLElement, kind: ListKind): void => {
     const span = document.createElement('span');
     span.className = 'wysiwyg-task-text';
     span.contentEditable = 'true';
-    span.appendChild(inlineMarkdownToFragment(markdown));
+    // Add inline content, or a <br> placeholder if empty (matching convertBlock's behavior).
+    const fragment = inlineMarkdownToFragment(markdown);
+    span.appendChild(fragment.childNodes.length > 0 ? fragment : document.createElement('br'));
     li.append(label, span);
     ul.appendChild(li);
     block.replaceWith(ul);
     placeCaretAtEnd(span);
     return;
   }
-  li.appendChild(inlineMarkdownToFragment(markdown));
+  li.appendChild(markdown === '' ? document.createElement('br') : inlineMarkdownToFragment(markdown));
   ul.appendChild(li);
   block.replaceWith(ul);
   placeCaretAtEnd(li);

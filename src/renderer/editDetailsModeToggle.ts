@@ -134,11 +134,16 @@ export const initEditDetailsModeToggle = (
       if (parentList && parentList.tagName === 'UL' && parentList.dataset.listType === 'task') {
         ensureTaskItemCheckbox(block as HTMLLIElement, false);
 
-        // D-005/D-006: Handle Enter on an empty task item -> exit the list.
+        // D-005/D-006/D-005-reopen: Handle Enter on an empty task item -> exit the list.
         // If both this item and the previous sibling are empty task items, it means the user
-        // pressed Enter on an empty item. Exit the list by removing the newly-created empty item
-        // and any preceding consecutive empty items (but only if there's a non-empty item before them),
-        // then creating a paragraph after the list.
+        // pressed Enter on an empty item. Exit the list unconditionally: remove the newly-created
+        // empty item and every preceding consecutive empty item, all the way to the start of the
+        // list if every item turns out to be empty (a single empty task item, with no non-empty
+        // item ever preceding it, must still fully exit on Enter -- there is no product requirement
+        // to preserve empty checkboxes as content just because a non-empty item wasn't found first;
+        // an earlier version of this walk-back gated removal on finding a non-empty item, which left
+        // a stray empty checkbox behind whenever the *entire* list was empty items, this is what the
+        // regression reproduced), then creating a paragraph after (or in place of) the list.
         const textSpan = block.querySelector('.wysiwyg-task-text') as HTMLElement | null;
         if (textSpan && isEmptyTaskText(textSpan)) {
           const prevSibling = block.previousElementSibling as HTMLElement | null;
@@ -146,19 +151,16 @@ export const initEditDetailsModeToggle = (
             const prevTextSpan = prevSibling.querySelector('.wysiwyg-task-text') as HTMLElement | null;
             if (prevTextSpan && isEmptyTaskText(prevTextSpan)) {
               // Both current and previous items are empty -> exit the list.
-              // Walk backward from the previous sibling through all consecutive empty task items,
-              // but only remove them if there's a non-empty item before the chain.
               const ul = block.parentElement as HTMLElement | null;
-              if (ul && ul.parentElement) {
+              const listParent = ul?.parentElement ?? null;
+              if (ul && listParent) {
                 const p = document.createElement('p');
                 p.appendChild(document.createElement('br'));
 
-                // Collect all consecutive empty task items walking backward from prevSibling.
+                // Collect all consecutive empty task items walking backward from prevSibling,
+                // regardless of whether the walk reaches the start of the list.
                 const emptyItemsToRemove: HTMLElement[] = [];
                 let currentCheck = prevSibling as HTMLElement | null;
-                let foundNonEmpty = false;
-
-                // Walk backward from prevSibling through all consecutive empty items
                 while (currentCheck && currentCheck.tagName === 'LI') {
                   const checkTextSpan = currentCheck.querySelector('.wysiwyg-task-text') as HTMLElement | null;
                   if (checkTextSpan && isEmptyTaskText(checkTextSpan)) {
@@ -166,30 +168,23 @@ export const initEditDetailsModeToggle = (
                     currentCheck = currentCheck.previousElementSibling as HTMLElement | null;
                   } else {
                     // Found a non-empty item, stop walking backward
-                    foundNonEmpty = true;
                     break;
                   }
                 }
 
-                // If we reached the start of the list (currentCheck is null after walking all empties),
-                // it means all items before the current one are empty, so don't remove them
-                // (they're manually-created, like "- [ ] " with no text). Only remove them if
-                // there's a non-empty item before them.
-                if (!foundNonEmpty) {
-                  // currentCheck is null, meaning we're at the start -> clear the removal list
-                  emptyItemsToRemove.length = 0;
-                }
-
-                // Remove the newly-created empty item
+                // Remove the newly-created empty item and every empty item found above.
                 block.remove();
-
-                // Remove all the consecutive empty items we found (only if there's a non-empty item before them)
                 for (const item of emptyItemsToRemove) {
                   item.remove();
                 }
 
-                // Insert paragraph after the ul
-                ul.parentElement.insertBefore(p, ul.nextSibling);
+                // If that emptied the whole list, replace the now-empty <ul> with the paragraph
+                // instead of leaving a stray empty list element behind; otherwise insert after it.
+                if (ul.children.length === 0) {
+                  listParent.replaceChild(p, ul);
+                } else {
+                  listParent.insertBefore(p, ul.nextSibling);
+                }
                 // Explicitly place caret at the start of the paragraph before the br
                 const sel = window.getSelection();
                 if (sel) {

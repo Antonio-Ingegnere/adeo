@@ -144,6 +144,8 @@ export const tr: Record<TranslationKey, string> = {
   'editModal.deleteAria': 'Görevi sil',
   'editModal.detailsLabel': 'Ayrıntılar',
   'editModal.detailsPlaceholder': "İsteğe bağlı ayrıntıları Markdown ile ekleyin",
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': 'Liste',
   'editModal.noList': 'Liste yok',
   'editModal.priorityHeading': 'Öncelik',

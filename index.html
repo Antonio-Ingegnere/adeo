@@ -363,9 +363,24 @@
                 <input id="edit-input" type="text" class="text-input modal-input" />
               </div>
               <div class="modal-details">
-                <label for="edit-details" class="modal-label" data-i18n="editModal.detailsLabel">Details</label>
+                <div class="details-header-row">
+                  <label for="edit-details" class="modal-label" data-i18n="editModal.detailsLabel">Details</label>
+                  <div class="settings-segmented details-mode-switch" role="group" aria-label="Details editing mode">
+                    <label class="segmented-option">
+                      <input type="radio" name="edit-details-mode" id="edit-details-mode-markdown" class="visually-hidden" checked />
+                      <span data-i18n="editModal.detailsModeMarkdown">Markdown</span>
+                    </label>
+                    <label class="segmented-option">
+                      <input type="radio" name="edit-details-mode" id="edit-details-mode-wysiwyg" class="visually-hidden" />
+                      <span data-i18n="editModal.detailsModeWysiwyg">WYSIWYG</span>
+                    </label>
+                  </div>
+                </div>
+                <div id="edit-details-toolbar-slot"></div>
                 <textarea id="edit-details" rows="4" class="details-textarea"
                   placeholder="Add optional task details in Markdown" data-i18n-placeholder="editModal.detailsPlaceholder"></textarea>
+                <div id="edit-details-rich" class="details-textarea details-rich" contenteditable="true"
+                  aria-label="Task details, rich text" style="display:none"></div>
               </div>
             </div>
             <div class="modal-right">

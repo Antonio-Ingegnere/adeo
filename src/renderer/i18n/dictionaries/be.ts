@@ -145,6 +145,8 @@ export const be: Record<TranslationKey, string> = {
   'editModal.deleteAria': 'Выдаліць задачу',
   'editModal.detailsLabel': 'Апісанне',
   'editModal.detailsPlaceholder': 'Дадайце неабавязковае апісанне ў фармаце Markdown',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': 'Спіс',
   'editModal.noList': 'Без спіса',
   'editModal.priorityHeading': 'Прыярытэт',

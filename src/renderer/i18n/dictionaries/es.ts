@@ -145,6 +145,8 @@ export const es: Record<TranslationKey, string> = {
   'editModal.deleteAria': 'Eliminar tarea',
   'editModal.detailsLabel': 'Detalles',
   'editModal.detailsPlaceholder': 'Añade detalles opcionales en Markdown',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': 'Lista',
   'editModal.noList': 'Sin lista',
   'editModal.priorityHeading': 'Prioridad',

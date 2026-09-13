@@ -151,6 +151,8 @@ export const en = {
   'editModal.deleteAria': 'Delete task',
   'editModal.detailsLabel': 'Details',
   'editModal.detailsPlaceholder': 'Add optional task details in Markdown',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': 'List',
   'editModal.noList': 'No list',
   'editModal.priorityHeading': 'Priority',

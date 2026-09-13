@@ -144,6 +144,8 @@ export const ko: Record<TranslationKey, string> = {
   'editModal.deleteAria': '작업 삭제',
   'editModal.detailsLabel': '세부 정보',
   'editModal.detailsPlaceholder': 'Markdown으로 선택적 세부 정보를 추가하세요',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': '목록',
   'editModal.noList': '목록 없음',
   'editModal.priorityHeading': '우선순위',

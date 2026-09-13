@@ -142,6 +142,8 @@ export const zh: Record<TranslationKey, string> = {
   'editModal.deleteAria': '删除任务',
   'editModal.detailsLabel': '详情',
   'editModal.detailsPlaceholder': '使用 Markdown 添加可选的任务详情',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': '列表',
   'editModal.noList': '无列表',
   'editModal.priorityHeading': '优先级',

@@ -144,6 +144,8 @@ export const ja: Record<TranslationKey, string> = {
   'editModal.deleteAria': 'タスクを削除',
   'editModal.detailsLabel': '詳細',
   'editModal.detailsPlaceholder': 'Markdown で任意の詳細を追加',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': 'リスト',
   'editModal.noList': 'リストなし',
   'editModal.priorityHeading': '優先度',

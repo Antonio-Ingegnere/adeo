@@ -144,6 +144,8 @@ export const ua: Record<TranslationKey, string> = {
   'editModal.deleteAria': 'Видалити завдання',
   'editModal.detailsLabel': 'Деталі',
   'editModal.detailsPlaceholder': 'Додайте додаткові деталі завдання в Markdown',
+  'editModal.detailsModeMarkdown': 'Markdown',
+  'editModal.detailsModeWysiwyg': 'WYSIWYG',
   'editModal.listHeading': 'Список',
   'editModal.noList': 'Без списку',
   'editModal.priorityHeading': 'Пріоритет',

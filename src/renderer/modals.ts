@@ -9,6 +9,32 @@ import { formatDate } from './helpers.js';
 import { asPriority, setPriorityAttr } from './theme.js';
 import { TAG_PALETTE, makeTagDot } from './tagColor.js';
 import { onLocaleChange, t } from './i18n/index.js';
+import { initEditDetailsModeToggle, type EditDetailsController } from './editDetailsModeToggle.js';
+
+/**
+ * Built once, lazily, the first time the Edit Task modal opens -- refs.editDetailsInput/
+ * editDetailsRich/editDetailsMode* only resolve once index.html has parsed, and modals.ts is
+ * imported before that during boot.
+ */
+let editDetailsController: EditDetailsController | null = null;
+const getEditDetailsController = (): EditDetailsController | null => {
+  if (editDetailsController) return editDetailsController;
+  if (
+    !refs.editDetailsInput ||
+    !refs.editDetailsRich ||
+    !refs.editDetailsModeMarkdown ||
+    !refs.editDetailsModeWysiwyg ||
+    !refs.editDetailsToolbarSlot
+  ) {
+    return null;
+  }
+  editDetailsController = initEditDetailsModeToggle(refs.editDetailsInput, refs.editDetailsRich, {
+    markdown: refs.editDetailsModeMarkdown,
+    wysiwyg: refs.editDetailsModeWysiwyg,
+  });
+  refs.editDetailsToolbarSlot.appendChild(editDetailsController.toolbar);
+  return editDetailsController;
+};
 
 export const updatePriorityUI = (value: string | null) => {
   const priority = asPriority(value);
@@ -168,6 +194,7 @@ export const openEditModal = (taskId: number) => {
   state.modalTagIds = [...(task.tagIds ?? [])];
   refs.editInput.value = task.text;
   refs.editDetailsInput.value = task.details || '';
+  getEditDetailsController()?.setMarkdown(task.details || '');
   if (refs.reminderDateInput) {
     refs.reminderDateInput.value = state.modalReminderDate ?? '';
   }
@@ -210,6 +237,7 @@ export const closeEditModal = () => {
   refs.overlay.classList.remove('open');
   refs.editInput.value = '';
   refs.editDetailsInput.value = '';
+  getEditDetailsController()?.setMarkdown('');
   if (refs.editDoneInput) {
     refs.editDoneInput.checked = false;
   }
@@ -269,7 +297,7 @@ export const deleteEditingTask = async (): Promise<void> => {
 export const saveEdit = async () => {
   if (!state.editingTaskId || !refs.editInput || !refs.editDetailsInput) return;
   const newText = refs.editInput.value.trim();
-  const newDetails = refs.editDetailsInput.value;
+  const newDetails = getEditDetailsController()?.getMarkdown() ?? refs.editDetailsInput.value;
   const newListId = state.modalSelectedListId;
   const newDone = refs.editDoneInput?.checked ?? false;
   const newPriority = state.modalPriority;

@@ -2184,6 +2184,107 @@ kbd {
   color: var(--text-placeholder);
 }
 
+.details-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.details-mode-switch {
+  max-width: 220px;
+  height: 26px;
+}
+
+.markdown-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+}
+
+.markdown-toolbar-btn {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--font-s);
+  cursor: pointer;
+}
+
+.markdown-toolbar-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+.markdown-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.details-rich {
+  overflow-y: auto;
+  cursor: text;
+}
+
+.details-rich:focus {
+  border-top-color: var(--border-strong);
+  border-bottom-color: var(--border-strong);
+  outline: none;
+}
+
+.details-rich h1,
+.details-rich h2,
+.details-rich h3,
+.details-rich h4,
+.details-rich h5,
+.details-rich h6 {
+  margin: 0.4em 0;
+}
+
+.details-rich p {
+  margin: 0.3em 0;
+}
+
+.details-rich hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.6em 0;
+}
+
+.wysiwyg-list {
+  margin: 0.3em 0;
+  padding-left: 1.4em;
+}
+
+.wysiwyg-list--task {
+  list-style: none;
+  padding-left: 0.2em;
+}
+
+.wysiwyg-list--task > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  cursor: default;
+}
+
+.wysiwyg-task {
+  flex: 0 0 auto;
+}
+
+.wysiwyg-task-text {
+  flex: 1;
+  min-width: 0;
+}
+
 /* No padding of its own: every modal but one sets its own padding on .modal, and adding 16px
    on top of that pushed the buttons to 36px from the edge while the content sat at 20px. The
    edit modal is the exception -- its .modal has padding:0 and .modal-content owns the insets --

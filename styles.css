@@ -2201,18 +2201,17 @@ kbd {
   flex-wrap: wrap;
   gap: 2px;
   padding: 4px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .markdown-toolbar-btn {
   min-width: 28px;
   height: 26px;
   padding: 0 6px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-m);
+  border: none;
+  border-radius: var(--radius-s);
   background: transparent;
   color: var(--text);
   font-size: var(--font-s);
@@ -2228,9 +2227,9 @@ kbd {
   flex-shrink: 0;
 }
 
-.markdown-toolbar-btn:hover:not(:disabled) {
+.markdown-toolbar-btn:hover:not(:disabled),
+.markdown-toolbar-btn:active:not(:disabled) {
   background: var(--surface-hover);
-  border-color: var(--border);
 }
 
 .markdown-toolbar-btn:disabled {

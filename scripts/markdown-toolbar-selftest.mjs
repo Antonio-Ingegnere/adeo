@@ -766,6 +766,407 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 21. Toolbar Bold with no selection: clicking Bold button toggles active typing state,
+  //     so subsequently typed text appears bold. Clicking Bold again disables it.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar bold typing state ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Click the Bold button with no selection (caret only, no text selected)
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    await boldBtn.click();
+    check(
+      await boldBtn.evaluate((el) => el.classList.contains('active')),
+      '21: Bold button becomes active after clicking with no selection'
+    );
+
+    // Type text: should appear bold
+    await page.keyboard.type('bold text');
+    const boldEl = detailsRich.locator('strong');
+    check(
+      (await boldEl.count()) === 1,
+      '21: text typed after activating Bold appears inside a <strong> element'
+    );
+    const boldText = await boldEl.innerText();
+    check(
+      boldText === 'bold text',
+      `21: typed text is wrapped in <strong>, got: ${boldText}`
+    );
+
+    // Click Bold again to deactivate
+    await boldBtn.click();
+    check(
+      !(await boldBtn.evaluate((el) => el.classList.contains('active'))),
+      '21: Bold button becomes inactive after clicking again'
+    );
+
+    // Type more text: should not be bold
+    await page.keyboard.type(' plain');
+    // Chromium's contenteditable renders an isolated space right at a formatting-element boundary
+    // as a non-breaking space (U+00A0) rather than a plain space (see markdownRich.ts's
+    // normalizeSpaces/normalizeInlineText) -- normalized here too so this assertion is about
+    // word-separation, not that exact byte.
+    const allText = (await detailsRich.innerText()).replace(/ /g, ' ');
+    check(
+      allText.includes('bold text plain'),
+      '21: text typed after deactivating Bold appears as plain text'
+    );
+
+    await modeMarkdownLabel.click();
+    const md21 = await detailsTextarea.inputValue();
+    check(
+      md21 === '**bold text** plain',
+      `21: bold typing state round-trips correctly to Markdown, got: ${md21}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 22. Toolbar Bold and Italic simultaneously: clicking both buttons with no selection
+  //     creates bold+italic text when subsequently typed.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar bold and italic together ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Click both Bold and Italic buttons with no selection
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    const italicBtn = page.locator('.markdown-toolbar-btn[data-action="italic"]');
+    await boldBtn.click();
+    await italicBtn.click();
+
+    check(
+      await boldBtn.evaluate((el) => el.classList.contains('active')),
+      '22: Bold button is active'
+    );
+    check(
+      await italicBtn.evaluate((el) => el.classList.contains('active')),
+      '22: Italic button is active'
+    );
+
+    // Type text: should appear bold+italic
+    await page.keyboard.type('bold italic text');
+    const strongEl = detailsRich.locator('strong');
+    const emEl = detailsRich.locator('em');
+
+    check(
+      (await strongEl.count()) >= 1,
+      '22: typed text appears in a <strong> element'
+    );
+    check(
+      (await emEl.count()) >= 1,
+      '22: typed text appears in an <em> element'
+    );
+
+    await modeMarkdownLabel.click();
+    const md22 = await detailsTextarea.inputValue();
+    check(
+      md22.includes('***bold italic text***') || md22.includes('**_bold italic text_**'),
+      `22: bold+italic typing state round-trips correctly to Markdown, got: ${md22}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 23. Toolbar reflects active state when caret moves into existing bold/italic text:
+  //     place caret inside a <strong> element, verify Bold button shows as active.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar reflects caret position ${randomUUID()}`);
+    await detailsTextarea.fill('This is **bold** text');
+    await modeWysiwygLabel.click();
+
+    // Verify bold text was rendered
+    const strongEl = detailsRich.locator('strong');
+    check(
+      (await strongEl.count()) === 1,
+      '23: bold text is rendered as <strong>'
+    );
+
+    // Click inside the bold text to place the caret there. `selectionchange` (which drives the
+    // toolbar's active-state update) fires on its own browser task after the click, not
+    // synchronously with it, so give it a beat before asserting.
+    await strongEl.click();
+    await page.waitForTimeout(50);
+
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    check(
+      await boldBtn.evaluate((el) => el.classList.contains('active')),
+      '23: Bold button becomes active when caret is inside existing <strong> text'
+    );
+
+    // Click outside the bold text
+    const emptyArea = detailsRich.locator('p').first();
+    await emptyArea.click();
+    await page.keyboard.press('End');
+    await page.waitForTimeout(50);
+
+    check(
+      !(await boldBtn.evaluate((el) => el.classList.contains('active'))),
+      '23: Bold button becomes inactive when caret moves outside <strong> text'
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 24. Toolbar reflects caret position for italic text as well.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar reflects italic caret ${randomUUID()}`);
+    await detailsTextarea.fill('Some *italic* text');
+    await modeWysiwygLabel.click();
+
+    // Click inside the italic text
+    const emEl = detailsRich.locator('em');
+    check(
+      (await emEl.count()) === 1,
+      '24: italic text is rendered as <em>'
+    );
+    await emEl.click();
+    await page.waitForTimeout(50);
+
+    const italicBtn = page.locator('.markdown-toolbar-btn[data-action="italic"]');
+    check(
+      await italicBtn.evaluate((el) => el.classList.contains('active')),
+      '24: Italic button becomes active when caret is inside existing <em> text'
+    );
+
+    // Click outside
+    const p = detailsRich.locator('p').first();
+    await p.click();
+    await page.keyboard.press('End');
+    await page.waitForTimeout(50);
+
+    check(
+      !(await italicBtn.evaluate((el) => el.classList.contains('active'))),
+      '24: Italic button becomes inactive when caret moves outside <em> text'
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 25. No empty formatting elements corrupting round-trip: create bold typing state,
+  //     click away without typing, switch to Markdown and back, verify no empty ****.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG no empty formatting corruption ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Click Bold to activate typing state (no text yet)
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    await boldBtn.click();
+
+    // Type some regular text and then click Bold again to deactivate (without typing in bold)
+    await page.keyboard.type('plain ');
+    await boldBtn.click();
+    await page.keyboard.type('also plain');
+
+    // Switch to Markdown and back to trigger serialization
+    await modeMarkdownLabel.click();
+    const md25 = await detailsTextarea.inputValue();
+    check(
+      !md25.includes('****'),
+      `25: no empty or malformed ****, got: ${md25}`
+    );
+    check(
+      !md25.match(/\*\*\s*\*\*/),
+      `25: no empty bold markers, got: ${md25}`
+    );
+
+    await modeWysiwygLabel.click();
+    const textAfter = (await detailsRich.innerText()).replace(/ /g, ' ');
+    check(
+      textAfter.includes('plain also plain'),
+      `25: text round-trips correctly, got: ${textAfter}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 26. Aggressive toggle sequence 1: plain -> bold -> bold+italic -> italic -> plain
+  //     (D-012 regression: malformed Markdown markers from overlapping formatting).
+  //     Verify serialization produces valid, correctly-marked Markdown with no unmatched
+  //     asterisks, and that round-tripping back produces identical Markdown.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG aggressive toggle 1: plain-bold-both-italic-plain ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Start with plain text
+    await page.keyboard.type('text');
+
+    // Toggle bold ON
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    await boldBtn.click();
+
+    // Type more text (now bold)
+    await page.keyboard.type(' bold');
+
+    // Toggle italic ON (now bold+italic)
+    const italicBtn = page.locator('.markdown-toolbar-btn[data-action="italic"]');
+    await italicBtn.click();
+
+    // Type more text (now bold+italic)
+    await page.keyboard.type(' both');
+
+    // Toggle bold OFF (now italic only)
+    await boldBtn.click();
+
+    // Type more text (now italic only)
+    await page.keyboard.type(' italic');
+
+    // Toggle italic OFF (back to plain)
+    await italicBtn.click();
+
+    // Type final plain text
+    await page.keyboard.type(' plain');
+
+    // Switch to Markdown and verify markers are valid
+    await modeMarkdownLabel.click();
+    const md26 = await detailsTextarea.inputValue();
+
+    // Check for unmatched asterisks (most critical: count must be even)
+    const asteriskCount = (md26.match(/\*/g) || []).length;
+    check(
+      asteriskCount % 2 === 0,
+      `26: no unmatched asterisks in Markdown output (even count), got: ${md26}`
+    );
+    // Also verify no 4+ asterisks in a row (which would indicate doubled markers)
+    check(
+      !md26.match(/\*{4,}/),
+      `26: no quadruple asterisks or worse indicating doubled markers, got: ${md26}`
+    );
+
+    // Round-trip: WYSIWYG -> Markdown -> WYSIWYG -> Markdown and verify stability
+    await modeWysiwygLabel.click();
+    await modeMarkdownLabel.click();
+    const md26after = await detailsTextarea.inputValue();
+    check(
+      md26 === md26after,
+      `26: round-trip produces identical Markdown (stable), first: ${md26}, after: ${md26after}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 27. Aggressive toggle sequence 2: italic -> bold+italic -> bold -> plain
+  //     (D-012 regression: different ordering of the toggle sequence).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG aggressive toggle 2: italic-both-bold-plain ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Start with plain text
+    await page.keyboard.type('text');
+
+    // Toggle italic ON
+    const italicBtn = page.locator('.markdown-toolbar-btn[data-action="italic"]');
+    await italicBtn.click();
+
+    // Type text (italic)
+    await page.keyboard.type(' italic');
+
+    // Toggle bold ON (now bold+italic)
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    await boldBtn.click();
+
+    // Type text (bold+italic)
+    await page.keyboard.type(' both');
+
+    // Toggle italic OFF (now bold only)
+    await italicBtn.click();
+
+    // Type text (bold)
+    await page.keyboard.type(' bold');
+
+    // Toggle bold OFF (plain)
+    await boldBtn.click();
+
+    // Type final text (plain)
+    await page.keyboard.type(' plain');
+
+    // Verify Markdown validity
+    await modeMarkdownLabel.click();
+    const md27 = await detailsTextarea.inputValue();
+
+    const asteriskCount27 = (md27.match(/\*/g) || []).length;
+    check(
+      asteriskCount27 % 2 === 0,
+      `27: no unmatched asterisks in Markdown output (even count), got: ${md27}`
+    );
+    check(
+      !md27.match(/\*{4,}/),
+      `27: no quadruple asterisks or doubled markers, got: ${md27}`
+    );
+
+    // Round-trip stability
+    await modeWysiwygLabel.click();
+    await modeMarkdownLabel.click();
+    const md27after = await detailsTextarea.inputValue();
+    check(
+      md27 === md27after,
+      `27: round-trip produces identical Markdown (stable)`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 28. Toggle bold/italic multiple times inside the same word (D-012 regression).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG aggressive toggle 3: toggle within word ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Type a word, then toggle formatting multiple times within it
+    await page.keyboard.type('wo');
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    await boldBtn.click();
+    await page.keyboard.type('rd');
+    await boldBtn.click();
+    const italicBtn = page.locator('.markdown-toolbar-btn[data-action="italic"]');
+    await italicBtn.click();
+    await page.keyboard.type('test');
+    await italicBtn.click();
+
+    await modeMarkdownLabel.click();
+    const md28 = await detailsTextarea.inputValue();
+
+    // Verify valid markers (no unmatched asterisks, no malformed markers)
+    const asteriskCount28 = (md28.match(/\*/g) || []).length;
+    check(
+      asteriskCount28 % 2 === 0,
+      `28: no unmatched asterisks (even count), got: ${md28}`
+    );
+    check(
+      !md28.match(/\*{4,}/),
+      `28: no quadruple asterisks or doubled markers, got: ${md28}`
+    );
+
+    // Round-trip stability
+    await modeWysiwygLabel.click();
+    await modeMarkdownLabel.click();
+    const md28after = await detailsTextarea.inputValue();
+    check(
+      md28 === md28after,
+      `28: round-trip produces identical Markdown (stable), first: ${md28}, after: ${md28after}`
+    );
+
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} scenario checks passed before teardown`);
 } catch (error) {
   failure = error;

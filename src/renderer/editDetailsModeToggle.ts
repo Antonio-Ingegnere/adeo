@@ -10,9 +10,12 @@
  */
 import {
   applyInlineTrigger,
+  applyPendingFormatToTypedText,
   closestBlock,
   convertBlock,
   ensureTaskItemCheckbox,
+  exitFormatAtCaret,
+  isCaretInsideTag,
   markdownToRichFragment,
   matchBlockTrigger,
   matchInlineTrigger,
@@ -20,7 +23,7 @@ import {
   richFragmentToMarkdown,
   upgradeBulletItemToTask,
 } from './markdownRich.js';
-import { buildMarkdownToolbar, type MarkdownToolbar } from './markdownToolbar.js';
+import { buildMarkdownToolbar, type CaretFormatState, type MarkdownToolbar } from './markdownToolbar.js';
 
 /**
  * Checks if a task-text span is empty (contains only a <br> placeholder or is truly empty).
@@ -57,7 +60,29 @@ export const initEditDetailsModeToggle = (
 ): EditDetailsController => {
   let mode: EditDetailsMode = 'markdown';
 
-  const toolbarHandle: MarkdownToolbar = buildMarkdownToolbar(() => rich);
+  // Pending caret typing-format state (bold/italic toggled via the toolbar with no selection --
+  // see markdownRich.ts's applyPendingFormatToTypedText/exitFormatAtCaret). Reset whenever a new
+  // document is loaded or the mode is switched, so it never leaks across dialogs/re-renders.
+  const pendingFormat: { strong: boolean; em: boolean } = { strong: false, em: false };
+  const resetPendingFormat = () => {
+    pendingFormat.strong = false;
+    pendingFormat.em = false;
+  };
+
+  const formatState: CaretFormatState = {
+    isPending: (tag) => pendingFormat[tag],
+    toggleCaretFormat: (tag) => {
+      const active = pendingFormat[tag] || isCaretInsideTag(tag);
+      if (active) {
+        exitFormatAtCaret(tag);
+        pendingFormat[tag] = false;
+      } else {
+        pendingFormat[tag] = true;
+      }
+    },
+  };
+
+  const toolbarHandle: MarkdownToolbar = buildMarkdownToolbar(() => rich, formatState);
 
   const renderRich = (markdown: string) => {
     rich.innerHTML = '';
@@ -82,6 +107,7 @@ export const initEditDetailsModeToggle = (
     mode = 'markdown';
     textarea.value = markdown;
     renderRich(markdown);
+    resetPendingFormat();
     switchInputs.markdown.checked = true;
     switchInputs.wysiwyg.checked = false;
     applyMode();
@@ -96,6 +122,7 @@ export const initEditDetailsModeToggle = (
     } else {
       textarea.value = richFragmentToMarkdown(rich);
     }
+    resetPendingFormat();
     mode = next;
     applyMode();
   };
@@ -119,7 +146,45 @@ export const initEditDetailsModeToggle = (
     if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return;
     const range = selection.getRangeAt(0);
     const node = range.startContainer;
-    const offset = range.startOffset;
+    let offset = range.startOffset;
+
+    // Strip the plain (unformatted) zero-width-space caret-anchor marker `exitFormatAtCaret`
+    // leaves behind when a pending typing-format is turned off (see markdownRich.ts), but only
+    // once real content has landed next to it -- leaving the marker as *only* a zero-width space
+    // (e.g. right after the toolbar click, before any real typing) would turn it back into an
+    // empty text node, undoing the very fix it exists for (an empty text node at that boundary is
+    // exactly the ambiguous anchor Chromium's caret affinity resolves by re-entering the adjacent
+    // formatting element). Safe to strip once non-marker content is present: this marker only
+    // ever appears in a plain, non-formatted text node (never nested inside a <strong>/<em> the
+    // way the old caret-placeholder approach did), so removing it can't straddle a
+    // formatting-element boundary or corrupt sibling content.
+    if (node.nodeType === Node.TEXT_NODE) {
+      const textNode = node as Text;
+      if (textNode.data.includes('​') && textNode.data.replace(/​/g, '').length > 0) {
+        const zwsBeforeCaret = (textNode.data.slice(0, offset).match(/​/g) ?? []).length;
+        textNode.data = textNode.data.replace(/​/g, '');
+        offset = Math.max(0, offset - zwsBeforeCaret);
+        const cleanRange = document.createRange();
+        cleanRange.setStart(textNode, offset);
+        cleanRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(cleanRange);
+      }
+    }
+
+    // A pending caret typing-format is active (toolbar Bold/Italic toggled with no selection):
+    // wrap the character(s) Chromium just inserted as plain text in the missing formatting
+    // element(s) instead of running block/inline shortcut detection against them.
+    if (pendingFormat.strong || pendingFormat.em) {
+      const typedText = (event as InputEvent).data;
+      if (inputType === 'insertText' && typeof typedText === 'string' && typedText.length > 0) {
+        const tags: Array<'strong' | 'em'> = [];
+        if (pendingFormat.em) tags.push('em');
+        if (pendingFormat.strong) tags.push('strong');
+        applyPendingFormatToTypedText(typedText, tags);
+        return;
+      }
+    }
 
     const block = closestBlock(rich, node);
 

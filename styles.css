@@ -2232,6 +2232,11 @@ kbd {
   background: var(--surface-hover);
 }
 
+.markdown-toolbar-btn.active:not(:disabled) {
+  background: var(--surface-hover);
+  font-weight: 600;
+}
+
 .markdown-toolbar-btn:disabled {
   opacity: 0.4;
   cursor: default;

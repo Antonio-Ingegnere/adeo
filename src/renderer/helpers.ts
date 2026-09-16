@@ -1,5 +1,6 @@
 import type { Task } from '../types.js';
 import { state } from './state.js';
+import { parseInlineMarkdown, type InlineNode } from './markdownInline.js';
 
 /**
  * The format defaults to the user's setting, which is how every caller but one uses it. The
@@ -149,8 +150,21 @@ export const syncComboboxAria = (
 export const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export const renderInline = (text: string): string =>
-  text.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
+/** Renders a list of parsed inline nodes back to an HTML string. `text` is assumed to already be
+ *  HTML-escaped (renderInline's caller always pre-escapes), so leaf text nodes are emitted as-is. */
+const inlineNodesToHtml = (nodes: InlineNode[]): string =>
+  nodes
+    .map((node) => {
+      if (node.kind === 'text') return node.text;
+      if (node.kind === 'code') return `<code>${node.text}</code>`;
+      if (node.kind === 'strong') return `<strong>${inlineNodesToHtml(node.children)}</strong>`;
+      return `<em>${inlineNodesToHtml(node.children)}</em>`;
+    })
+    .join('');
+
+/** Renders the scoped inline Markdown subset (bold, italic -- including overlapping/nested
+ *  bold+italic --, and inline code) to HTML. `text` must already be HTML-escaped by the caller. */
+export const renderInline = (text: string): string => inlineNodesToHtml(parseInlineMarkdown(text));
 
 export const createDetailsElement = (
   task: Task,

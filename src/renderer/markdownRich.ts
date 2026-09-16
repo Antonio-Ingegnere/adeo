@@ -19,36 +19,39 @@
  * document transformation (spec section 7).
  */
 
+import { parseInlineMarkdown, type InlineNode } from './markdownInline.js';
+
 export type ListKind = 'bullet' | 'task';
 
 const escapeForTextNode = (text: string): Text => document.createTextNode(text);
 
-/** Turns one line's inline Markdown into a fragment of text/<strong>/<em>/<code> nodes. */
-export const inlineMarkdownToFragment = (text: string): DocumentFragment => {
+/** Builds a fragment of text/<strong>/<em>/<code> DOM nodes from parsed inline nodes, correctly
+ *  reproducing overlapping/nested bold+italic (see markdownInline.ts). */
+const inlineNodesToFragment = (nodes: InlineNode[]): DocumentFragment => {
   const frag = document.createDocumentFragment();
-  const re = /`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text))) {
-    if (match.index > last) frag.appendChild(escapeForTextNode(text.slice(last, match.index)));
-    if (match[1] !== undefined) {
+  nodes.forEach((node) => {
+    if (node.kind === 'text') {
+      frag.appendChild(escapeForTextNode(node.text));
+    } else if (node.kind === 'code') {
       const code = document.createElement('code');
-      code.textContent = match[1];
+      code.textContent = node.text;
       frag.appendChild(code);
-    } else if (match[2] !== undefined) {
+    } else if (node.kind === 'strong') {
       const strong = document.createElement('strong');
-      strong.textContent = match[2];
+      strong.appendChild(inlineNodesToFragment(node.children));
       frag.appendChild(strong);
-    } else if (match[3] !== undefined) {
+    } else {
       const em = document.createElement('em');
-      em.textContent = match[3];
+      em.appendChild(inlineNodesToFragment(node.children));
       frag.appendChild(em);
     }
-    last = re.lastIndex;
-  }
-  if (last < text.length) frag.appendChild(escapeForTextNode(text.slice(last)));
+  });
   return frag;
 };
+
+/** Turns one line's inline Markdown into a fragment of text/<strong>/<em>/<code> nodes. */
+export const inlineMarkdownToFragment = (text: string): DocumentFragment =>
+  inlineNodesToFragment(parseInlineMarkdown(text));
 
 // Chromium's contenteditable inserts U+00A0 (non-breaking space) instead of a plain space for a
 // single trailing/isolated space keystroke (notably right at a formatting-element boundary, e.g.
@@ -107,6 +110,13 @@ const collectTextNodesWithState = (
   return result;
 };
 
+// Bold and italic use different delimiter characters (`**` / `_`) so that a close-then-reopen
+// sequence forced by a non-topmost mark changing state (see markdownInline.ts's header comment)
+// is never ambiguous: '**' (close strong) + '_' (close em) + '**' (reopen strong) is always
+// unambiguously splittable, whereas sharing one character for both would collapse consecutive
+// delimiters into one indistinguishable run.
+const marker = (tag: 'strong' | 'em' | 'code'): string => (tag === 'strong' ? '**' : tag === 'em' ? '_' : '`');
+
 /** Serializes a list of (text, format) pairs into Markdown with markers only at state transitions.
  *  Closes active markers and opens new ones only when the formatting state changes between segments.
  *  Uses LIFO (last-in-first-out) order to close nested tags correctly.
@@ -126,18 +136,12 @@ const serializeWithStateTransitions = (segments: Array<{ text: string; format: A
 
     // Close tags from the end of currentFormat down to commonLength (LIFO)
     for (let i = currentFormat.length - 1; i >= commonLength; i--) {
-      const tag = currentFormat[i];
-      if (tag === 'strong') out += '**';
-      else if (tag === 'em') out += '*';
-      else if (tag === 'code') out += '`';
+      out += marker(currentFormat[i]);
     }
 
     // Open new tags from commonLength to the end of format (in order)
     for (let i = commonLength; i < format.length; i++) {
-      const tag = format[i];
-      if (tag === 'strong') out += '**';
-      else if (tag === 'em') out += '*';
-      else if (tag === 'code') out += '`';
+      out += marker(format[i]);
     }
 
     // Emit the text
@@ -147,10 +151,7 @@ const serializeWithStateTransitions = (segments: Array<{ text: string; format: A
 
   // Close any remaining open formatting at the end (LIFO)
   for (let i = currentFormat.length - 1; i >= 0; i--) {
-    const tag = currentFormat[i];
-    if (tag === 'strong') out += '**';
-    else if (tag === 'em') out += '*';
-    else if (tag === 'code') out += '`';
+    out += marker(currentFormat[i]);
   }
 
   return out;
@@ -456,16 +457,102 @@ export const isCaretInsideTag = (tag: 'strong' | 'em' | 'code'): boolean => {
   return false;
 };
 
-/** Wraps (or unwraps) the current *selection* in a bold/italic/code element. No-op (returns
- *  false) when there is no selection -- the caret-only case (toolbar click with nothing selected)
- *  is handled separately by the pending-typing-format mechanism below (`toggleCaretFormat`,
- *  `applyPendingFormatToTypedText`, `exitFormatAtCaret`), not by this function. */
-export const toggleInlineOnSelection = (tag: 'strong' | 'em' | 'code'): boolean => {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return false;
-  const range = selection.getRangeAt(0);
-  if (range.collapsed) return false;
+/**
+ * Splits every ancestor of the boundary point (`container`, `offset`) up to (but not including)
+ * `root`, so the boundary lands exactly between two of `root`'s direct children. Used to turn an
+ * arbitrary Range into a contiguous run of whole sibling nodes under `root`, so formatting can be
+ * toggled on exactly the selected text without disturbing anything outside it -- including a
+ * sub-range of a larger existing bold/italic span (the reported bug: toggling a mark off used to
+ * unwrap the *entire* enclosing element, not just the selected part of it).
+ *
+ * Returns the direct child of `root` that now sits immediately *after* the boundary (or `null` if
+ * the boundary is at the very end of `root`'s children) -- a live node reference rather than a
+ * numeric index, since a plain index computed for one boundary would go stale the moment the
+ * *other* boundary's split inserts a new sibling earlier in the same parent (this bit a first
+ * version of this function: computing the end boundary as an index, then splitting the start
+ * boundary in the same text node, silently shifted what that index pointed at).
+ */
+const splitToRootBoundary = (root: HTMLElement, container: Node, offset: number): ChildNode | null => {
+  let node: Node = container;
+  let after: ChildNode | null;
 
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node as Text;
+    if (offset > 0 && offset < text.data.length) text.splitText(offset);
+    after = offset > 0 ? text.nextSibling : text;
+    node = text.parentNode as Node;
+  } else {
+    after = (node.childNodes[offset] as ChildNode | undefined) ?? null;
+  }
+
+  while (node !== root) {
+    const parent = node.parentNode;
+    if (!parent) return after;
+    if (after) {
+      const el = node as HTMLElement;
+      const clone = el.cloneNode(false) as HTMLElement;
+      let child: ChildNode | null = after;
+      while (child) {
+        const next: ChildNode | null = child.nextSibling;
+        clone.appendChild(child);
+        child = next;
+      }
+      parent.insertBefore(clone, el.nextSibling);
+      after = clone;
+    } else {
+      after = node.nextSibling;
+    }
+    node = parent;
+  }
+  return after;
+};
+
+const collectLeafTextNodes = (node: Node): Text[] => {
+  if (node.nodeType === Node.TEXT_NODE) return [node as Text];
+  const out: Text[] = [];
+  node.childNodes.forEach((c) => out.push(...collectLeafTextNodes(c)));
+  return out;
+};
+
+const hasTagAncestorWithin = (node: Node, tag: string, root: HTMLElement): boolean => {
+  let el: Node | null = node;
+  while (el) {
+    if (el.nodeType === Node.ELEMENT_NODE && (el as HTMLElement).tagName.toLowerCase() === tag) return true;
+    if (el === root) return false;
+    el = el.parentNode;
+  }
+  return false;
+};
+
+/** Whether every leaf of text under `node` already has `tag` as an ancestor (within `root`). */
+const subtreeFullyHasTag = (node: Node, tag: string, root: HTMLElement): boolean => {
+  const leaves = collectLeafTextNodes(node);
+  if (leaves.length === 0) return hasTagAncestorWithin(node, tag, root);
+  return leaves.every((leaf) => hasTagAncestorWithin(leaf, tag, root));
+};
+
+/** Removes every `tag` element found anywhere in `node`'s subtree (including `node` itself),
+ *  moving their children up in place. Used before re-wrapping, so toggling a mark on never
+ *  produces a redundant nested `<tag><tag>...` pair for text that already had it. */
+const unwrapTagRecursive = (node: Node, tag: string): void => {
+  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName.toLowerCase() === tag) {
+    const el = node as HTMLElement;
+    const parent = el.parentNode;
+    if (!parent) return;
+    const children = Array.from(el.childNodes);
+    children.forEach((child) => parent.insertBefore(child, el));
+    parent.removeChild(el);
+    children.forEach((child) => unwrapTagRecursive(child, tag));
+    return;
+  }
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    Array.from(node.childNodes).forEach((c) => unwrapTagRecursive(c, tag));
+  }
+};
+
+/** Legacy whole-ancestor toggle, kept as a fallback for selections that don't cleanly resolve to
+ *  a single-block boundary split below (e.g. a selection spanning multiple blocks). */
+const toggleInlineOnSelectionWholeAncestor = (tag: 'strong' | 'em' | 'code', range: Range): boolean => {
   const existing = (() => {
     let node: Node | null = range.commonAncestorContainer;
     while (node) {
@@ -488,6 +575,79 @@ export const toggleInlineOnSelection = (tag: 'strong' | 'em' | 'code'): boolean 
   wrapper.appendChild(contents);
   range.insertNode(wrapper);
   placeCaretAtEnd(wrapper);
+  return true;
+};
+
+/** Wraps (or unwraps) the current *selection* in a bold/italic/code element. No-op (returns
+ *  false) when there is no selection -- the caret-only case (toolbar click with nothing selected)
+ *  is handled separately by the pending-typing-format mechanism below (`toggleCaretFormat`,
+ *  `applyPendingFormatToTypedText`, `exitFormatAtCaret`), not by this function.
+ *
+ *  Splits exactly at the selection boundary rather than unwrapping/rewrapping whole ancestor
+ *  elements, so toggling a mark works correctly when the selection is only part of a larger
+ *  existing formatted range (including one that overlaps with another still-active mark). */
+export const toggleInlineOnSelection = (tag: 'strong' | 'em' | 'code'): boolean => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return false;
+  const range = selection.getRangeAt(0);
+  if (range.collapsed) return false;
+
+  const root = closestBlock(
+    (range.commonAncestorContainer.getRootNode() as Document).body ?? document.body,
+    range.commonAncestorContainer
+  );
+  if (!root) return toggleInlineOnSelectionWholeAncestor(tag, range);
+
+  const editableRoot = (root.getRootNode() as Document).body ?? document.body;
+  const startBlock = closestBlock(editableRoot, range.startContainer) ?? root;
+  const endBlock = closestBlock(editableRoot, range.endContainer) ?? root;
+  if (startBlock !== root || endBlock !== root) return toggleInlineOnSelectionWholeAncestor(tag, range);
+
+  // Split the later boundary first: splitting a text node only ever affects the portion *after*
+  // the split point, so processing end-before-start guarantees start's (container, offset) -- read
+  // from the still-live `range` before any mutation -- stays meaningful even when both boundaries
+  // fall inside the same original text node.
+  const afterEnd = splitToRootBoundary(root, range.endContainer, range.endOffset);
+  const afterStart = splitToRootBoundary(root, range.startContainer, range.startOffset);
+
+  const children = Array.from(root.childNodes);
+  const startIndex = afterStart ? children.indexOf(afterStart) : children.length;
+  const endIndex = afterEnd ? children.indexOf(afterEnd) : children.length;
+  const selected = children.slice(startIndex, endIndex);
+  if (selected.length === 0) return false;
+
+  // Captured *before* mutating `selected`'s nodes, since toggling can remove/replace them
+  // entirely (e.g. unwrapping an element whose whole subtree was the selection) -- these sibling
+  // nodes are themselves never touched, so they stay valid anchors for re-selecting the same
+  // logical text range afterward.
+  const beforeSibling = selected[0].previousSibling;
+  const afterSibling = selected[selected.length - 1].nextSibling;
+
+  const active = selected.every((n) => subtreeFullyHasTag(n, tag, root));
+
+  if (active) {
+    selected.forEach((n) => unwrapTagRecursive(n, tag));
+  } else {
+    selected.forEach((n) => {
+      unwrapTagRecursive(n, tag);
+      const wrapper = document.createElement(tag);
+      const parent = n.parentNode;
+      if (!parent) return;
+      parent.insertBefore(wrapper, n);
+      wrapper.appendChild(n);
+    });
+  }
+  mergeAdjacentInlineFormatting(root);
+  root.normalize();
+
+  const newRange = document.createRange();
+  if (beforeSibling) newRange.setStartAfter(beforeSibling);
+  else newRange.setStart(root, 0);
+  if (afterSibling) newRange.setEndBefore(afterSibling);
+  else newRange.setEnd(root, root.childNodes.length);
+  selection.removeAllRanges();
+  selection.addRange(newRange);
+
   return true;
 };
 
@@ -599,11 +759,22 @@ export const exitFormatAtCaret = (tag: 'strong' | 'em'): void => {
   if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return;
   const range = selection.getRangeAt(0);
   let el: HTMLElement | null = null;
+  // Marks strictly between the caret and `el` (the tag being exited) -- e.g. an ambient <em> the
+  // caret also happens to sit inside when exiting an outer <strong> -- must keep wrapping the
+  // caret afterward. Without this, exiting the outer mark would silently also drop every inner
+  // one the user never asked to turn off (the reported bug: toggling Bold off while the caret is
+  // inside bold+italic text loses italic too, because the split below moves the caret out to
+  // `el`'s parent, which is outside *all* of them).
+  const innerTags: Array<'strong' | 'em'> = [];
   let node: Node | null = range.startContainer;
   while (node) {
-    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName.toLowerCase() === tag) {
-      el = node as HTMLElement;
-      break;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const nodeTag = (node as HTMLElement).tagName.toLowerCase();
+      if (nodeTag === tag) {
+        el = node as HTMLElement;
+        break;
+      }
+      if (nodeTag === 'strong' || nodeTag === 'em') innerTags.unshift(nodeTag as 'strong' | 'em');
     }
     node = node.parentNode;
   }
@@ -623,7 +794,16 @@ export const exitFormatAtCaret = (tag: 'strong' | 'em'): void => {
   // unambiguous non-formatted home; it's stripped from output by inlineNodeToMarkdown's existing
   // defensive zero-width-space handling, so it never leaks into serialized Markdown.
   const marker = document.createTextNode('​');
-  parent.insertBefore(marker, insertionPoint);
+  // Re-wrap the marker in fresh (empty) clones of any still-active inner marks, in their original
+  // nesting order, so subsequent typing at the caret keeps inheriting them natively from the DOM
+  // (no separate typed-text bookkeeping needed for this path).
+  let markerHost: Node = marker;
+  innerTags.forEach((innerTag) => {
+    const wrapper = document.createElement(innerTag);
+    wrapper.appendChild(markerHost);
+    markerHost = wrapper;
+  });
+  parent.insertBefore(markerHost, insertionPoint);
   if (afterFragment.textContent) {
     const afterEl = el.cloneNode(false) as HTMLElement;
     afterEl.appendChild(afterFragment);

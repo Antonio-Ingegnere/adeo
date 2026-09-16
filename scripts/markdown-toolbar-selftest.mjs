@@ -1116,7 +1116,7 @@ try {
     const md27after = await detailsTextarea.inputValue();
     check(
       md27 === md27after,
-      `27: round-trip produces identical Markdown (stable)`
+      `27: round-trip produces identical Markdown (stable), first: ${md27}, after: ${md27after}`
     );
 
     await closeModal();
@@ -1165,6 +1165,127 @@ try {
     );
 
     await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 29. Overlapping bold+italic (D-013 regression): typing bold+italic text via the toolbar
+  //     produces genuinely nested <strong>/<em> DOM (one wraps the other around the same text),
+  //     not two disjoint elements, and this survives a Markdown round-trip using the nesting-aware
+  //     encoding (bold as **, italic as _ so a close/reopen sequence is never ambiguous).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG nested bold+italic structure ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+    const boldBtn = page.locator('.markdown-toolbar-btn[data-action="bold"]');
+    const italicBtn = page.locator('.markdown-toolbar-btn[data-action="italic"]');
+    await boldBtn.click();
+    await italicBtn.click();
+    await page.keyboard.type('both');
+    const nestedCount = await detailsRich.evaluate((el) => {
+      const strongInEm = el.querySelectorAll('em > strong, em strong').length;
+      const emInStrong = el.querySelectorAll('strong > em, strong em').length;
+      return strongInEm + emInStrong;
+    });
+    check(nestedCount >= 1, '29: bold+italic produces genuinely nested <strong>/<em> DOM, not disjoint elements');
+
+    await modeMarkdownLabel.click();
+    const md29 = await detailsTextarea.inputValue();
+    check(
+      /\*\*_both_\*\*|_\*\*both\*\*_/.test(md29),
+      `29: bold+italic serializes using distinct delimiters for each mark (** for bold, _ for italic), got: ${md29}`
+    );
+    await modeWysiwygLabel.click();
+    const strongText = await detailsRich.locator('strong').innerText();
+    const emText = await detailsRich.locator('em').innerText();
+    check(strongText === 'both' && emText === 'both', `29: round-trip preserves both marks on the same text, strong="${strongText}" em="${emText}"`);
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 30. Toggling one mark off inside an existing bold+italic *selection* (the originally reported
+  //     bug): select part of an existing bold+italic range and click Bold -- the selected part
+  //     must lose bold but keep italic; the untouched part of the original range must keep both.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toggle mark off inside overlap selection ${randomUUID()}`);
+    await detailsTextarea.fill('**_bold italic text_**');
+    await modeWysiwygLabel.click();
+    check((await detailsRich.locator('strong em, em strong').count()) >= 1, '30: initial bold+italic text renders as nested <strong>/<em>');
+
+    // Select the word "italic" inside the bold+italic text and toggle Bold off on just that word.
+    const emText = detailsRich.locator('strong em, em strong').first();
+    await emText.click();
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 'bold '.length; i += 1) await page.keyboard.press('ArrowRight');
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 'italic'.length; i += 1) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+    await page.locator('.markdown-toolbar-btn[data-action="bold"]').click();
+
+    // Verify via re-rendered WYSIWYG DOM structure rather than raw Markdown string matching --
+    // there is more than one valid way to encode the same marks (e.g. how the surrounding
+    // still-both-marked segments regroup their <strong>/<em> wrapping), so what matters is the
+    // actual mark set applied to each word, not one specific literal marker arrangement.
+    await modeMarkdownLabel.click();
+    const md30 = await detailsTextarea.inputValue();
+    await modeWysiwygLabel.click();
+    const markState = await detailsRich.evaluate((el) => {
+      const hasAncestor = (node, tag) => {
+        let n = node;
+        while (n) {
+          if (n.nodeType === 1 && n.tagName.toLowerCase() === tag) return true;
+          n = n.parentNode;
+        }
+        return false;
+      };
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const words = { bold: null, italic: null, text: null };
+      let node;
+      while ((node = walker.nextNode())) {
+        const t = node.textContent.trim();
+        if (t === 'bold') words.bold = { strong: hasAncestor(node, 'strong'), em: hasAncestor(node, 'em') };
+        else if (t === 'italic') words.italic = { strong: hasAncestor(node, 'strong'), em: hasAncestor(node, 'em') };
+        else if (t === 'text') words.text = { strong: hasAncestor(node, 'strong'), em: hasAncestor(node, 'em') };
+      }
+      return words;
+    });
+    check(
+      markState.bold?.strong === true && markState.bold?.em === true,
+      `30: the untouched leading word keeps both bold and italic, got: ${JSON.stringify(markState.bold)}, markdown: ${md30}`
+    );
+    check(
+      markState.italic?.strong === false && markState.italic?.em === true,
+      `30: toggling Bold off on the selected word keeps italic and removes only bold, got: ${JSON.stringify(markState.italic)}, markdown: ${md30}`
+    );
+    check(
+      markState.text?.strong === true && markState.text?.em === true,
+      `30: the untouched trailing word keeps both bold and italic, got: ${JSON.stringify(markState.text)}, markdown: ${md30}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 31. Read-only task-card preview renders the same nested bold+italic formatting as the
+  //     WYSIWYG editor's initial Rich-mode render, for Markdown containing genuine overlap.
+  // ---------------------------------------------------------------------------
+  {
+    const title = `Task-card preview nested formatting ${randomUUID()}`;
+    await addTask(title);
+    await rowFor(title).locator('.task-text').click();
+    await overlay.waitFor({ state: 'visible' });
+    await detailsTextarea.fill('**_bold and italic_** plain *legacy italic*');
+    await page.locator('#save-edit').click();
+    await overlay.waitFor({ state: 'hidden' });
+
+    const row = rowFor(title);
+    await row.locator('.expand-btn').click();
+    const details = row.locator('.task-details');
+    await details.waitFor({ state: 'visible' });
+    const nestedInPreview = await details.evaluate((el) => el.querySelectorAll('strong em, em strong').length);
+    check(nestedInPreview >= 1, '31: task-card preview renders bold+italic overlap as nested <strong>/<em>, matching the editor');
+    const legacyEm = await details.locator('em').last().innerText();
+    check(legacyEm === 'legacy italic', `31: legacy single-star italic still renders correctly in the preview, got: ${legacyEm}`);
   }
 
   console.log(`Markdown toolbar self-test: ${checks} scenario checks passed before teardown`);

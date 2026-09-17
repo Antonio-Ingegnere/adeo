@@ -2184,6 +2184,20 @@ kbd {
   color: var(--text-placeholder);
 }
 
+/* Host for the CodeMirror 6 Markdown source editor (see markdownEditor.ts). Composes
+   .details-textarea for border/background/flex sizing, but hands padding and scrolling off to
+   CodeMirror's own .cm-content/.cm-scroller (see markdownEditorTheme.ts) instead of styling this
+   element directly, so there is exactly one inset and one scroll container, not two. */
+.markdown-cm-host {
+  padding: 0;
+  overflow: hidden;
+  cursor: text;
+}
+
+.markdown-cm-host .cm-editor {
+  height: 100%;
+}
+
 .details-header-row {
   display: flex;
   align-items: center;
@@ -2194,6 +2208,51 @@ kbd {
 .details-mode-switch {
   max-width: 220px;
   height: 26px;
+}
+
+/* Icon-only variant of .details-mode-switch: same segmented-control shape/selected treatment
+   (still relies on the shared .segmented-option / .segmented-option input:checked + span rules
+   above), just sized for a pair of icon-only segments instead of text labels. */
+.details-mode-switch-icons {
+  height: 36px;
+  max-width: 92px;
+}
+
+.details-mode-switch-icons .segmented-option {
+  flex: 0 0 44px;
+}
+
+.details-mode-switch-icons .segmented-icon {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-m);
+  color: var(--text-hint);
+  cursor: pointer;
+  user-select: none;
+}
+
+.details-mode-switch-icons .segmented-icon svg {
+  width: 21px;
+  height: 21px;
+  display: block;
+}
+
+.details-mode-switch-icons .segmented-option:hover .segmented-icon {
+  color: var(--text-body);
+}
+
+.details-mode-switch-icons .segmented-option input:checked + .segmented-icon {
+  background: var(--surface-selected);
+  color: var(--text-strong);
+  box-shadow: inset 0 0 0 1px var(--border-segmented);
+}
+
+.details-mode-switch-icons .segmented-option input:focus-visible + .segmented-icon {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
 }
 
 .markdown-toolbar {

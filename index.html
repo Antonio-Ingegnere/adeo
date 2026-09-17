@@ -365,20 +365,34 @@
               <div class="modal-details">
                 <div class="details-header-row">
                   <label for="edit-details" class="modal-label" data-i18n="editModal.detailsLabel">Details</label>
-                  <div class="settings-segmented details-mode-switch" role="group" aria-label="Details editing mode">
-                    <label class="segmented-option">
-                      <input type="radio" name="edit-details-mode" id="edit-details-mode-markdown" class="visually-hidden" checked />
-                      <span data-i18n="editModal.detailsModeMarkdown">Markdown</span>
+                  <div class="settings-segmented details-mode-switch details-mode-switch-icons" role="group" aria-label="Details editing mode">
+                    <label class="segmented-option" title="Markdown" data-i18n-title="editModal.detailsModeMarkdown">
+                      <input type="radio" name="edit-details-mode" id="edit-details-mode-markdown" class="visually-hidden"
+                        aria-label="Markdown editor" checked />
+                      <span class="segmented-icon">
+                        <svg viewBox="0 0 256 256" width="21" height="21" fill="currentColor" aria-hidden="true" focusable="false">
+                          <path d="M232,48H24A16,16,0,0,0,8,64V192a16,16,0,0,0,16,16H232a16,16,0,0,0,16-16V64A16,16,0,0,0,232,48Zm0,144H24V64H232V192ZM128,104v48a8,8,0,0,1-16,0V123.31L93.66,141.66a8,8,0,0,1-11.32,0L64,123.31V152a8,8,0,0,1-16,0V104a8,8,0,0,1,13.66-5.66L88,124.69l26.34-26.35A8,8,0,0,1,128,104Zm77.66,18.34a8,8,0,0,1,0,11.32l-24,24a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L168,132.69V104a8,8,0,0,1,16,0v28.69l10.34-10.35A8,8,0,0,1,205.66,122.34Z"/>
+                        </svg>
+                      </span>
                     </label>
-                    <label class="segmented-option">
-                      <input type="radio" name="edit-details-mode" id="edit-details-mode-wysiwyg" class="visually-hidden" />
-                      <span data-i18n="editModal.detailsModeWysiwyg">WYSIWYG</span>
+                    <label class="segmented-option" title="WYSIWYG" data-i18n-title="editModal.detailsModeWysiwyg">
+                      <input type="radio" name="edit-details-mode" id="edit-details-mode-wysiwyg" class="visually-hidden"
+                        aria-label="WYSIWYG editor" />
+                      <span class="segmented-icon">
+                        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/>
+                          <path d="M7 8h8"/>
+                          <path d="M7 12h10"/>
+                          <path d="M7 16h6"/>
+                        </svg>
+                      </span>
                     </label>
                   </div>
                 </div>
                 <div id="edit-details-toolbar-slot"></div>
-                <textarea id="edit-details" rows="4" class="details-textarea"
-                  placeholder="Add optional task details in Markdown" data-i18n-placeholder="editModal.detailsPlaceholder"></textarea>
+                <div id="edit-details" class="details-textarea markdown-cm-host" role="textbox"
+                  aria-multiline="true" aria-label="Task details, Markdown source"></div>
                 <div id="edit-details-rich" class="details-textarea details-rich" contenteditable="true"
                   aria-label="Task details, rich text" style="display:none"></div>
               </div>

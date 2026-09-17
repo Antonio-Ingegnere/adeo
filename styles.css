@@ -2214,12 +2214,13 @@ kbd {
    (still relies on the shared .segmented-option / .segmented-option input:checked + span rules
    above), just sized for a pair of icon-only segments instead of text labels. */
 .details-mode-switch-icons {
-  height: 36px;
-  max-width: 92px;
+  height: 28px;
+  max-width: 80px;
+  border-radius: 8px;
 }
 
 .details-mode-switch-icons .segmented-option {
-  flex: 0 0 44px;
+  flex: 0 0 31px;
 }
 
 .details-mode-switch-icons .segmented-icon {
@@ -2228,15 +2229,15 @@ kbd {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: var(--radius-m);
+  border-radius: 7px;
   color: var(--text-hint);
   cursor: pointer;
   user-select: none;
 }
 
 .details-mode-switch-icons .segmented-icon svg {
-  width: 21px;
-  height: 21px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 

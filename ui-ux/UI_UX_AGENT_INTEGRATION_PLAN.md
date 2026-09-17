@@ -165,7 +165,7 @@ is useful, repository-specific, and compatible with the existing workflow.
 
 **Model starting point**
 
-- Codex: GPT-5.6 Sol with high reasoning for concept and review work.
+- Codex: GPT-6 Astra with medium reasoning for concept and review work.
 - Existing Claude harness: the high-capability `opus` alias, matching the Architect Agent.
 - A lower-cost model may be introduced for routine audits only after the same evaluation
   suite shows no unacceptable quality loss.

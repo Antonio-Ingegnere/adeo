@@ -2290,7 +2290,47 @@ kbd {
 }
 
 .wysiwyg-task {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
+}
+
+/* Match the task list's circular check control (see .tasks-list input[type='checkbox']
+   above) instead of the browser's default square checkbox, so the same semantic
+   element (a todo) looks consistent between the task list and WYSIWYG edit mode. */
+.wysiwyg-task input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1px solid var(--priority-border-none);
+  border-radius: 50%;
+  background: var(--priority-fill-none);
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.wysiwyg-task input[type='checkbox']:checked {
+  background: inherit;
+  border-color: inherit;
+}
+
+.wysiwyg-task input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5.5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--text-body);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .wysiwyg-task-text {

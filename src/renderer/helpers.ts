@@ -196,14 +196,56 @@ export const createDetailsElement = (
     }
   };
 
-  lines.forEach((line, index) => {
+  const FENCE_RE = /^\s*```/;
+  const BLOCKQUOTE_LINE_RE = /^\s*> ?(.*)/;
+
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+
+    if (FENCE_RE.test(line)) {
+      closeList();
+      const codeLines: string[] = [];
+      let j = index + 1;
+      while (j < lines.length && !FENCE_RE.test(lines[j])) {
+        codeLines.push(lines[j]);
+        j += 1;
+      }
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      code.textContent = codeLines.join('\n');
+      pre.appendChild(code);
+      container.appendChild(pre);
+      index = j + 1; // skip the closing fence line (or past EOF if unterminated)
+      continue;
+    }
+
+    const blockquoteMatch = line.match(BLOCKQUOTE_LINE_RE);
+    if (blockquoteMatch) {
+      closeList();
+      const bq = document.createElement('blockquote');
+      let j = index;
+      let match: RegExpMatchArray | null = blockquoteMatch;
+      while (match) {
+        const p = document.createElement('p');
+        p.innerHTML = renderInline(escapeHtml(match[1]));
+        bq.appendChild(p);
+        j += 1;
+        match = j < lines.length ? lines[j].match(BLOCKQUOTE_LINE_RE) : null;
+      }
+      container.appendChild(bq);
+      index = j;
+      continue;
+    }
+
     const hrMatch = line.match(/^\s*-{3,}\s*$/);
     if (hrMatch) {
       closeList();
       const hr = document.createElement('hr');
       hr.className = 'md-hr';
       container.appendChild(hr);
-      return;
+      index += 1;
+      continue;
     }
 
     const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
@@ -213,7 +255,8 @@ export const createDetailsElement = (
       const h = document.createElement(`h${level}`);
       h.innerHTML = renderInline(escapeHtml(headerMatch[2]));
       container.appendChild(h);
-      return;
+      index += 1;
+      continue;
     }
 
     const taskMatch = line.match(/^\s*(?:-|\*)?\s*\[\s?([xX ])\s?\]\s+(.*)/);
@@ -228,15 +271,17 @@ export const createDetailsElement = (
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = taskMatch[1].toLowerCase() === 'x';
+      const lineIndex = index;
       checkbox.addEventListener('change', (event) => {
-        updateCheckboxLine(index, (event.target as HTMLInputElement).checked);
+        updateCheckboxLine(lineIndex, (event.target as HTMLInputElement).checked);
       });
       const span = document.createElement('span');
       span.innerHTML = renderInline(escapeHtml(taskMatch[2]));
       li.appendChild(checkbox);
       li.appendChild(span);
       currentList.appendChild(li);
-      return;
+      index += 1;
+      continue;
     }
 
     const listMatch = line.match(/^\s*[-*]\s+(.*)/);
@@ -249,20 +294,23 @@ export const createDetailsElement = (
       const li = document.createElement('li');
       li.innerHTML = renderInline(escapeHtml(listMatch[1]));
       currentList.appendChild(li);
-      return;
+      index += 1;
+      continue;
     }
 
     if (line.trim() === '') {
       closeList();
       container.appendChild(document.createElement('br'));
-      return;
+      index += 1;
+      continue;
     }
 
     closeList();
     const p = document.createElement('p');
     p.innerHTML = renderInline(escapeHtml(line));
     container.appendChild(p);
-  });
+    index += 1;
+  }
 
   closeList();
   return container;

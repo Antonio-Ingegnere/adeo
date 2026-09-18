@@ -91,14 +91,43 @@ export const parseInlineMarkdown = (text: string): InlineNode[] => {
     const ch = text[i];
 
     if (ch === '`') {
-      const close = text.indexOf('`', i + 1);
-      if (close === -1) {
+      // Count opening backticks
+      let backtickCount = 0;
+      let j = i;
+      while (j < n && text[j] === '`') {
+        backtickCount += 1;
+        j += 1;
+      }
+
+      // Look for closing backticks of the same count
+      let searchPos = j;
+      let found = false;
+      while (searchPos < n) {
+        if (text[searchPos] === '`') {
+          let closeCount = 0;
+          let closePos = searchPos;
+          while (closePos < n && text[closePos] === '`') {
+            closeCount += 1;
+            closePos += 1;
+          }
+          if (closeCount === backtickCount) {
+            // Found matching closing backticks
+            const codeText = text.slice(j, searchPos);
+            topFrame().children.push({ kind: 'code', text: codeText });
+            i = closePos;
+            found = true;
+            break;
+          }
+          searchPos = closePos;
+        } else {
+          searchPos += 1;
+        }
+      }
+
+      if (!found) {
+        // No matching closing backticks found: treat opening backtick as literal text
         pushText(topFrame(), ch);
         i += 1;
-      } else {
-        const codeText = text.slice(i + 1, close);
-        topFrame().children.push({ kind: 'code', text: codeText });
-        i = close + 1;
       }
       continue;
     }

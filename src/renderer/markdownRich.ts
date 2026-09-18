@@ -220,38 +220,107 @@ const appendListItem = (
   return list;
 };
 
-/** Builds the WYSIWYG DOM for an entire Markdown string. Mirrors helpers.ts's line-by-line scan. */
+// Matches a valid fence line: optional indentation, 3+ backticks, optional language specifier (must be
+// followed by whitespace or EOL, not arbitrary content), optional trailing whitespace.
+// This rejects malformed input like "```foo```" (single-line, no separate closing fence) which would
+// otherwise be consumed as an opening fence and lose the "foo" content (D-001, D-003).
+const FENCE_RE = /^\s*```+(?:\s|$)/;
+const BLOCKQUOTE_LINE_RE = /^\s*> ?(.*)/;
+
+/** Builds a `<pre><code>` block from raw fenced lines. Code Block content is never run through
+ *  the inline Markdown parser (verbatim text, whitespace/line breaks preserved), so it can never
+ *  accidentally pick up Bold/Italic/Inline Code markers from its own text. */
+const makeCodeBlock = (lines: string[]): HTMLPreElement => {
+  const pre = document.createElement('pre');
+  pre.className = 'wysiwyg-code-block';
+  const code = document.createElement('code');
+  code.textContent = lines.join('\n');
+  pre.appendChild(code);
+  return pre;
+};
+
+/** Builds a `<blockquote>` containing one `<p>` per source blockquote line (consecutive `> `
+ *  lines group into one blockquote element, matching how currentList groups consecutive list
+ *  lines), each with normal inline Markdown (bold/italic/inline code) applied. */
+const makeBlockquote = (lines: string[]): HTMLQuoteElement => {
+  const bq = document.createElement('blockquote');
+  bq.className = 'wysiwyg-blockquote';
+  lines.forEach((line) => bq.appendChild(makeParagraph(line)));
+  return bq;
+};
+
+/** Builds the WYSIWYG DOM for an entire Markdown string. Mirrors helpers.ts's line-by-line scan,
+ *  except Code Block/Blockquote need to look ahead across multiple lines (a fenced block's extent,
+ *  a run of consecutive blockquote lines), so this uses an index-based loop instead of forEach. */
 export const markdownToRichFragment = (markdown: string): DocumentFragment => {
   const frag = document.createDocumentFragment();
   const lines = markdown.split(/\r?\n/);
   let currentList: { el: HTMLUListElement; kind: ListKind } | null = null;
   const root = document.createElement('div');
 
-  lines.forEach((line) => {
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (FENCE_RE.test(line)) {
+      currentList = null;
+      const codeLines: string[] = [];
+      let j = i + 1;
+      while (j < lines.length && !FENCE_RE.test(lines[j])) {
+        codeLines.push(lines[j]);
+        j += 1;
+      }
+      root.appendChild(makeCodeBlock(codeLines));
+      i = j + 1; // skip the closing fence line (or past EOF if unterminated)
+      continue;
+    }
+
+    const blockquoteMatch = line.match(BLOCKQUOTE_LINE_RE);
+    if (blockquoteMatch) {
+      currentList = null;
+      const quoteLines: string[] = [blockquoteMatch[1]];
+      let j = i + 1;
+      let nextMatch = j < lines.length ? lines[j].match(BLOCKQUOTE_LINE_RE) : null;
+      while (nextMatch) {
+        quoteLines.push(nextMatch[1]);
+        j += 1;
+        nextMatch = j < lines.length ? lines[j].match(BLOCKQUOTE_LINE_RE) : null;
+      }
+      root.appendChild(makeBlockquote(quoteLines));
+      i = j;
+      continue;
+    }
+
     if (/^\s*-{3,}\s*$/.test(line)) {
       currentList = null;
       root.appendChild(document.createElement('hr'));
-      return;
+      i += 1;
+      continue;
     }
     const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
     if (headerMatch) {
       currentList = null;
       root.appendChild(makeHeading(headerMatch[1].length, headerMatch[2]));
-      return;
+      i += 1;
+      continue;
     }
     const taskMatch = line.match(/^\s*(?:-|\*)?\s*\[\s?([xX ])\s?\]\s+(.*)/);
     if (taskMatch) {
       currentList = appendListItem(root, currentList, 'task', taskMatch[2], taskMatch[1].toLowerCase() === 'x');
-      return;
+      i += 1;
+      continue;
     }
     const listMatch = line.match(/^\s*[-*]\s+(.*)/);
     if (listMatch) {
       currentList = appendListItem(root, currentList, 'bullet', listMatch[1], false);
-      return;
+      i += 1;
+      continue;
     }
     currentList = null;
+
     root.appendChild(makeParagraph(line));
-  });
+    i += 1;
+  }
 
   if (root.children.length === 0) root.appendChild(makeParagraph(''));
   while (root.firstChild) frag.appendChild(root.firstChild);
@@ -275,9 +344,23 @@ const blockToMarkdown = (el: Element): string[] => {
       return `- ${inlineNodeToMarkdown(li)}`;
     });
   }
+  if (tag === 'pre') {
+    // Code Block: verbatim text (never inline-Markdown-parsed, so its own literal characters can
+    // never be misread as Bold/Italic/Inline Code markers), fenced with triple backticks -- never
+    // Inline Code's single backtick. Strips the zero-width-space caret-anchor marker
+    // editDetailsModeToggle.ts's Enter-inside-Code-Block handler defensively leaves behind (see
+    // its own comment) in case it's still present (e.g. the user saved before typing again).
+    const code = el.querySelector('code');
+    const text = (code ? (code.textContent ?? '') : (el.textContent ?? '')).replace(/​/g, '');
+    return ['```', ...text.split('\n'), '```'];
+  }
+  if (tag === 'blockquote') {
+    // One `> ` line per child paragraph, each with normal inline Markdown serialization.
+    return Array.from(el.children).map((child) => `> ${inlineNodeToMarkdown(child)}`);
+  }
   // Paragraph (or any other block, e.g. one this module didn't itself create): round-trips its
   // inline content verbatim, which is exactly what preserves Markdown syntax this mode doesn't
-  // understand (blockquotes, links, etc.) unchanged rather than corrupting or dropping it.
+  // understand (links, etc.) unchanged rather than corrupting or dropping it.
   return [inlineNodeToMarkdown(el)];
 };
 
@@ -300,6 +383,29 @@ const placeCaretAtEnd = (el: Node) => {
   const range = document.createRange();
   range.selectNodeContents(el);
   range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+};
+
+/**
+ * Like placeCaretAtEnd, but always resolves to a real position *inside a Text node* (creating an
+ * empty one if `el` has none) rather than an element-boundary Selection (e.g. (el, el.childNodes.
+ * length)). Used for Code Block's `<code>`, whose Enter-key handling (editDetailsModeToggle.ts)
+ * needs a concrete text offset to compute against -- an element-boundary Selection was observed to
+ * leave Chromium's own caret resolution ambiguous enough that the *next* keystroke landed at the
+ * wrong offset.
+ */
+const placeCaretAtTextEnd = (el: HTMLElement): void => {
+  let textNode = el.lastChild;
+  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+    textNode = document.createTextNode('');
+    el.appendChild(textNode);
+  }
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.setStart(textNode, (textNode as Text).data.length);
+  range.collapse(true);
   selection.removeAllRanges();
   selection.addRange(range);
 };
@@ -443,7 +549,7 @@ export const applyInlineTrigger = (textNode: Text, matchStart: number, matchEnd:
  * Detects if the caret is inside an element with the given tag (e.g., bold/italic text).
  * Used by the toolbar to highlight active formatting state at the caret position.
  */
-export const isCaretInsideTag = (tag: 'strong' | 'em' | 'code'): boolean => {
+export const isCaretInsideTag = (tag: 'strong' | 'em' | 'code' | 'pre' | 'blockquote'): boolean => {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return false;
   const node = selection.getRangeAt(0).startContainer;
@@ -859,15 +965,85 @@ export const applyListToBlock = (block: HTMLElement, kind: ListKind): void => {
   placeCaretAtEnd(li);
 };
 
-/** Finds the nearest ancestor block element (p/h1-6/li) containing `node`, within `root`. */
+/**
+ * Toggles Blockquote on the current block, via the toolbar. Independent from Code Block: this
+ * wraps a `<p>` in a `<blockquote>` (keeping its inline Bold/Italic/Inline Code content live),
+ * never converts it to a `<pre><code>`. Clicking Blockquote again on an already-quoted paragraph
+ * unwraps just that paragraph -- if its `<blockquote>` has other paragraph siblings, they stay
+ * quoted (split into their own `<blockquote>` before/after, mirroring the list-splitting pattern
+ * `convertListItem` uses for bullet/task lists).
+ */
+export const applyBlockquoteToBlock = (block: HTMLElement): void => {
+  const parent = block.parentElement;
+  if (parent && parent.tagName === 'BLOCKQUOTE') {
+    const grandparent = parent.parentElement;
+    if (!grandparent) return;
+    const siblings = Array.from(parent.children) as HTMLElement[];
+    const idx = siblings.indexOf(block);
+    const before = siblings.slice(0, idx);
+    const after = siblings.slice(idx + 1);
+    if (before.length) {
+      const bqBefore = document.createElement('blockquote');
+      bqBefore.className = 'wysiwyg-blockquote';
+      before.forEach((p) => bqBefore.appendChild(p));
+      grandparent.insertBefore(bqBefore, parent);
+    }
+    grandparent.insertBefore(block, parent);
+    if (after.length) {
+      const bqAfter = document.createElement('blockquote');
+      bqAfter.className = 'wysiwyg-blockquote';
+      after.forEach((p) => bqAfter.appendChild(p));
+      grandparent.insertBefore(bqAfter, parent);
+    }
+    grandparent.removeChild(parent);
+    placeCaretAtEnd(block);
+    return;
+  }
+
+  const bq = document.createElement('blockquote');
+  bq.className = 'wysiwyg-blockquote';
+  block.replaceWith(bq);
+  bq.appendChild(block);
+  placeCaretAtEnd(block);
+};
+
+/**
+ * Toggles Code Block on the current block, via the toolbar. Independent from Inline Code and
+ * Blockquote: replaces a `<p>` with a `<pre><code>` holding the paragraph's *plain* text (Code
+ * Block content is verbatim, never inline-Markdown-formatted -- any Bold/Italic/Inline Code marks
+ * the paragraph had are flattened to their literal text, matching how Markdown itself never
+ * applies inline emphasis inside a fenced block). Clicking Code Block again on an existing
+ * `<pre>` converts it back to a plain paragraph.
+ */
+export const applyCodeBlockToBlock = (block: HTMLElement): void => {
+  if (block.tagName === 'PRE') {
+    const text = block.querySelector('code')?.textContent ?? '';
+    const p = makeParagraph(text);
+    block.replaceWith(p);
+    placeCaretAtEnd(p);
+    return;
+  }
+
+  const text = block.textContent ?? '';
+  const pre = document.createElement('pre');
+  pre.className = 'wysiwyg-code-block';
+  const code = document.createElement('code');
+  code.textContent = text;
+  pre.appendChild(code);
+  block.replaceWith(pre);
+  placeCaretAtTextEnd(code);
+};
+
+/** Finds the nearest ancestor block element (p/h1-6/li/pre) containing `node`, within `root`. */
 export const closestBlock = (root: HTMLElement, node: Node | null): HTMLElement | null => {
   let el: Node | null = node;
   while (el && el !== root) {
     if (el.nodeType === Node.ELEMENT_NODE) {
       const tag = (el as HTMLElement).tagName.toLowerCase();
       // Chromium's contenteditable creates a plain <div> (not <p>) for a new block on Enter in
-      // some contexts (e.g. splitting out of a heading); treated identically to <p> here.
-      if (tag === 'p' || tag === 'div' || /^h[1-6]$/.test(tag) || tag === 'li') return el as HTMLElement;
+      // some contexts (e.g. splitting out of a heading); treated identically to <p> here. <pre> is
+      // Code Block's own block-level element (its caret lives inside <code>, not a <p>).
+      if (tag === 'p' || tag === 'div' || /^h[1-6]$/.test(tag) || tag === 'li' || tag === 'pre') return el as HTMLElement;
     }
     el = el.parentNode;
   }

@@ -1,15 +1,22 @@
 /**
  * Markdown | WYSIWYG mode toggle for the Edit Task Details field.
  *
- * Single canonical document: the Markdown string. The plain `#edit-details` textarea (Markdown
- * mode) and a contenteditable `#edit-details-rich` view (WYSIWYG mode, built by markdownRich.ts
- * from the scoped Markdown subset src/renderer/helpers.ts already renders) are two views of that
- * one string -- never edited independently. Switching modes always serializes the mode being
- * left and re-renders the mode being entered from that same string, so edits made in one mode are
- * visible, in Markdown form, in the other (spec section 2).
+ * Single canonical document: the Markdown string. A CodeMirror 6 source editor mounted into
+ * `#edit-details` (Markdown mode, see markdownEditor.ts) and a contenteditable `#edit-details-rich`
+ * view (WYSIWYG mode, built by markdownRich.ts from the scoped Markdown subset
+ * src/renderer/helpers.ts already renders) are two views of that one string -- never edited
+ * independently. Switching modes always serializes the mode being left and re-renders the mode
+ * being entered from that same string, so edits made in one mode are visible, in Markdown form,
+ * in the other (spec section 2).
  */
+import { createMarkdownEditor, type MarkdownEditorHandle } from './markdownEditor.js';
+import { onLocaleChange, t } from './i18n/index.js';
 import {
+  applyBlockquoteToBlock,
+  applyCodeBlockToBlock,
+  applyHeadingToBlock,
   applyInlineTrigger,
+  applyListToBlock,
   applyPendingFormatToTypedText,
   closestBlock,
   convertBlock,
@@ -21,9 +28,10 @@ import {
   matchInlineTrigger,
   matchTaskMarkerInBulletItem,
   richFragmentToMarkdown,
+  toggleInlineOnSelection,
   upgradeBulletItemToTask,
 } from './markdownRich.js';
-import { buildMarkdownToolbar, type CaretFormatState, type MarkdownToolbar } from './markdownToolbar.js';
+import { buildMarkdownToolbar, type EditorToolbarCommands, type MarkdownToolbar } from './markdownToolbar.js';
 
 /**
  * Checks if a task-text span is empty (contains only a <br> placeholder or is truly empty).
@@ -50,62 +58,128 @@ export type EditDetailsController = Readonly<{
 }>;
 
 /**
- * Wires the toggle. `textarea` is the existing `#edit-details`; `rich` and `switchInputs` are new
- * elements added alongside it in index.html (see dom.ts's editDetailsRich/editDetailsMode*).
+ * Wires the toggle. `markdownHost` is `#edit-details` (now a CodeMirror 6 mount point, not a
+ * textarea); `rich` and `switchInputs` are the WYSIWYG view and the radio pair (see dom.ts's
+ * editDetailsRich/editDetailsMode*).
  */
 export const initEditDetailsModeToggle = (
-  textarea: HTMLTextAreaElement,
+  markdownHost: HTMLDivElement,
   rich: HTMLDivElement,
   switchInputs: { markdown: HTMLInputElement; wysiwyg: HTMLInputElement }
 ): EditDetailsController => {
   let mode: EditDetailsMode = 'markdown';
 
+  const editor: MarkdownEditorHandle = createMarkdownEditor(markdownHost, {
+    initialValue: '',
+    placeholder: t('editModal.detailsPlaceholder'),
+  });
+  const stopLocaleListener = onLocaleChange(() => {
+    editor.setPlaceholder(t('editModal.detailsPlaceholder'));
+  });
+  // Never torn down today (the dialog's editor instance lives for the app's lifetime, matching
+  // markdownRich's rich div), but kept so a future dialog-teardown path has something to call.
+  void stopLocaleListener;
+
   // Pending caret typing-format state (bold/italic toggled via the toolbar with no selection --
   // see markdownRich.ts's applyPendingFormatToTypedText/exitFormatAtCaret). Reset whenever a new
   // document is loaded or the mode is switched, so it never leaks across dialogs/re-renders.
+  // Purely a WYSIWYG-mode concern; Markdown mode has no equivalent caret-typing-state notion
+  // (CodeMirror commands always act on the current selection/caret synchronously).
   const pendingFormat: { strong: boolean; em: boolean } = { strong: false, em: false };
   const resetPendingFormat = () => {
     pendingFormat.strong = false;
     pendingFormat.em = false;
   };
 
-  const formatState: CaretFormatState = {
-    isPending: (tag) => pendingFormat[tag],
-    toggleCaretFormat: (tag) => {
-      const active = pendingFormat[tag] || isCaretInsideTag(tag);
-      if (active) {
-        exitFormatAtCaret(tag);
-        pendingFormat[tag] = false;
-      } else {
-        pendingFormat[tag] = true;
-      }
-    },
+  const toggleInlineOrCaretFormat = (tag: 'strong' | 'em'): void => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+      toggleInlineOnSelection(tag);
+      return;
+    }
+    const active = pendingFormat[tag] || isCaretInsideTag(tag);
+    if (active) {
+      exitFormatAtCaret(tag);
+      pendingFormat[tag] = false;
+    } else {
+      pendingFormat[tag] = true;
+    }
   };
 
-  const toolbarHandle: MarkdownToolbar = buildMarkdownToolbar(() => rich, formatState);
+  const withBlockAtCaret = (fn: (block: HTMLElement) => void) => {
+    const block = closestBlock(rich, window.getSelection()?.anchorNode ?? null);
+    if (block) fn(block);
+  };
+
+  // WYSIWYG's semantic commands: identical transforms to before this refactor (markdownRich.ts's
+  // DOM helpers), just now expressed as the shared toolbar's EditorToolbarCommands shape instead
+  // of the toolbar reaching into WYSIWYG internals itself. Each command still ends by dispatching
+  // a synthetic 'input' event on `rich`, matching the previous behavior the surrounding 'input'
+  // listener (below) relies on for caret-marker cleanup.
+  const runWysiwygCommand = (fn: () => void) => {
+    fn();
+    rich.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  const wysiwygCommands: EditorToolbarCommands = {
+    onBold: () => runWysiwygCommand(() => toggleInlineOrCaretFormat('strong')),
+    onItalic: () => runWysiwygCommand(() => toggleInlineOrCaretFormat('em')),
+    onInlineCode: () => runWysiwygCommand(() => toggleInlineOnSelection('code')),
+    onHeading1: () => runWysiwygCommand(() => withBlockAtCaret((block) => applyHeadingToBlock(block, 1))),
+    onHeading2: () => runWysiwygCommand(() => withBlockAtCaret((block) => applyHeadingToBlock(block, 2))),
+    onBlockquote: () => runWysiwygCommand(() => withBlockAtCaret((block) => applyBlockquoteToBlock(block))),
+    onCodeBlock: () => runWysiwygCommand(() => withBlockAtCaret((block) => applyCodeBlockToBlock(block))),
+    onBulletList: () => runWysiwygCommand(() => withBlockAtCaret((block) => applyListToBlock(block, 'bullet'))),
+    onTodoList: () => runWysiwygCommand(() => withBlockAtCaret((block) => applyListToBlock(block, 'task'))),
+    isBoldActive: () => pendingFormat.strong || isCaretInsideTag('strong'),
+    isItalicActive: () => pendingFormat.em || isCaretInsideTag('em'),
+    // Inline Code's <code> and Code Block's <pre><code> both use the tag 'code' at the caret --
+    // excluding the <pre> case here keeps the two buttons' active states mutually exclusive, so
+    // Inline Code never lights up while the caret is actually inside a Code Block.
+    isInlineCodeActive: () => isCaretInsideTag('code') && !isCaretInsideTag('pre'),
+    isBlockquoteActive: () => isCaretInsideTag('blockquote'),
+    isCodeBlockActive: () => isCaretInsideTag('pre'),
+  };
+
+  // Markdown's semantic commands: CodeMirror transactions only (markdownEditorCommands.ts via the
+  // editor handle) -- never DOM manipulation of the CodeMirror content, never manual caret math.
+  const markdownCommands: EditorToolbarCommands = {
+    onBold: () => editor.toggleBold(),
+    onItalic: () => editor.toggleItalic(),
+    onInlineCode: () => editor.toggleInlineCode(),
+    onHeading1: () => editor.toggleHeading(1),
+    onHeading2: () => editor.toggleHeading(2),
+    onBlockquote: () => editor.toggleBlockquote(),
+    onCodeBlock: () => editor.toggleCodeBlock(),
+    onBulletList: () => editor.toggleBulletList(),
+    onTodoList: () => editor.toggleTodoList(),
+  };
+
+  const toolbarHandle: MarkdownToolbar = buildMarkdownToolbar(markdownCommands);
 
   const renderRich = (markdown: string) => {
     rich.innerHTML = '';
     rich.appendChild(markdownToRichFragment(markdown));
   };
 
+  // The toolbar is one shared instance/row in both modes (spec: no layout shift on mode switch);
+  // only which command set it's bound to changes.
   const applyMode = () => {
     if (mode === 'markdown') {
-      textarea.style.display = '';
+      markdownHost.style.display = '';
       rich.style.display = 'none';
-      toolbarHandle.root.style.display = 'none';
-      toolbarHandle.setEnabled(false);
+      toolbarHandle.setCommands(markdownCommands);
     } else {
-      textarea.style.display = 'none';
+      markdownHost.style.display = 'none';
       rich.style.display = '';
-      toolbarHandle.root.style.display = '';
-      toolbarHandle.setEnabled(true);
+      toolbarHandle.setCommands(wysiwygCommands);
     }
+    toolbarHandle.setEnabled(true);
   };
 
   const setMarkdown = (markdown: string) => {
     mode = 'markdown';
-    textarea.value = markdown;
+    editor.setValue(markdown);
     renderRich(markdown);
     resetPendingFormat();
     switchInputs.markdown.checked = true;
@@ -113,14 +187,14 @@ export const initEditDetailsModeToggle = (
     applyMode();
   };
 
-  const getMarkdown = (): string => (mode === 'wysiwyg' ? richFragmentToMarkdown(rich) : textarea.value);
+  const getMarkdown = (): string => (mode === 'wysiwyg' ? richFragmentToMarkdown(rich) : editor.getValue());
 
   const switchTo = (next: EditDetailsMode) => {
     if (next === mode) return;
     if (next === 'wysiwyg') {
-      renderRich(textarea.value);
+      renderRich(editor.getValue());
     } else {
-      textarea.value = richFragmentToMarkdown(rich);
+      editor.setValue(richFragmentToMarkdown(rich));
     }
     resetPendingFormat();
     mode = next;
@@ -147,6 +221,33 @@ export const initEditDetailsModeToggle = (
     const range = selection.getRangeAt(0);
     const node = range.startContainer;
     let offset = range.startOffset;
+
+    // Code Block content is always verbatim text: never run block/inline shortcut detection
+    // (heading/list/bold/italic/inline-code triggers) while typing inside one, so its own literal
+    // characters (e.g. "**", "- ", "` `") can never be misread as formatting markers. Still strips
+    // the zero-width-space caret-anchor marker the Enter handler below leaves right after a
+    // newline it inserts (a trailing "\n" as the very last character was observed to have
+    // ambiguous Chromium caret-affinity -- the ZWS gives the caret an unambiguous non-final home)
+    // -- but only on a genuine subsequent keystroke (inputType 'insertText' with real data), never
+    // on the synthetic 'input' event the Enter handler itself dispatches right after creating the
+    // marker, which would otherwise immediately undo the fix before the user types anything.
+    if (isCaretInsideTag('pre')) {
+      const typedText = (event as InputEvent).data;
+      if (inputType === 'insertText' && typeof typedText === 'string' && typedText.length > 0 && node.nodeType === Node.TEXT_NODE) {
+        const textNode = node as Text;
+        if (textNode.data.includes('​')) {
+          const zwsBeforeCaret = (textNode.data.slice(0, offset).match(/​/g) ?? []).length;
+          textNode.data = textNode.data.replace(/​/g, '');
+          const newOffset = Math.max(0, offset - zwsBeforeCaret);
+          const cleanRange = document.createRange();
+          cleanRange.setStart(textNode, newOffset);
+          cleanRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(cleanRange);
+        }
+      }
+      return;
+    }
 
     // Strip the plain (unformatted) zero-width-space caret-anchor marker `exitFormatAtCaret`
     // leaves behind when a pending typing-format is turned off (see markdownRich.ts), but only
@@ -312,6 +413,68 @@ export const initEditDetailsModeToggle = (
     event.preventDefault();
     const text = event.clipboardData?.getData('text/plain') ?? '';
     document.execCommand('insertText', false, text);
+  });
+
+  // Code Block preserves whitespace/line breaks and Enter must create another line *inside* the
+  // same block (never split it into a new paragraph/second <pre>, which is Chromium's default
+  // contenteditable Enter behavior for most block elements). Intercepted via 'beforeinput' (the
+  // editing-pipeline-sanctioned point for cancelling/replacing a native text edit) with a manual
+  // textContent splice at the caret's plain-text offset inside `<code>`, so the result is
+  // deterministic regardless of Chromium's own line-break/block-split heuristics. The 'input'
+  // handler above's pre-block early-return still applies to the native 'input' event this
+  // produces, like any other keystroke inside the block.
+  rich.addEventListener('beforeinput', (event) => {
+    const inputEvent = event as InputEvent;
+    if (inputEvent.inputType !== 'insertParagraph' && inputEvent.inputType !== 'insertLineBreak') return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    let node: Node | null = range.startContainer;
+    let pre: HTMLElement | null = null;
+    while (node) {
+      if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'PRE') {
+        pre = node as HTMLElement;
+        break;
+      }
+      node = node.parentNode;
+    }
+    if (!pre) return;
+    const code = pre.querySelector('code');
+    if (!code) return;
+    event.preventDefault();
+
+    const preRange = document.createRange();
+    preRange.selectNodeContents(code);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const offset = preRange.toString().length;
+
+    // Mutate the existing Text node's data in place (never replace it with a new Text object via
+    // `code.textContent = ...`) -- keeping the same node identity is what keeps Chromium's own
+    // internal editing/caret state in sync with the DOM Selection set below for the *next*
+    // keystroke (the same class of caret-affinity quirk exitFormatAtCaret above works around).
+    code.normalize();
+    let textNode = code.firstChild as Text | null;
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+      textNode = document.createTextNode('');
+      code.appendChild(textNode);
+    }
+    // A trailing "\n" as the very last character of the text node was observed to have ambiguous
+    // Chromium caret affinity: a Selection placed right after it (i.e. at the true end) still let
+    // the *next* typed character land before the "\n" instead of after it. A zero-width-space
+    // placed right after the "\n" gives the caret an unambiguous, non-final home (the same fix
+    // exitFormatAtCaret above uses for its own caret-affinity boundary); the 'input' handler above
+    // strips this ZWS again once real content lands next to it, and blockToMarkdown's Code Block
+    // serialization strips any that's still there defensively.
+    const isAtEnd = offset >= textNode.data.length;
+    const insert = isAtEnd ? '\n​' : '\n';
+    textNode.data = textNode.data.slice(0, offset) + insert + textNode.data.slice(offset);
+
+    const newRange = document.createRange();
+    newRange.setStart(textNode, offset + 1);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    rich.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
   applyMode();

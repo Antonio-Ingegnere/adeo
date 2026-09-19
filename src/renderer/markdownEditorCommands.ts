@@ -85,9 +85,8 @@ const HEADING_RE = /^(#{1,6})\s+/;
 /**
  * Toggles a `#`/`##` heading prefix on the line containing the caret. Clicking the already-active
  * level removes the prefix; clicking a different level replaces the existing prefix (never
- * stacks, e.g. `# Hello` -> H2 click -> `## Hello`, not `## # Hello`). Selection is left for
- * CodeMirror to map through the change automatically, so a collapsed caret or a wider selection
- * both land at a sensible mapped position.
+ * stacks, e.g. `# Hello` -> H2 click -> `## Hello`, not `## # Hello`). Cursor is placed after
+ * the heading prefix insertion.
  */
 export const toggleHeading = (view: EditorView, level: 1 | 2): void => {
   const { state } = view;
@@ -102,7 +101,16 @@ export const toggleHeading = (view: EditorView, level: 1 | 2): void => {
         ? { from: line.from, to: line.from + match[0].length, insert: prefix }
         : { from: line.from, to: line.from, insert: prefix };
 
-  view.dispatch({ changes: change });
+  let newCursorPos: number;
+  if (match && match[1].length === level) {
+    // Removing the existing prefix: cursor moves back by the prefix length
+    newCursorPos = state.selection.main.head - match[0].length;
+  } else {
+    // Adding a new prefix (or replacing): cursor moves after the new prefix
+    newCursorPos = line.from + prefix.length;
+  }
+
+  view.dispatch({ changes: change, selection: { anchor: newCursorPos } });
   view.focus();
 };
 
@@ -118,12 +126,14 @@ const LIST_MATCHERS: Record<LineListKind, { re: RegExp; prefix: string }> = {
  *  touched by the current selection (a single line for a collapsed caret). If every touched line
  *  already has the prefix, removes it from all of them; otherwise adds it to whichever touched
  *  lines don't already have it. Leading indentation and any other line content is left untouched.
- *  One dispatch = one undo step for the whole multiline toggle. */
+ *  One dispatch = one undo step for the whole multiline toggle. Cursor is placed after the prefix
+ *  insertion on the line containing the cursor/selection. */
 const toggleLinePrefix = (view: EditorView, re: RegExp, prefix: string): void => {
   const { state } = view;
   const range = state.selection.main;
   const startLine = state.doc.lineAt(range.from);
   const endLine = state.doc.lineAt(range.to);
+  const mainLine = state.doc.lineAt(range.head);
 
   const lines = [];
   for (let n = startLine.number; n <= endLine.number; n += 1) lines.push(state.doc.line(n));
@@ -142,7 +152,31 @@ const toggleLinePrefix = (view: EditorView, re: RegExp, prefix: string): void =>
   }
 
   if (changes.length === 0) return;
-  view.dispatch({ changes });
+
+  // Calculate new cursor position for proper placement after the operation
+  const transaction: Record<string, unknown> = { changes };
+
+  if (range.from === range.to) {
+    // Collapsed caret: place cursor after the prefix on the main line
+    const mainLineMatch = re.exec(mainLine.text);
+    const indent = /^\s*/.exec(mainLine.text)?.[0] ?? '';
+    const insertPos = mainLine.from + indent.length;
+
+    if (allPrefixed && mainLineMatch) {
+      // Removing prefix: cursor moves back by the removed prefix length
+      const removalLen = mainLineMatch[0].length;
+      transaction.selection = { anchor: range.head - removalLen };
+    } else if (!allPrefixed && !mainLineMatch) {
+      // Adding prefix: cursor moves after the prefix
+      transaction.selection = { anchor: insertPos + prefix.length };
+    } else {
+      // Line already has prefix and not all lines have it (mixed case): keep cursor position
+      transaction.selection = { anchor: range.head };
+    }
+  }
+  // For selections, let CodeMirror handle automatic mapping
+
+  view.dispatch(transaction as Parameters<typeof view.dispatch>[0]);
   view.focus();
 };
 

@@ -1923,6 +1923,143 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 46. D-006 Regression: Markdown-mode toolbar Blockquote cursor placement.
+  //     After clicking blockquote on an empty editor, cursor should be AFTER the
+  //     inserted `> ` (e.g., `> |` with cursor after the space), not before it (`|>`).
+  //     Subsequent typing should continue after the blockquote prefix.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-006: Markdown blockquote empty editor cursor placement ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    // Clear any existing content
+    await setMarkdownValue('');
+    await detailsEditorContent.click();
+    // Click blockquote button with empty editor
+    await page.locator('.markdown-toolbar-btn[data-action="blockquote"]').click();
+    // Type text to verify cursor is after the prefix
+    await page.keyboard.type('text');
+    const md46 = await getMarkdownValue();
+    check(
+      md46 === '> text',
+      `46: blockquote on empty editor places cursor after prefix, text appears after "> ", got: ${md46}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 47. D-006 Regression: Markdown-mode toolbar Blockquote with text mid-line.
+  //     Cursor mid-text, click blockquote. The line should be prefixed with "> ",
+  //     and the cursor should be positioned after the prefix (making subsequent typing
+  //     continue the blockquote).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-006: Markdown blockquote cursor mid-text ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('existing text');
+    // Click in the middle of the text
+    const line = detailsEditorContent.locator('.cm-line').first();
+    const box = await line.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    }
+    // Click blockquote
+    await page.locator('.markdown-toolbar-btn[data-action="blockquote"]').click();
+    const md47 = await getMarkdownValue();
+    check(
+      md47 === '> existing text',
+      `47: blockquote prefixes the line with "> ", got: ${md47}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 48. D-006 Regression: Markdown-mode toolbar Heading cursor placement (similar pattern).
+  //     On an empty line, click Heading 1. Cursor should be AFTER the "# " prefix,
+  //     not before it.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-006: Markdown heading empty editor cursor placement ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('');
+    await detailsEditorContent.click();
+    // Click heading 1 button
+    await page.locator('.markdown-toolbar-btn[data-action="h1"]').click();
+    // Type text
+    await page.keyboard.type('Title');
+    const md48 = await getMarkdownValue();
+    check(
+      md48 === '# Title',
+      `48: heading on empty editor places cursor after prefix, text appears after "# ", got: ${md48}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 49. D-006 Regression: Markdown-mode toolbar Bullet List cursor placement.
+  //     On an empty line, click Bullet List. Cursor should be AFTER the "- " prefix.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-006: Markdown bullet empty editor cursor placement ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('');
+    await detailsEditorContent.click();
+    // Click bullet list button
+    await page.locator('.markdown-toolbar-btn[data-action="bullet"]').click();
+    // Type text
+    await page.keyboard.type('item');
+    const md49 = await getMarkdownValue();
+    check(
+      md49 === '- item',
+      `49: bullet list on empty editor places cursor after prefix, text appears after "- ", got: ${md49}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 50. D-006 Regression: Markdown-mode toolbar Todo List cursor placement.
+  //     On an empty line, click Todo List. Cursor should be AFTER the "- [ ] " prefix.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-006: Markdown todo empty editor cursor placement ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('');
+    await detailsEditorContent.click();
+    // Click todo list button
+    await page.locator('.markdown-toolbar-btn[data-action="task"]').click();
+    // Type text
+    await page.keyboard.type('task');
+    const md50 = await getMarkdownValue();
+    check(
+      md50 === '- [ ] task',
+      `50: todo list on empty editor places cursor after prefix, text appears after "- [ ] ", got: ${md50}`
+    );
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 51. D-006 Regression: Mode switch preserves cursor behavior.
+  //     In Markdown mode, create blockquote, switch to WYSIWYG, switch back.
+  //     The blockquote content should be preserved, and toggling off should work correctly.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-006: Blockquote mode switch preserves content ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('> quoted text');
+    await modeWysiwygLabel.click();
+    check(
+      (await detailsRich.locator('blockquote').count()) === 1,
+      '51: blockquote renders as <blockquote> in WYSIWYG'
+    );
+    await modeMarkdownLabel.click();
+    const md51 = await getMarkdownValue();
+    check(
+      md51 === '> quoted text',
+      `51: blockquote round-trips through WYSIWYG mode unchanged, got: ${md51}`
+    );
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} scenario checks passed before teardown`);
 } catch (error) {
   failure = error;

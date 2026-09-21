@@ -2396,6 +2396,172 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 58. D-011 Regression: WYSIWYG blockquote `> ` shortcut trigger at start of empty paragraph.
+  //     Typing `> ` (blockquote marker + space) at the start of an otherwise-empty paragraph
+  //     should immediately transform it into a blockquote, removing the trigger text, with caret
+  //     positioned inside the new blockquote so typing continues as quote content.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote > space shortcut ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Test 58a: `> ` at start of empty paragraph creates blockquote
+    await page.keyboard.type('> ');
+    check(
+      (await detailsRich.locator('blockquote').count()) === 1,
+      '58a: "> " immediately converts empty paragraph to blockquote'
+    );
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 1,
+      '58a: blockquote contains one paragraph'
+    );
+
+    // Test 58b: Typing after trigger continues inside blockquote
+    await page.keyboard.type('Hello');
+    check(
+      (await detailsRich.locator('blockquote p').innerText()) === 'Hello',
+      '58b: typing after trigger continues inside the blockquote'
+    );
+
+    // Test 58c: Round-trip to Markdown produces correct format
+    await modeMarkdownLabel.click();
+    let md58c = await getMarkdownValue();
+    check(
+      md58c === '> Hello',
+      `58c: blockquote round-trips to Markdown as "> Hello", got: ${md58c}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 58b. D-011 Regression: shortcut does NOT trigger for `foo > bar` or `text> `.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote > NOT middle/suffix ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Test 58b-i: `foo > bar` does NOT trigger shortcut
+    await page.keyboard.type('foo > bar');
+    check(
+      (await detailsRich.locator('blockquote').count()) === 0,
+      '58b-i: "> " in middle of text does not trigger blockquote'
+    );
+
+    // Clean up and test again
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+
+    // Test 58b-ii: `text> ` does NOT trigger shortcut (no space before)
+    await page.keyboard.type('text> ');
+    check(
+      (await detailsRich.locator('blockquote').count()) === 0,
+      '58b-ii: "> " at end (not at start) does not trigger blockquote'
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 58c. D-011 Regression: blockquote created via shortcut supports Enter to continue/exit.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote > Enter behavior ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Create blockquote via shortcut
+    await page.keyboard.type('> ');
+    await page.keyboard.type('First line');
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 1,
+      '58c: blockquote created with one paragraph containing "First line"'
+    );
+
+    // Test 58c-i: Enter on non-empty blockquote paragraph creates another paragraph inside
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second line');
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 2,
+      '58c-i: Enter on non-empty blockquote paragraph creates another paragraph inside'
+    );
+
+    // Verify both lines are inside the same blockquote
+    const bqP1 = detailsRich.locator('blockquote p').nth(0);
+    const bqP2 = detailsRich.locator('blockquote p').nth(1);
+    check(
+      (await bqP1.innerText()) === 'First line',
+      `58c-i: first paragraph has "First line", got: ${await bqP1.innerText()}`
+    );
+    check(
+      (await bqP2.innerText()) === 'Second line',
+      `58c-i: second paragraph has "Second line", got: ${await bqP2.innerText()}`
+    );
+
+    // Test 58c-ii: Round-trip to Markdown shows both lines as blockquote
+    await modeMarkdownLabel.click();
+    let md58c = await getMarkdownValue();
+    check(
+      md58c.includes('> First line') && md58c.includes('> Second line'),
+      `58c-ii: both blockquote lines present in Markdown, got: ${md58c}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 58d. D-011 Regression: shortcut blockquote and toolbar blockquote produce identical results.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote shortcut vs toolbar ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Create blockquote via shortcut
+    await page.keyboard.type('> ');
+    await page.keyboard.type('Shortcut blockquote');
+
+    // Exit the blockquote: press End, Enter to create empty <p>, Enter again to exit
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');  // Creates new <p> inside blockquote
+    await page.keyboard.press('Enter');  // Exits blockquote because new <p> is empty
+
+    // Create another blockquote via toolbar
+    await page.keyboard.type('Toolbar test');
+    await page.locator('.markdown-toolbar-btn[data-action="blockquote"]').click();
+
+    check(
+      (await detailsRich.locator('blockquote').count()) === 2,
+      '58d: two blockquote elements exist (one from shortcut, one from toolbar)'
+    );
+
+    // Verify both blockquotes have the same DOM structure (<blockquote> with <p> inside)
+    const bq1 = detailsRich.locator('blockquote').nth(0);
+    const bq2 = detailsRich.locator('blockquote').nth(1);
+    check(
+      (await bq1.locator('p').count()) === 1,
+      '58d: first blockquote wraps one paragraph'
+    );
+    check(
+      (await bq2.locator('p').count()) === 1,
+      '58d: second blockquote wraps one paragraph'
+    );
+
+    // Verify both serialize correctly to Markdown with "> " prefix
+    await modeMarkdownLabel.click();
+    let md = await getMarkdownValue();
+    check(
+      md.includes('> Shortcut blockquote') && md.includes('> Toolbar test'),
+      `58d: both shortcut and toolbar blockquotes serialize with "> " prefix, got: ${md}`
+    );
+
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} scenario checks passed before teardown`);
 } catch (error) {
   failure = error;

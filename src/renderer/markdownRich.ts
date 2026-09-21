@@ -1056,7 +1056,7 @@ const normalizeSpaces = (text: string): string => text.replace(/ /g, ' ');
 
 export const matchBlockTrigger = (
   rawText: string
-): { kind: 'heading'; level: number } | { kind: 'bullet' } | { kind: 'task'; checked: boolean } | { kind: 'hr' } | null => {
+): { kind: 'heading'; level: number } | { kind: 'bullet' } | { kind: 'task'; checked: boolean } | { kind: 'blockquote' } | { kind: 'hr' } | null => {
   const text = normalizeSpaces(rawText);
   const headingMatch = text.match(/^(#{1,6}) $/);
   if (headingMatch && headingMatch[0] === text) return { kind: 'heading', level: headingMatch[1].length };
@@ -1064,6 +1064,8 @@ export const matchBlockTrigger = (
   if (taskMatch && taskMatch[0] === text) return { kind: 'task', checked: taskMatch[1].toLowerCase() === 'x' };
   const bulletMatch = text.match(/^[-*] $/);
   if (bulletMatch && bulletMatch[0] === text) return { kind: 'bullet' };
+  const blockquoteMatch = text.match(/^> $/);
+  if (blockquoteMatch && blockquoteMatch[0] === text) return { kind: 'blockquote' };
   const hrMatch = text.match(/^-{3}$/);
   if (hrMatch && hrMatch[0] === text) return { kind: 'hr' };
   return null;

@@ -381,6 +381,11 @@ export const initEditDetailsModeToggle = (
           convertBlock(block, 'bullet', 0, false);
         } else if (trigger.kind === 'task') {
           convertBlock(block, 'task', 0, trigger.checked);
+        } else if (trigger.kind === 'blockquote') {
+          // Clear the block content (remove the trigger text "> ") and apply blockquote
+          block.innerHTML = '';
+          block.appendChild(document.createElement('br'));
+          applyBlockquoteToBlock(block);
         } else if (trigger.kind === 'hr') {
           convertBlock(block, 'hr', 0, false);
         }

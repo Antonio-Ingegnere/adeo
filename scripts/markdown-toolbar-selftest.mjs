@@ -2060,6 +2060,174 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 52. Blockquote Enter exit (D-007 regression): pressing Enter on an empty blockquote
+  //     paragraph should exit the blockquote and create a normal paragraph after it.
+  //     Enter on a non-empty blockquote paragraph should create another paragraph inside
+  //     the same blockquote (quote continues).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote Enter exit ${randomUUID()}`);
+    await setMarkdownValue('> Some quoted text');
+    await modeWysiwygLabel.click();
+    check(
+      (await detailsRich.locator('blockquote').count()) === 1,
+      '52: blockquote renders as <blockquote> in WYSIWYG'
+    );
+
+    // Place caret at the end of the quote and press Enter (creates a new empty line inside the quote)
+    const quoteP = detailsRich.locator('blockquote p').first();
+    await quoteP.click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+
+    // After first Enter: we should still be inside the blockquote (now with 2 paragraphs)
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 2,
+      '52: Enter on non-empty quote paragraph creates another paragraph inside the same blockquote'
+    );
+
+    // Press Enter again on the empty paragraph -> should exit the blockquote
+    await page.keyboard.press('Enter');
+    check(
+      (await detailsRich.locator('blockquote').count()) === 1,
+      '52: blockquote still exists after first empty-paragraph Enter'
+    );
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 1,
+      '52: blockquote now contains only one paragraph (the new empty one was removed)'
+    );
+    check(
+      (await detailsRich.locator('> p').count()) >= 1,
+      '52: a normal paragraph exists outside the blockquote after exit'
+    );
+
+    // Type in the normal paragraph to verify we exited
+    await page.keyboard.type('normal paragraph');
+    const normalParaText = await detailsRich.locator('> p:not(blockquote p)').last().innerText();
+    check(
+      normalParaText.includes('normal paragraph'),
+      `52: typing after blockquote exit works correctly and produces normal text, got: ${normalParaText}`
+    );
+
+    // Verify Markdown round-trip: blockquote stays quoted, new paragraph has no '>' prefix
+    await modeMarkdownLabel.click();
+    const md52 = await getMarkdownValue();
+    check(
+      md52.includes('> Some quoted text') && md52.includes('normal paragraph'),
+      `52: blockquote and normal paragraph both present in Markdown, got: ${md52}`
+    );
+    check(
+      !md52.match(/>\s*(\n|$)/) || md52.match(/> Some quoted text/),
+      `52: no stray ">" prefix on the normal paragraph, got: ${md52}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 53. Blockquote Enter mid-text (D-007 regression): pressing Enter in the middle of
+  //     quote text should split the quote content without exiting (remain inside the blockquote).
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote Enter mid-text ${randomUUID()}`);
+    // Create a blockquote via Markdown mode with multi-line quote
+    await setMarkdownValue('> First line of quote\n> Second line');
+    await modeWysiwygLabel.click();
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 2,
+      '53: blockquote with two paragraphs created from Markdown'
+    );
+
+    // Move caret to middle of the first paragraph's text: "First | line of quote"
+    const firstQuoteP = detailsRich.locator('blockquote p').first();
+    await firstQuoteP.click();
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 6; i += 1) await page.keyboard.press('ArrowRight'); // Position after "First "
+
+    // Press Enter to split inside the quote at mid-text
+    await page.keyboard.press('Enter');
+
+    // Verify we now have three paragraphs inside the same blockquote (split created a new one)
+    check(
+      (await detailsRich.locator('blockquote').count()) === 1,
+      '53: still inside one blockquote after mid-text Enter'
+    );
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 3,
+      '53: blockquote now has three paragraphs (mid-text split created a new paragraph inside)'
+    );
+
+    // Verify the text split correctly
+    const firstQuoteLine = await detailsRich.locator('blockquote p').first().innerText();
+    const middleQuoteLine = await detailsRich.locator('blockquote p').nth(1).innerText();
+    check(
+      firstQuoteLine.includes('First'),
+      `53: first quote paragraph has "First", got: ${firstQuoteLine}`
+    );
+    check(
+      middleQuoteLine.includes('line of quote'),
+      `53: middle quote paragraph has "line of quote" (from split), got: ${middleQuoteLine}`
+    );
+
+    // Switch to Markdown and verify all lines have '>' prefix
+    await modeMarkdownLabel.click();
+    const md53 = await getMarkdownValue();
+    const quoteLines = md53.split('\n').filter((l) => l.startsWith('>'));
+    check(
+      quoteLines.length === 3,
+      `53: Markdown has three blockquote lines after mid-text split, got: ${md53}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 54. Single empty blockquote paragraph via toolbar Blockquote button, then Enter
+  //     (D-007 regression): clicking Blockquote on empty paragraph creates a <blockquote>
+  //     with one empty <p> inside; pressing Enter immediately should exit the blockquote.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG toolbar blockquote empty then Enter ${randomUUID()}`);
+    await modeWysiwygLabel.click();
+    await detailsRich.click();
+
+    // Click the toolbar Blockquote button to create an empty blockquote
+    await page.locator('.markdown-toolbar-btn[data-action="blockquote"]').click();
+    check(
+      (await detailsRich.locator('blockquote p').count()) === 1,
+      '54: toolbar blockquote creates one empty paragraph inside a blockquote'
+    );
+
+    // Press Enter immediately (no typing) -> should exit the blockquote
+    await page.keyboard.press('Enter');
+    check(
+      (await detailsRich.locator('blockquote').count()) === 0,
+      '54: Enter on empty toolbar-created blockquote paragraph exits the blockquote'
+    );
+    check(
+      (await detailsRich.locator('> p').count()) >= 1,
+      '54: normal paragraph created after blockquote exit'
+    );
+
+    // Type and verify we're in normal mode
+    await page.keyboard.type('normal text');
+    const paraText = await detailsRich.locator('> p').last().innerText();
+    check(
+      paraText.includes('normal text'),
+      `54: typing after toolbar blockquote exit creates normal text, got: ${paraText}`
+    );
+
+    await modeMarkdownLabel.click();
+    const md54 = await getMarkdownValue();
+    check(
+      !md54.startsWith('>') && md54.includes('normal text'),
+      `54: Markdown contains normal text without blockquote prefix, got: ${md54}`
+    );
+
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} scenario checks passed before teardown`);
 } catch (error) {
   failure = error;

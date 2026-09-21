@@ -431,50 +431,110 @@ export const initEditDetailsModeToggle = (
     const range = selection.getRangeAt(0);
     let node: Node | null = range.startContainer;
     let pre: HTMLElement | null = null;
+    let blockquote: HTMLElement | null = null;
+
+    // Walk up to find either <pre> (Code Block) or <blockquote>
     while (node) {
-      if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'PRE') {
-        pre = node as HTMLElement;
-        break;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const tag = (node as HTMLElement).tagName;
+        if (tag === 'PRE') {
+          pre = node as HTMLElement;
+          break;
+        }
+        if (tag === 'BLOCKQUOTE') {
+          blockquote = node as HTMLElement;
+          break;
+        }
       }
       node = node.parentNode;
     }
-    if (!pre) return;
-    const code = pre.querySelector('code');
-    if (!code) return;
-    event.preventDefault();
 
-    const preRange = document.createRange();
-    preRange.selectNodeContents(code);
-    preRange.setEnd(range.startContainer, range.startOffset);
-    const offset = preRange.toString().length;
+    // Handle Code Block: preserve whitespace/line breaks, insert newline inside the block
+    if (pre) {
+      const code = pre.querySelector('code');
+      if (!code) return;
+      event.preventDefault();
 
-    // Mutate the existing Text node's data in place (never replace it with a new Text object via
-    // `code.textContent = ...`) -- keeping the same node identity is what keeps Chromium's own
-    // internal editing/caret state in sync with the DOM Selection set below for the *next*
-    // keystroke (the same class of caret-affinity quirk exitFormatAtCaret above works around).
-    code.normalize();
-    let textNode = code.firstChild as Text | null;
-    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
-      textNode = document.createTextNode('');
-      code.appendChild(textNode);
+      const preRange = document.createRange();
+      preRange.selectNodeContents(code);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      const offset = preRange.toString().length;
+
+      // Mutate the existing Text node's data in place (never replace it with a new Text object via
+      // `code.textContent = ...`) -- keeping the same node identity is what keeps Chromium's own
+      // internal editing/caret state in sync with the DOM Selection set below for the *next*
+      // keystroke (the same class of caret-affinity quirk exitFormatAtCaret above works around).
+      code.normalize();
+      let textNode = code.firstChild as Text | null;
+      if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+        textNode = document.createTextNode('');
+        code.appendChild(textNode);
+      }
+      // A trailing "\n" as the very last character of the text node was observed to have ambiguous
+      // Chromium caret affinity: a Selection placed right after it (i.e. at the true end) still let
+      // the *next* typed character land before the "\n" instead of after it. A zero-width-space
+      // placed right after the "\n" gives the caret an unambiguous, non-final home (the same fix
+      // exitFormatAtCaret above uses for its own caret-affinity boundary); the 'input' handler above
+      // strips this ZWS again once real content lands next to it, and blockToMarkdown's Code Block
+      // serialization strips any that's still there defensively.
+      const isAtEnd = offset >= textNode.data.length;
+      const insert = isAtEnd ? '\n​' : '\n';
+      textNode.data = textNode.data.slice(0, offset) + insert + textNode.data.slice(offset);
+
+      const newRange = document.createRange();
+      newRange.setStart(textNode, offset + 1);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      rich.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
     }
-    // A trailing "\n" as the very last character of the text node was observed to have ambiguous
-    // Chromium caret affinity: a Selection placed right after it (i.e. at the true end) still let
-    // the *next* typed character land before the "\n" instead of after it. A zero-width-space
-    // placed right after the "\n" gives the caret an unambiguous, non-final home (the same fix
-    // exitFormatAtCaret above uses for its own caret-affinity boundary); the 'input' handler above
-    // strips this ZWS again once real content lands next to it, and blockToMarkdown's Code Block
-    // serialization strips any that's still there defensively.
-    const isAtEnd = offset >= textNode.data.length;
-    const insert = isAtEnd ? '\n​' : '\n';
-    textNode.data = textNode.data.slice(0, offset) + insert + textNode.data.slice(offset);
 
-    const newRange = document.createRange();
-    newRange.setStart(textNode, offset + 1);
-    newRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-    rich.dispatchEvent(new Event('input', { bubbles: true }));
+    // Handle Blockquote: if the current blockquote paragraph is empty, exit the blockquote.
+    // If it's non-empty, allow normal Enter behavior (which creates another paragraph inside).
+    if (blockquote) {
+      const block = closestBlock(rich, range.startContainer);
+      if (!block || block.tagName !== 'P') return;
+
+      // Check if this paragraph is empty (only contains a <br> or whitespace)
+      const isEmptyPara = block.textContent?.trim() === '';
+
+      if (isEmptyPara) {
+        event.preventDefault();
+
+        // Create a new normal paragraph
+        const p = document.createElement('p');
+        p.appendChild(document.createElement('br'));
+
+        const blockquoteParent = blockquote.parentElement;
+        if (!blockquoteParent) return;
+
+        // Insert the new paragraph after the blockquote
+        blockquoteParent.insertBefore(p, blockquote.nextSibling);
+
+        // Remove the empty paragraph from the blockquote
+        block.remove();
+
+        // If the blockquote is now empty, remove it too
+        if (blockquote.children.length === 0) {
+          blockquoteParent.removeChild(blockquote);
+        }
+
+        // Place the caret at the start of the new paragraph
+        const sel = window.getSelection();
+        if (sel) {
+          const caretRange = document.createRange();
+          caretRange.setStart(p, 0);
+          caretRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(caretRange);
+        }
+
+        rich.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      // If not empty, allow default behavior (Chromium will create a new <p> inside the blockquote)
+      return;
+    }
   });
 
   applyMode();

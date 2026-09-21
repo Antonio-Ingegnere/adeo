@@ -8,7 +8,7 @@
     "check:ux-boundary": "node scripts/check-ux-boundary.mjs",
     "test:workflow": "python3 .claude/scripts/delivery-selftest.py && python3 .claude/scripts/resolve-approved-plan-selftest.py",
     "quality:delivery": "python3 .claude/scripts/delivery.py quality",
-    "build": "npm run check:ux-boundary && rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && mkdir -p dist/assets dist/server dist/styles && cp index.html dist/index.html && cp styles.css dist/styles.css && cp styles/*.css dist/styles/ && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
+    "build": "npm run check:ux-boundary && rm -rf dist && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node_modules/.bin/esbuild src/renderer/markdownEditor.ts --bundle --minify --format=esm --platform=browser --outfile=dist/renderer/markdownEditor.js && node_modules/.bin/esbuild src/renderer/richEditor.ts --bundle --minify --format=esm --platform=browser --outfile=dist/renderer/richEditor.js && mkdir -p dist/assets dist/server dist/styles && cp index.html dist/index.html && cp styles.css dist/styles.css && cp styles/*.css dist/styles/ && cp assets/icon.png dist/assets/icon.png && cp -R server dist/server",
     "api": "python3 server/app.py",
     "prestart": "bash -lc 'PY=.venv/bin/python; if [ -x \"$PY\" ]; then $PY -c \"import fastapi\"; else python3 -c \"import fastapi\"; fi'",
     "start": "bash scripts/dev-start.sh",
@@ -92,10 +92,25 @@
     "@types/node": "^22.7.4",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
     "playwright-core": "1.62.1",
     "storybook": "10.5.10",
     "typescript": "^5.6.3",
     "vite": "8.2.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.5",
+    "@codemirror/view": "^6.43.12",
+    "@lezer/highlight": "^1.2.3",
+    "@lezer/markdown": "^1.7.2",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-task-item": "^3.31.3",
+    "@tiptap/extension-task-list": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "tiptap-markdown": "^0.9.0"
+  }
 }

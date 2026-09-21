@@ -2335,6 +2335,22 @@ kbd {
   outline: none;
 }
 
+/* TipTap mounts its own contenteditable `.tiptap.ProseMirror` div as a child of `.details-rich`
+   (see richEditor.ts) instead of `.details-rich` being contenteditable itself; it inherits
+   `.details-rich`'s padding/scroll/typography, just needs its own focus outline suppressed (the
+   parent's :focus-within border already communicates focus, matching the old contenteditable
+   look) and to fill the available height so `.details-rich`'s scrollbar -- not an inner one --
+   is what scrolls. */
+.details-rich .tiptap.ProseMirror {
+  min-height: 100%;
+  outline: none;
+}
+
+.details-rich:focus-within {
+  border-top-color: var(--border-strong);
+  border-bottom-color: var(--border-strong);
+}
+
 .details-rich h1,
 .details-rich h2,
 .details-rich h3,
@@ -2405,17 +2421,30 @@ kbd {
   cursor: default;
 }
 
-.wysiwyg-task {
+/* TipTap's TaskItem node renders `<li><label><input/><span/></label><div>content</div></li>` (see
+   @tiptap/extension-list's TaskItem addNodeView) -- the `label` is the checkbox container (what
+   `.wysiwyg-task` styled directly before this migration) and the trailing `div` is the editable
+   text content (what `.wysiwyg-task-text` styled before, then a `<span>`). Selectors below target
+   that structure by position, under the `.wysiwyg-task-item` class attached via richEditor.ts's
+   TaskItem.configure(...) rather than TipTap's own unstyled demo look. */
+.wysiwyg-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.wysiwyg-task-item > label {
   display: flex;
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
+  padding-top: 0.15em;
 }
 
 /* Match the task list's circular check control (see .tasks-list input[type='checkbox']
    above) instead of the browser's default square checkbox, so the same semantic
    element (a todo) looks consistent between the task list and WYSIWYG edit mode. */
-.wysiwyg-task input[type='checkbox'] {
+.wysiwyg-task-item input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -2432,12 +2461,12 @@ kbd {
   transition: border-color 120ms ease, background-color 120ms ease;
 }
 
-.wysiwyg-task input[type='checkbox']:checked {
+.wysiwyg-task-item input[type='checkbox']:checked {
   background: inherit;
   border-color: inherit;
 }
 
-.wysiwyg-task input[type='checkbox']:checked::after {
+.wysiwyg-task-item input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -2449,9 +2478,13 @@ kbd {
   transform: rotate(45deg);
 }
 
-.wysiwyg-task-text {
+.wysiwyg-task-item > div {
   flex: 1;
   min-width: 0;
+}
+
+.wysiwyg-task-item > div p {
+  margin: 0.2em 0;
 }
 
 /* No padding of its own: every modal but one sets its own padding on .modal, and adding 16px

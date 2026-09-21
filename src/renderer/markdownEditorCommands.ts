@@ -245,3 +245,44 @@ export const toggleCodeBlock = (view: EditorView): void => {
   });
   view.focus();
 };
+
+/**
+ * Handles the Enter key inside a blockquote line in Markdown mode. If the current line is a
+ * blockquote line (starts with `>`) and contains only the blockquote marker plus optional
+ * whitespace (i.e., is "empty"), pressing Enter exits the blockquote by replacing the blockquote
+ * marker with a newline, creating a normal (non-quoted) line after. For non-empty blockquote
+ * lines or non-blockquote lines, returns false to use default Enter behavior.
+ */
+export const handleBlockquoteEnter = (view: EditorView): boolean => {
+  const { state } = view;
+  const head = state.selection.main.head;
+  const line = state.doc.lineAt(head);
+  const match = BLOCKQUOTE_RE.exec(line.text);
+
+  // Not a blockquote line, use default Enter
+  if (!match) {
+    return false;
+  }
+
+  // Get the text after the blockquote marker (>) and any trailing spaces
+  const textAfterMarker = line.text.slice(match[0].length);
+
+  // If the line has content after the marker, use default Enter (continue the blockquote normally)
+  if (textAfterMarker.trim().length > 0) {
+    return false;
+  }
+
+  // Empty blockquote line (marker plus only whitespace, e.g. '>', '> ', '>   '): exit by
+  // replacing the *entire* line -- marker and any trailing whitespace -- with a single newline.
+  // This removes the empty '>' marker line outright and creates a normal (non-quoted) empty line
+  // after it, with the caret on that new line.
+  const insertText = '\n';
+
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: insertText },
+    selection: { anchor: line.from + insertText.length },
+  });
+
+  view.focus();
+  return true;
+};

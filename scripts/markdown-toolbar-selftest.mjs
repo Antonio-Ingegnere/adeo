@@ -2228,6 +2228,174 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 55. D-008 Regression: Markdown-mode blockquote Enter-exit on empty line.
+  //     Type "> Some quoted text", press Enter (creates "> |" empty blockquote line),
+  //     press Enter again on the empty line -> should exit blockquote immediately with no
+  //     stray ">" line. The blockquote line should be removed and a new normal line created.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-008: Markdown blockquote Enter exit single quote ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('');
+    await detailsEditorContent.click();
+
+    // Type blockquote text
+    await page.keyboard.type('> Some quoted text');
+    let md55a = await getMarkdownValue();
+    check(
+      md55a === '> Some quoted text',
+      `55: initial blockquote text, got: ${md55a}`
+    );
+
+    // Press Enter to continue the quote (creates empty "> " line)
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    let md55b = await getMarkdownValue();
+    check(
+      md55b === '> Some quoted text\n> ',
+      `55: Enter on non-empty quote line continues with empty "> " line, got: ${md55b}`
+    );
+
+    // Press Enter again on the empty blockquote line -> should exit
+    await page.keyboard.press('Enter');
+    const md55c = await getMarkdownValue();
+    check(
+      md55c === '> Some quoted text\n\n',
+      `55: Enter on empty blockquote line exits immediately with no stray ">", got: ${md55c}`
+    );
+    check(
+      !md55c.includes('> \n'),
+      `55: no stray empty blockquote line ("> ") left behind, got: ${md55c}`
+    );
+
+    // Type text to verify we're now in normal mode
+    await page.keyboard.type('normal text');
+    const md55d = await getMarkdownValue();
+    check(
+      md55d === '> Some quoted text\n\nnormal text',
+      `55: text after blockquote exit is normal (no ">" prefix), got: ${md55d}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 56. D-008 Regression: Markdown-mode blockquote Enter-exit with multiline quote.
+  //     Create a two-line quote, press Enter at the end of the second line (creates empty
+  //     quote line), press Enter again -> should exit, leaving both quote lines intact and
+  //     creating a normal line after.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-008: Markdown blockquote Enter exit multiline ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('');
+    await detailsEditorContent.click();
+
+    // Build the two-line quote by typing + real Enter presses (rather than embedding a second
+    // literal "> " in a setMarkdownValue string), since Enter on the non-empty first quote line
+    // already auto-continues with its own "> " marker -- embedding a second literal one would
+    // double it up.
+    await page.keyboard.type('> First line');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second line');
+
+    let md56pre = await getMarkdownValue();
+    check(
+      md56pre === '> First line\n> Second line',
+      `56: two-line quote built via typing + Enter continuation, got: ${md56pre}`
+    );
+
+    // Press Enter at end of the (non-empty) second line -> continues the quote with an empty
+    // "> " marker line, same as the single-line case.
+    await page.keyboard.press('Enter');
+
+    let md56a = await getMarkdownValue();
+    check(
+      md56a === '> First line\n> Second line\n> ',
+      `56: Enter at end of second quote line creates empty quote line, got: ${md56a}`
+    );
+
+    // Press Enter again on the empty line -> should exit
+    await page.keyboard.press('Enter');
+    const md56b = await getMarkdownValue();
+    check(
+      md56b === '> First line\n> Second line\n\n',
+      `56: Enter on empty line exits blockquote, preserving both quote lines, got: ${md56b}`
+    );
+    check(
+      (md56b.match(/^> /gm) || []).length === 2,
+      `56: exactly two blockquote lines remain, got: ${md56b}`
+    );
+
+    // Type normal text after exit
+    await page.keyboard.type('after quote');
+    const md56c = await getMarkdownValue();
+    check(
+      md56c.includes('after quote') && !md56c.includes('after quote\n> '),
+      `56: text after exit is normal (not in blockquote), got: ${md56c}`
+    );
+
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 57. D-008 Regression: Markdown-mode blockquote Enter behavior with only-whitespace line.
+  //     A line with only "> " or ">   " (blockquote marker plus whitespace) must be treated
+  //     as empty for exit purposes. Pressing Enter on such a line should exit immediately.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`D-008: Markdown blockquote Enter exit whitespace-only ${randomUUID()}`);
+    await modeMarkdownLabel.click();
+    await setMarkdownValue('> text');
+    await detailsEditorContent.click();
+
+    // Navigate to end and press Enter (creates empty quote line with just "> ")
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+
+    // Verify we have the empty blockquote line
+    let md57a = await getMarkdownValue();
+    const hasEmptyQuoteLine = md57a.includes('> \n') || md57a.endsWith('> ');
+    check(
+      hasEmptyQuoteLine,
+      `57: empty blockquote line created ("> " or similar), got: ${md57a}`
+    );
+
+    // Press Enter again -> should exit immediately
+    await page.keyboard.press('Enter');
+    const md57b = await getMarkdownValue();
+
+    check(
+      md57b === '> text\n\n',
+      `57: Enter on empty blockquote line exits immediately, no stray ">", got: ${md57b}`
+    );
+    check(
+      !md57b.includes('> \n') && !md57b.match(/>\s*\n\s*$/),
+      `57: no empty blockquote line with only whitespace left behind, got: ${md57b}`
+    );
+
+    // A quote line with EXTRA trailing whitespace after the marker (">   ", not just "> ") must
+    // also count as empty and exit cleanly, with no leftover whitespace-only line.
+    await page.keyboard.type('> more text');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter'); // continues quote with "> "
+    await page.keyboard.type('  '); // now "> " + two extra spaces = whitespace-only quote line
+    const md57c = await getMarkdownValue();
+    check(
+      md57c.endsWith('>   '),
+      `57: whitespace-only quote line has extra trailing spaces before exit, got: ${md57c}`
+    );
+    await page.keyboard.press('Enter'); // should exit immediately, no stray whitespace/">"
+    const md57d = await getMarkdownValue();
+    check(
+      md57d === '> text\n\n> more text\n\n',
+      `57: Enter on ">   " (marker + extra whitespace) exits immediately with no leftover, got: ${md57d}`
+    );
+
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} scenario checks passed before teardown`);
 } catch (error) {
   failure = error;

@@ -14,7 +14,7 @@
  * host element (the Edit Task dialog builds it once, lazily, on first use -- see
  * editDetailsModeToggle.ts); it is never recreated per keystroke or per mode switch.
  */
-import { EditorState, Compartment } from '@codemirror/state';
+import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap, placeholder as placeholderExtension } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -22,6 +22,7 @@ import { syntaxHighlighting } from '@codemirror/language';
 import { markdownEditorTheme } from './markdownEditorTheme.js';
 import { markdownHighlightStyle } from './markdownEditorHighlighting.js';
 import {
+  handleBlockquoteEnter,
   toggleBlockquote,
   toggleCodeBlock,
   toggleHeading,
@@ -64,6 +65,21 @@ export const createMarkdownEditor = (
     parent: container,
     extensions: [
       history(),
+      // @codemirror/lang-markdown's `markdown()` extension below registers its own Enter
+      // handler (list/blockquote continuation) at `Prec.high`, which otherwise wins over a
+      // plain-precedence keymap entry regardless of array order. Prec.highest here ensures our
+      // blockquote-exit handler gets first refusal on Enter; when it returns false (non-empty
+      // blockquote line, or no blockquote at all) CodeMirror falls through to the language's
+      // own continuation keymap and then defaultKeymap, so list/todo/code-block Enter behavior
+      // is unaffected.
+      Prec.highest(
+        keymap.of([
+          {
+            key: 'Enter',
+            run: (view) => handleBlockquoteEnter(view),
+          },
+        ])
+      ),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       markdown({ base: markdownLanguage }),
       syntaxHighlighting(markdownHighlightStyle),

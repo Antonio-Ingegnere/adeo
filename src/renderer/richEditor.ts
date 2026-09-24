@@ -32,7 +32,7 @@
  * bold, italic, inline code incl. multi-backtick, blockquote, fenced code block, bullet list, task
  * list via `markdown-it-task-lists`, horizontal rule).
  */
-import { Editor, Extension } from '@tiptap/core';
+import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
@@ -60,6 +60,75 @@ const BackspaceBlockDemotion = Extension.create({
           return this.editor.commands.lift('blockquote');
         }
         return false;
+      },
+    };
+  },
+});
+
+// Markdown-it's default hardbreak renderer outputs '\n' (a soft line break in HTML), not '<br>'.
+// tiptap-markdown wraps the renderer with withoutNewLine, which preserves '\n' but strips trailing
+// newlines from other rules, causing hardbreak tokens to be treated as soft line breaks and
+// flattened to spaces during Markdown -> WYSIWYG conversion. This extension patches the
+// markdown-it hardbreak renderer during MarkdownParser initialization to output '<br>' instead,
+// allowing the hardBreak extension's parseHTML rule to properly create hardBreak nodes.
+const HardBreakRenderer = Extension.create({
+  name: 'hardBreakRenderer',
+  addStorage() {
+    return {
+      markdown: {
+        parse: {
+          setup(md: any) {
+            // Override the hardbreak renderer to output '<br>' instead of '\n',
+            // so markdown-it-generated hardbreak tokens become <br> elements
+            // that the hardBreak extension's parseHTML rule can recognize.
+            md.renderer.rules.hardbreak = () => '<br>';
+          },
+        },
+      },
+    };
+  },
+});
+
+// CommonMark distinguishes a plain soft line break (one source newline inside a paragraph, e.g.
+// two quoted lines with no blank line between them -- `> some text\n> other text`) from a hard
+// break (trailing double-space or backslash before the newline, handled by HardBreakRenderer
+// above). markdown-it always tokenizes a lone internal newline as a 'softbreak' token and its
+// default renderer emits a literal '\n' character straight into the rendered HTML text; when that
+// HTML is parsed into DOM/ProseMirror, ordinary HTML whitespace rules collapse a bare '\n' to a
+// space (same class of loss HardBreakRenderer's comment documents for hardbreak), so the line
+// break is silently dropped and `> some text\n> other text` flattens to one joined line on
+// Markdown -> WYSIWYG -> Markdown round-trip. This extension gives a plain soft break its own
+// real, addressable ProseMirror node -- deliberately a *different* node type from `hardBreak` (not
+// reusing/conflating with the double-space/backslash mechanism) -- rendered as its own tagged
+// `<br>` so it round-trips through HTML parsing intact, and serialized back to a single '\n' (no
+// backslash, no trailing spaces), preserving the original quoted-line structure exactly.
+const SoftBreak = Node.create({
+  name: 'softBreak',
+  inline: true,
+  group: 'inline',
+  selectable: false,
+  parseHTML() {
+    // Higher priority than hardBreak's generic `br` parseDOM rule so a tagged soft-break `<br>`
+    // is never misparsed as a hardBreak node.
+    return [{ tag: 'br[data-soft-break]', priority: 60 }];
+  },
+  renderHTML() {
+    return ['br', { 'data-soft-break': '' }];
+  },
+  renderText() {
+    return '\n';
+  },
+  addStorage() {
+    return {
+      markdown: {
+        parse: {
+          setup(md: any) {
+            md.renderer.rules.softbreak = () => '<br data-soft-break>';
+          },
+        },
+        serialize(state: any) {
+          state.write('\n');
+        },
       },
     };
   },
@@ -128,6 +197,7 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
       // never exposed by the toolbar or the Markdown mapping spec).
       TaskItem.configure({ nested: false, HTMLAttributes: { class: 'wysiwyg-task-item' } }),
       BackspaceBlockDemotion,
+      SoftBreak,
       Markdown.configure({
         html: false,
         linkify: false,
@@ -135,6 +205,7 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
         transformPastedText: false,
         transformCopiedText: false,
       }),
+      HardBreakRenderer,
     ],
     content: '',
     autofocus: false,

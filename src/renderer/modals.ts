@@ -193,7 +193,6 @@ export const openEditModal = (taskId: number) => {
   state.modalRepeat = deriveRepeatLabel(task.repeatRule ?? null);
   state.modalTagIds = [...(task.tagIds ?? [])];
   refs.editInput.value = task.text;
-  refs.editDetailsInput.value = task.details || '';
   getEditDetailsController()?.setMarkdown(task.details || '');
   if (refs.reminderDateInput) {
     refs.reminderDateInput.value = state.modalReminderDate ?? '';
@@ -236,7 +235,6 @@ export const closeEditModal = () => {
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput) return;
   refs.overlay.classList.remove('open');
   refs.editInput.value = '';
-  refs.editDetailsInput.value = '';
   getEditDetailsController()?.setMarkdown('');
   if (refs.editDoneInput) {
     refs.editDoneInput.checked = false;
@@ -297,7 +295,7 @@ export const deleteEditingTask = async (): Promise<void> => {
 export const saveEdit = async () => {
   if (!state.editingTaskId || !refs.editInput || !refs.editDetailsInput) return;
   const newText = refs.editInput.value.trim();
-  const newDetails = getEditDetailsController()?.getMarkdown() ?? refs.editDetailsInput.value;
+  const newDetails = getEditDetailsController()?.getMarkdown() ?? '';
   const newListId = state.modalSelectedListId;
   const newDone = refs.editDoneInput?.checked ?? false;
   const newPriority = state.modalPriority;

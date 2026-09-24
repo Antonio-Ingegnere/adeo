@@ -491,6 +491,60 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 11. Hard breaks (double space + newline or backslash + newline) are preserved
+  //     as semantic hardBreak nodes in TipTap, not flattened to spaces during
+  //     Markdown -> WYSIWYG conversion, and serialize back to valid hard breaks.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG hard break round-trip ${randomUUID()}`);
+    await setMarkdownValue('line one  \nline two');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    // Verify hardbreak is rendered (should produce a visual line break, not a space)
+    const innerText = await richContent.innerText();
+    check(innerText.includes('line one') && innerText.includes('line two'),
+      `11: hard break creates two lines, got: ${innerText}`);
+    // Switch back to Markdown and verify the hard break is preserved (not converted to space)
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md11 = await getMarkdownValue();
+    check((md11.includes('  \n') || md11.includes('\\\n')),
+      `11: hard break round-trips back to valid Markdown, got: ${JSON.stringify(md11)}`);
+    check(!md11.includes('line one line two'),
+      `11: hard break is not flattened to space, got: ${JSON.stringify(md11)}`);
+    await closeModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 12. Soft line break inside a single blockquote paragraph (two quoted source lines with NO
+  //     blank line between them, e.g. `> some text\n> other text`) is preserved as a real,
+  //     addressable break node -- distinct from hardBreak (double-space/backslash, scenario 11)
+  //     and from a blank-quoted-line paragraph split (D-002) -- through a Markdown -> WYSIWYG ->
+  //     Markdown round-trip, verified via real document/DOM inspection, not just string matching.
+  // ---------------------------------------------------------------------------
+  {
+    await openTask(`WYSIWYG blockquote soft break round-trip ${randomUUID()}`);
+    await setMarkdownValue('> some text\n> other text');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    check((await richContent.locator('blockquote').count()) === 1,
+      '12: two quoted lines with no blank line stay one blockquote');
+    check((await richContent.locator('blockquote p').count()) === 1,
+      '12: the two quoted lines stay one paragraph (not split into two paragraphs, unlike D-002\'s blank-quoted-line case)');
+    check((await richContent.locator('blockquote p br[data-soft-break]').count()) === 1,
+      '12: a real, addressable soft-break node exists inside the blockquote paragraph (document-model inspection, not a string match)');
+    const softBreakText = await richContent.innerText();
+    check(softBreakText.includes('some text') && softBreakText.includes('other text'),
+      `12: both quoted lines render as visually separate lines, got: ${softBreakText}`);
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md12 = await getMarkdownValue();
+    check(md12 === '> some text\n> other text',
+      `12: round-trips back to exactly two quoted source lines (not joined, not a hard break), got: ${JSON.stringify(md12)}`);
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} checks passed`);
 } catch (err) {
   failure = err;

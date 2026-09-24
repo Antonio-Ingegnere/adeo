@@ -8,7 +8,7 @@ export const refs = {
   overlay: byId<HTMLDivElement>('edit-overlay'),
   editInput: byId<HTMLInputElement>('edit-input'),
   editDoneInput: byId<HTMLInputElement>('edit-done'),
-  editDetailsInput: byId<HTMLTextAreaElement>('edit-details'),
+  editDetailsInput: byId<HTMLDivElement>('edit-details'),
   editDetailsRich: byId<HTMLDivElement>('edit-details-rich'),
   editDetailsToolbarSlot: byId<HTMLDivElement>('edit-details-toolbar-slot'),
   editDetailsModeMarkdown: byId<HTMLInputElement>('edit-details-mode-markdown'),

@@ -34,6 +34,7 @@
  */
 import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import { Paragraph } from '@tiptap/extension-paragraph';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Markdown } from 'tiptap-markdown';
@@ -82,6 +83,230 @@ const HardBreakRenderer = Extension.create({
             // so markdown-it-generated hardbreak tokens become <br> elements
             // that the hardBreak extension's parseHTML rule can recognize.
             md.renderer.rules.hardbreak = () => '<br>';
+          },
+        },
+      },
+    };
+  },
+});
+
+// Empty paragraphs between semantic blocks (especially taskItems) must be preserved through
+// Markdown round-trips (D-007): they represent real, caret-addressable semantic positions in the
+// document, not just CSS spacing. This is a two-sided fix, both required (a serializer-only or
+// parser-only change cannot round-trip on its own -- see each half's comment below):
+//
+// 1. Serialize side (TipTapEmptyParagraphMarkdownSerializer below, this node): prosemirror-
+//    markdown's default paragraph serializer (`state.renderInline(node); state.closeBlock(node)`)
+//    writes nothing for an empty paragraph -- it just marks a block boundary as "pending", and
+//    that pending marker collapses into the same single default blank-line separator every two
+//    adjacent blocks already get, indistinguishably from zero empty paragraphs. N consecutive
+//    empty paragraphs must instead produce N distinguishable blank lines, one dedicated to each.
+// 2. Parse side (TaskListGapParagraphs below): markdown-it's list tokenizer *consumes* blank
+//    lines between sibling list items into the preceding item's own line-range without emitting
+//    any token for them (confirmed by inspecting markdown-it's token stream directly), so there
+//    is nothing for a serializer to reconstruct from on the way back -- see that extension's
+//    comment for the token-stream-level fix.
+//
+// Registered on the real `paragraph` node (via `Paragraph.extend`, matching StarterKit's own node
+// name) rather than a separate `Extension.create` bystander, because tiptap-markdown's serializer
+// only consults per-node-type extension storage keyed by `extension.name` for `type === 'node'`
+// extensions (see tiptap-markdown's `MarkdownSerializer.nodes`); a same-named plain `Extension`'s
+// `storage.markdown.serialize` is never read for node output at all.
+const EmptyParagraphMarkdownParagraph = Paragraph.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: any, node: any) {
+          if (node.content.size > 0) {
+            state.renderInline(node);
+            state.closeBlock(node);
+            return;
+          }
+          // Every empty paragraph after the first one in a consecutive run needs its own
+          // explicitly-flushed blank line: the *first* empty paragraph in a run is already
+          // indistinguishable from the single blank-line separator every pair of adjacent blocks
+          // gets by default (so it needs no extra output -- the default separator already
+          // accounts for it), but each additional one would otherwise collapse into that same
+          // single default separator, losing its distinct position. Flushing now, one paragraph
+          // at a time, gives each such position its own dedicated blank line.
+          const previousWasEmptyParagraph =
+            state.closed && state.closed.type?.name === 'paragraph' && state.closed.content.size === 0;
+          if (previousWasEmptyParagraph) {
+            state.flushClose(2);
+          }
+          state.closeBlock(node);
+        },
+      },
+    };
+  },
+});
+
+// tiptap-markdown's built-in `MarkdownTightLists` extension (which sets a `tight` attribute,
+// driving whether prosemirror-markdown's list serializer puts a blank line between items) only
+// covers `bulletList`/`orderedList`, not `taskList` -- so `taskList` nodes fall back to
+// prosemirror-markdown's serializer-state default of `tightLists: false` and would otherwise
+// always render one blank line between every pair of task items, on every round-trip, regardless
+// of whether the original Markdown had one (a D-007 regression: the no-gap case, #4, requires
+// adjacent task items to stay adjacent with nothing artificially introduced between them).
+// TaskListGapParagraphs above guarantees any *real* gap between task items is represented as a
+// document-level split into two sibling `taskList` nodes with real paragraph(s) in between, never
+// as spacing internal to one `taskList` node -- so a single `taskList` node always represents a
+// run of items with no gap between them, and can simply always be forced to serialize tight.
+const TightTaskList = TaskList.extend({
+  addAttributes() {
+    return { tight: { default: true, rendered: false } };
+  },
+});
+
+// markdown-it's list tokenizer swallows blank lines between sibling list items (and between a
+// list and an adjacent block) into surrounding line-range bookkeeping without emitting any token
+// for them at all (verified directly against markdown-it's token stream: parsing
+// "- [ ] a\n\n\n- [ ] b" produces exactly two list_item tokens with no intervening
+// paragraph/blank-line token whatsoever -- the two blank lines are absorbed into the first
+// list_item's own `.map` range). A serializer alone cannot fix D-007: there is nothing on the
+// parse side to serialize from, since the empty paragraphs never get created when Markdown is
+// parsed back into the TipTap document (this is why a prior serializer-only attempt at this
+// defect could not converge).
+//
+// This markdown-it core rule runs once after `block` tokenization (before `inline`, so still
+// operating on the raw per-line source, matching the `block` rule's own line-range bookkeeping)
+// and, for each blank-line gap immediately touching a task-list item -- between two sibling task
+// items in the same list, or between a task list and an adjacent top-level paragraph -- inserts
+// one synthetic, real, empty `paragraph_open`/`inline`/`paragraph_close` token triple per blank
+// line. TaskList/TaskItem's content model is `taskItem+` (no paragraph child allowed), so a gap
+// between two sibling task items additionally splits the single list into two sibling `taskList`
+// nodes with the synthetic paragraph(s) placed between them at the top level, mirroring exactly
+// what a human editing in WYSIWYG mode produced in the first place (a real top-level empty
+// paragraph separating two todo items). Adjacent items with no blank line between them (the tight
+// case) are untouched, so they stay adjacent with no artificial paragraph introduced.
+const TaskListGapParagraphs = Extension.create({
+  name: 'taskListGapParagraphs',
+  addStorage() {
+    return {
+      markdown: {
+        parse: {
+          setup(md: any) {
+            // `parse.setup` re-runs on every Markdown -> WYSIWYG conversion against the same
+            // long-lived markdown-it instance (constructed once per editor); guard against
+            // registering the core rule more than once, since markdown-it's Ruler has no
+            // built-in de-duplication by name and would otherwise run the rule N times after N
+            // mode switches.
+            if (md.__taskListGapParagraphsInstalled) return;
+            md.__taskListGapParagraphsInstalled = true;
+
+            md.core.ruler.after('block', 'taskListGapParagraphs', (state: any) => {
+              const srcLines: string[] = state.src.split('\n');
+              const taskLinePattern = /^\s*[-+*]\s+\[[ xX]\]\s+/;
+              const isTaskLine = (line: number | null | undefined): boolean =>
+                typeof line === 'number' && typeof srcLines[line] === 'string' && taskLinePattern.test(srcLines[line]);
+
+              const makeEmptyParagraph = (level: number): any[] => {
+                const open = new state.Token('paragraph_open', 'p', 1);
+                open.level = level;
+                const inline = new state.Token('inline', '', 0);
+                inline.level = level + 1;
+                inline.content = '';
+                inline.children = [];
+                const close = new state.Token('paragraph_close', 'p', -1);
+                close.level = level;
+                return [open, inline, close];
+              };
+
+              const tokens = state.tokens;
+              const out: any[] = [];
+              const lastMapEndBefore = (limit: number): number | null => {
+                for (let k = limit; k >= 0; k--) {
+                  if (out[k].map) return out[k].map[1];
+                }
+                return null;
+              };
+
+              for (let i = 0; i < tokens.length; i++) {
+                const tok = tokens[i];
+                out.push(tok);
+                const next = tokens[i + 1];
+                if (!next) continue;
+
+                // Case A: two sibling task-list items in the same list, separated by a blank-line
+                // gap. Requires splitting the enclosing list (see header comment).
+                if (tok.type === 'list_item_close' && next.type === 'list_item_open' && tok.level === next.level) {
+                  let openIdx = -1;
+                  let depth = 0;
+                  for (let k = i; k >= 0; k--) {
+                    if (tokens[k].level !== tok.level) continue;
+                    if (tokens[k].type === 'list_item_close') depth++;
+                    else if (tokens[k].type === 'list_item_open') {
+                      depth--;
+                      if (depth === 0) {
+                        openIdx = k;
+                        break;
+                      }
+                    }
+                  }
+                  if (openIdx === -1) continue;
+                  if (!isTaskLine(tokens[openIdx].map?.[0]) || !isTaskLine(next.map?.[0])) continue;
+
+                  // Deliberately excludes tokens[openIdx] itself: a `list_item_open`'s own
+                  // `.map` already absorbs any trailing blank-line gap into its own range (that
+                  // is precisely the swallowing behavior this rule works around), so including it
+                  // here would make the gap invisible again. Only the item's *inner content*
+                  // tokens (its paragraph, etc.) reflect where the real text actually ends.
+                  let contentEnd = tokens[openIdx].map ? tokens[openIdx].map[0] + 1 : 0;
+                  for (let k = openIdx + 1; k <= i; k++) {
+                    if (tokens[k].map) contentEnd = Math.max(contentEnd, tokens[k].map[1]);
+                  }
+                  const gapEnd = next.map ? next.map[0] : contentEnd;
+                  const blankLines = Math.max(0, gapEnd - contentEnd);
+                  if (blankLines <= 0) continue;
+
+                  let listOpenIdx = -1;
+                  for (let k = out.length - 1; k >= 0; k--) {
+                    if (out[k].level === tok.level - 1 && (out[k].type === 'bullet_list_open' || out[k].type === 'ordered_list_open')) {
+                      listOpenIdx = k;
+                      break;
+                    }
+                  }
+                  if (listOpenIdx === -1) continue;
+                  const listOpenTok = out[listOpenIdx];
+
+                  const listClose = new state.Token(listOpenTok.type.replace('_open', '_close'), listOpenTok.tag, -1);
+                  listClose.level = listOpenTok.level;
+                  out.push(listClose);
+
+                  for (let b = 0; b < blankLines; b++) out.push(...makeEmptyParagraph(listOpenTok.level));
+
+                  const listReopen = new state.Token(listOpenTok.type, listOpenTok.tag, 1);
+                  listReopen.level = listOpenTok.level;
+                  listReopen.attrs = listOpenTok.attrs ? listOpenTok.attrs.map((a: string[]) => a.slice()) : null;
+                  listReopen.map = [gapEnd, listOpenTok.map ? listOpenTok.map[1] : gapEnd];
+                  out.push(listReopen);
+                  continue;
+                }
+
+                // Case B: a top-level task list directly adjacent to a plain paragraph (in either
+                // order), separated by a blank-line gap. Both sides are already top-level
+                // siblings, so no split is needed -- just insert the synthetic paragraph(s).
+                if (
+                  tok.level === 0 &&
+                  next.level === 0 &&
+                  ((tok.type === 'paragraph_close' && next.type === 'bullet_list_open') ||
+                    (tok.type === 'bullet_list_close' && next.type === 'paragraph_open'))
+                ) {
+                  const listOpenTok = next.type === 'bullet_list_open' ? next : out.slice().reverse().find((t) => t.type === 'bullet_list_open' && t.level === 0);
+                  if (!listOpenTok || !isTaskLine(listOpenTok.map?.[0])) continue;
+
+                  const gapStart = lastMapEndBefore(out.length - 1);
+                  const gapEnd = next.map ? next.map[0] : null;
+                  if (gapStart === null || gapEnd === null) continue;
+                  const blankLines = Math.max(0, gapEnd - gapStart);
+                  if (blankLines <= 0) continue;
+
+                  for (let b = 0; b < blankLines; b++) out.push(...makeEmptyParagraph(0));
+                }
+              }
+
+              state.tokens = out;
+            });
           },
         },
       },
@@ -191,8 +416,13 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
         // Markdown round-trip (the data-loss rule) instead of risking the parser dropping/
         // mis-consuming it.
         link: { openOnClick: false, autolink: false },
+        // Disabled here so the explicit `EmptyParagraphMarkdownParagraph` below (same node name,
+        // `@tiptap/extension-paragraph` directly) is the one actually registered -- needed to
+        // attach the D-007 empty-paragraph markdown storage (see its comment).
+        paragraph: false,
       }),
-      TaskList.configure({ HTMLAttributes: { class: 'wysiwyg-list wysiwyg-list--task' } }),
+      EmptyParagraphMarkdownParagraph,
+      TightTaskList.configure({ HTMLAttributes: { class: 'wysiwyg-list wysiwyg-list--task' } }),
       // `nested: false` matches the old engine's flat task-list model (one level, no sub-items --
       // never exposed by the toolbar or the Markdown mapping spec).
       TaskItem.configure({ nested: false, HTMLAttributes: { class: 'wysiwyg-task-item' } }),
@@ -206,6 +436,7 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
         transformCopiedText: false,
       }),
       HardBreakRenderer,
+      TaskListGapParagraphs,
     ],
     content: '',
     autofocus: false,

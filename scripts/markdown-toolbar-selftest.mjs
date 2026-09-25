@@ -545,6 +545,157 @@ try {
     await closeModal();
   }
 
+  // ---------------------------------------------------------------------------
+  // 13. Empty paragraphs between task items round-trip correctly (D-007). Real, caret-
+  //     addressable empty paragraphs are semantic document positions (TaskList's content model
+  //     is `taskItem+`, so a real gap paragraph must live as a *top-level* sibling `<p>` between
+  //     two separate `<ul>` taskLists, not nested inside an `<li>`), distinct from any `<p>` that
+  //     is a taskItem's own text label. Verified via document-model inspection of exactly which
+  //     `<p>` elements are direct top-level children of the rich-text root (not string matching).
+  //     Covers all 4 regression cases from the bug report.
+  // ---------------------------------------------------------------------------
+  const countTopLevelStructure = async () => richContent.evaluate((el) => {
+    const children = Array.from(el.children);
+    // Exclude the very last child from the "gap" count: TipTap's built-in TrailingNode extension
+    // (unrelated to D-007) always auto-appends one structural empty paragraph at the document's
+    // end whenever the last real node isn't already a paragraph, and -- unlike a genuine D-007
+    // gap paragraph, which always sits between two other blocks -- it is never followed by
+    // anything, so it can be excluded unambiguously by position alone.
+    const gapCandidates = children.slice(0, -1);
+    return {
+      taskLists: children.filter((c) => c.matches('ul.wysiwyg-list--task')).length,
+      topLevelEmptyParagraphs: gapCandidates.filter((c) => c.matches('p') && c.textContent.trim() === '').length,
+      taskItems: el.querySelectorAll('li.wysiwyg-task-item').length,
+      topLevelParagraphTexts: children.filter((c) => c.matches('p')).map((c) => c.textContent.trim()),
+    };
+  });
+
+  // Note: TipTap's built-in `TrailingNode` extension (bundled by StarterKit, unrelated to D-007)
+  // always auto-appends one extra empty paragraph at the very end of the document whenever the
+  // document's last node isn't already a paragraph (a standard editor affordance letting the
+  // user click below a trailing list/block to keep typing). That structural paragraph is always
+  // the very last top-level child and, unlike a genuine D-007 gap paragraph, is never followed by
+  // anything -- `countTopLevelStructure` excludes exactly that last child from its empty-
+  // paragraph count so it can't be confused with a real gap.
+
+  // 13a. Multiple (two) empty paragraphs between two taskItems: both distinct positions must
+  //      survive as two separate top-level empty <p> elements between two separate taskLists.
+  {
+    await openTask(`WYSIWYG D-007 multiple empty paragraphs ${randomUUID()}`);
+    await setMarkdownValue('- [ ] First todo\n\n\n- [ ] Second todo');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+
+    const before = await countTopLevelStructure();
+    check(before.taskItems === 2, `13a: two taskItems render from Markdown with blank lines (count=${before.taskItems})`);
+    check(before.taskLists === 2, `13a: the two taskItems render as two separate taskLists (gap can't live inside taskList's content model), got ${before.taskLists}`);
+    check(before.topLevelEmptyParagraphs === 2, `13a: two distinct empty top-level paragraphs exist between the taskLists, got ${before.topLevelEmptyParagraphs}`);
+
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md = await getMarkdownValue();
+    const lines = md.split('\n');
+    const firstIdx = lines.findIndex((l) => l.includes('First'));
+    const secondIdx = lines.findIndex((l) => l.includes('Second'));
+    check(firstIdx !== -1 && secondIdx !== -1, `13a: both task item lines present in Markdown, got: ${JSON.stringify(md)}`);
+    check(secondIdx - firstIdx - 1 === 2, `13a: exactly 2 blank lines preserved in Markdown serialization, got: ${JSON.stringify(md)}`);
+
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const after = await countTopLevelStructure();
+    check(after.taskItems === 2 && after.taskLists === 2 && after.topLevelEmptyParagraphs === 2,
+      `13a: both empty paragraphs and taskItem separation survive a full round-trip, got: ${JSON.stringify(after)}`);
+    await closeModal();
+  }
+
+  // 13b. Exactly one empty paragraph between two taskItems.
+  {
+    await openTask(`WYSIWYG D-007 single empty paragraph ${randomUUID()}`);
+    await setMarkdownValue('- [ ] First todo\n\n- [ ] Second todo');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const before = await countTopLevelStructure();
+    check(before.taskItems === 2 && before.taskLists === 2 && before.topLevelEmptyParagraphs === 1,
+      `13b: one empty paragraph separates two taskLists, got: ${JSON.stringify(before)}`);
+
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md = await getMarkdownValue();
+    const lines = md.split('\n');
+    const firstIdx = lines.findIndex((l) => l.includes('First'));
+    const secondIdx = lines.findIndex((l) => l.includes('Second'));
+    check(secondIdx - firstIdx - 1 === 1, `13b: exactly 1 blank line preserved, got: ${JSON.stringify(md)}`);
+
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const after = await countTopLevelStructure();
+    check(after.taskItems === 2 && after.taskLists === 2 && after.topLevelEmptyParagraphs === 1,
+      `13b: single empty paragraph survives round-trip, got: ${JSON.stringify(after)}`);
+    await closeModal();
+  }
+
+  // 13c. Adjacent taskItems with no gap: must stay in one tight taskList, no artificial empty
+  //      paragraph introduced (must not regress).
+  {
+    await openTask(`WYSIWYG D-007 no gap ${randomUUID()}`);
+    await setMarkdownValue('- [ ] First todo\n- [ ] Second todo');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const state13c = await countTopLevelStructure();
+    check(state13c.taskItems === 2 && state13c.taskLists === 1 && state13c.topLevelEmptyParagraphs === 0,
+      `13c: adjacent taskItems with no blank line stay in one taskList with no synthetic paragraph, got: ${JSON.stringify(state13c)}`);
+
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md = await getMarkdownValue();
+    check(md === '- [ ] First todo\n- [ ] Second todo', `13c: no blank line introduced in Markdown, got: ${JSON.stringify(md)}`);
+    await closeModal();
+  }
+
+  // 13d. An empty paragraph between a normal paragraph and a taskItem, both directions.
+  {
+    await openTask(`WYSIWYG D-007 paragraph-to-taskItem ${randomUUID()}`);
+    await setMarkdownValue('Some text\n\n- [ ] First todo');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const before = await countTopLevelStructure();
+    check(before.taskItems === 1 && before.taskLists === 1 && before.topLevelEmptyParagraphs === 1,
+      `13d: paragraph -> empty -> taskItem renders one empty top-level paragraph, got: ${JSON.stringify(before)}`);
+
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md1 = await getMarkdownValue();
+    const l1 = md1.split('\n');
+    const textIdx1 = l1.findIndex((l) => l.includes('Some text'));
+    const taskIdx1 = l1.findIndex((l) => l.includes('First todo'));
+    check(taskIdx1 - textIdx1 - 1 === 1, `13d: exactly 1 blank line preserved paragraph->taskItem, got: ${JSON.stringify(md1)}`);
+    await closeModal();
+  }
+  {
+    await openTask(`WYSIWYG D-007 taskItem-to-paragraph ${randomUUID()}`);
+    await setMarkdownValue('- [ ] First todo\n\nSome text');
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const before = await countTopLevelStructure();
+    check(before.taskItems === 1 && before.taskLists === 1 && before.topLevelEmptyParagraphs === 1,
+      `13e: taskItem -> empty -> paragraph renders one empty top-level paragraph, got: ${JSON.stringify(before)}`);
+
+    await modeMarkdownLabel.click();
+    await detailsTextarea.waitFor({ state: 'visible' });
+    const md2 = await getMarkdownValue();
+    const l2 = md2.split('\n');
+    const taskIdx2 = l2.findIndex((l) => l.includes('First todo'));
+    const textIdx2 = l2.findIndex((l) => l.includes('Some text'));
+    check(textIdx2 - taskIdx2 - 1 === 1, `13e: exactly 1 blank line preserved taskItem->paragraph, got: ${JSON.stringify(md2)}`);
+
+    await modeWysiwygLabel.click();
+    await richContent.waitFor({ state: 'visible' });
+    const after = await countTopLevelStructure();
+    check(after.taskItems === 1 && after.taskLists === 1 && after.topLevelEmptyParagraphs === 1,
+      `13e: taskItem->paragraph gap survives round-trip, got: ${JSON.stringify(after)}`);
+    await closeModal();
+  }
+
   console.log(`Markdown toolbar self-test: ${checks} checks passed`);
 } catch (err) {
   failure = err;

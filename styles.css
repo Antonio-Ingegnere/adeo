@@ -1185,8 +1185,8 @@ body {
   width: 24px;
   flex: 0 0 24px;
   opacity: 0;
-  visibility: hidden;
-  transition: opacity 120ms ease, visibility 120ms ease, background-color 120ms ease;
+  /* Keep the button in the Tab order; focusing it reveals it via :focus-within. */
+  transition: opacity 120ms ease, background-color 120ms ease;
 }
 
 .task-menu-btn svg {

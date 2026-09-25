@@ -62,21 +62,10 @@ const moveTaskInState = (fromIndex: number, insertAt: number) => {
   state.tasks.splice(adjusted, 0, moved);
 };
 
-/**
- * Move the ring and the single tab stop onto one row. Roving tabindex: exactly one row is
- * reachable by Tab, so the list is one stop rather than one per task.
- */
+/** Show the cursor ring only on the row that holds real DOM focus. */
 const markCursorRow = (target: HTMLElement | null, showRing = true) => {
-  taskRows().forEach((row, index) => {
-    // With no cursor, the first row still holds tabindex 0 — otherwise the list would have
-    // no tab stop at all and Tab could never reach it.
-    const isTarget = target ? row === target : index === 0;
-    // showRing is false when the cursor is only being re-seated for a background rebuild while
-    // focus is in another region (the compose field, search, a modal): keep the roving tab
-    // stop and state.focusedTaskId, but do not paint a ring that would compete with the real
-    // focus indicator elsewhere. blurCursorRow() below does the same at the moment focus leaves.
-    row.classList.toggle('focused', showRing && Boolean(target) && isTarget);
-    row.tabIndex = isTarget ? 0 : -1;
+  taskRows().forEach((row) => {
+    row.classList.toggle('focused', showRing && row === target);
   });
 };
 
@@ -91,7 +80,7 @@ const rowForTask = (taskId: number | null): HTMLElement | null =>
     : refs.tasksList?.querySelector<HTMLElement>(`.task-row[data-task-id="${taskId}"]`) ?? null;
 
 /**
- * Put the keyboard cursor on a task: roving tabindex, the ring, and real DOM focus.
+ * Put the keyboard cursor on a task: the ring and real DOM focus.
  *
  * Real focus rather than only a class, because document.activeElement being a task row is
  * exactly what makes the shortcut dispatcher report "list" context. With a class alone focus
@@ -132,15 +121,34 @@ export const focusTaskEdge = (edge: 'first' | 'last'): boolean => {
   return focusTaskRow(Number(row.dataset.taskId));
 };
 
+/** A child control selector worth restoring real focus to after a rebuild. */
+const FOCUSABLE_CHILD_SELECTORS = ['input[type="checkbox"]', '.expand-btn', '.task-menu-btn'];
+
 /**
  * Re-seat the cursor after renderTasksInner has thrown the old rows away.
  *
- * hadFocus is not optional. renderTasks() is called from around fifteen places, several where
+ * focusMode is not optional. renderTasks() is called from around fifteen places, several where
  * focus legitimately belongs somewhere else — saving the edit modal, or addTask(), which puts
  * the caret back in the add-task input. Restoring focus unconditionally would yank it out
  * from under the user mid-keystroke.
+ *
+ * 'row': focus was on the row div itself, or fell to <body> because renderTasksInner's
+ * innerHTML rebuild tore out whatever previously held it (e.g. the row that had focus is
+ * gone) — in both cases the row-level ring is the correct real focus target.
+ * 'child': a descendant control (checkbox, expand button, kebab) had real focus. That
+ * control's own :focus-visible ring is the only real focus indicator that should exist —
+ * the row ring must never substitute for it. The rebuild destroyed the old element, so the
+ * best equivalent is to re-focus the same kind of control on the rebuilt row; if none exists,
+ * leave real focus wherever the rebuild left it (typically <body>) rather than yank it onto
+ * the row.
+ * 'none': focus was genuinely elsewhere (compose field, search, a modal) — hold the cursor
+ * position and tab stop only, no ring, no focus move.
  */
-const applyTaskFocus = (hadFocus: boolean, previousOrdinal: number) => {
+const applyTaskFocus = (
+  focusMode: 'row' | 'child' | 'none',
+  previousOrdinal: number,
+  previousChildSelector: string | null
+) => {
   const rows = taskRows();
   if (rows.length === 0) {
     state.focusedTaskId = null;
@@ -161,11 +169,22 @@ const applyTaskFocus = (hadFocus: boolean, previousOrdinal: number) => {
   }
 
   state.focusedTaskId = Number(target.dataset.taskId);
-  // hadFocus covers "focus is in the list" and "focus fell to <body> after a mutation"; in both
-  // the ring should stay. When focus has genuinely moved to another control, hold the cursor
-  // position but not the ring.
-  markCursorRow(target, hadFocus);
-  if (hadFocus) {
+
+  if (focusMode === 'child') {
+    const child = previousChildSelector ? target.querySelector<HTMLElement>(previousChildSelector) : null;
+    // Never show the row ring here: a child had real focus, so its own :focus-visible ring is
+    // the only indicator that should be present.
+    markCursorRow(target, false);
+    if (child) {
+      child.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'nearest' });
+    }
+    return;
+  }
+
+  const showRing = focusMode === 'row';
+  markCursorRow(target, showRing);
+  if (showRing) {
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: 'nearest' });
   }
@@ -216,10 +235,10 @@ const buildTaskRow = (task: Task, index: number, rerender: () => void) => {
   // refetch invalidates it. dataset.taskId is stable, and is what the keyboard cursor uses.
   row.dataset.index = String(index);
   row.dataset.taskId = String(task.id);
-  // Roving tabindex: applyTaskFocus promotes exactly one row to 0, so the list is a single
-  // tab stop rather than one per task. No role="option" — rows hold a checkbox and buttons,
+  // Each row precedes its checkbox and buttons in the natural Tab order.
+  // No role="option" — rows hold a checkbox and buttons,
   // and role=option forbids interactive descendants (same trap as the sidebar pills).
-  row.tabIndex = -1;
+  row.tabIndex = 0;
 
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
@@ -440,14 +459,23 @@ export const renderTasks = () => {
   // has several early returns and re-seating the cursor inside a 'tasks-rendered' listener would
   // race the paint and split the logic across modules.
   const active = document.activeElement;
-  const hadFocus =
-    active === document.body || (active instanceof Node && !!refs.tasksList?.contains(active));
+  const activeRow = active instanceof Element ? active.closest<HTMLElement>('.task-row') : null;
+  const focusMode: 'row' | 'child' | 'none' =
+    active === document.body || (!!activeRow && active === activeRow)
+      ? 'row'
+      : activeRow
+        ? 'child'
+        : 'none';
+  const previousChildSelector =
+    focusMode === 'child' && active instanceof HTMLElement
+      ? FOCUSABLE_CHILD_SELECTORS.find((selector) => active.matches(selector)) ?? null
+      : null;
   const previousOrdinal = taskRows().findIndex(
     (row) => Number(row.dataset.taskId) === state.focusedTaskId
   );
 
   renderTasksInner();
-  applyTaskFocus(hadFocus, previousOrdinal);
+  applyTaskFocus(focusMode, previousOrdinal, previousChildSelector);
   document.dispatchEvent(new CustomEvent('tasks-rendered'));
 };
 
@@ -694,10 +722,11 @@ export const attachTaskListMenu = () => {
  */
 export const attachTaskListKeyboard = () => {
   if (!refs.tasksList) return;
+
   refs.tasksList.addEventListener('focusin', (event) => {
     const row = (event.target as HTMLElement | null)?.closest<HTMLElement>('.task-row');
     if (!row) return;
-    markCursorRow(row);
+    markCursorRow(row, event.target === row);
     const taskId = Number(row.dataset.taskId);
     if (taskId === state.focusedTaskId) return;
     state.focusedTaskId = taskId;
@@ -709,7 +738,7 @@ export const attachTaskListKeyboard = () => {
   // Tab navigation here, so re-check document.activeElement on the next frame instead: still in
   // the list, or parked on <body> after a mutation (renderTasks()'s hadFocus re-seats that
   // one) — keep the ring; on any other real element — strip it, keeping state.focusedTaskId
-  // and the roving tab stop so Tab or an arrow key resumes exactly here.
+  // so arrow-key navigation can resume from the same task.
   refs.tasksList.addEventListener('focusout', () => {
     requestAnimationFrame(() => {
       const active = document.activeElement;

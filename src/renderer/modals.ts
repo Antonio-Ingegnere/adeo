@@ -228,6 +228,9 @@ export const openEditModal = (taskId: number) => {
   if (refs.tagsMenu) {
     refs.tagsMenu.style.display = 'none';
   }
+  // Opening always focuses programmatically, not via a click on the field itself, so any
+  // leftover pointer-focus class from a previous session should not suppress this focus's ring.
+  refs.editInput.classList.remove('pointer-focus');
   setTimeout(() => refs.editInput?.focus(), 0);
 };
 

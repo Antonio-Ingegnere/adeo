@@ -441,6 +441,23 @@ body {
   border-bottom-color: var(--border-strong);
 }
 
+/* The Edit Task title field (.modal-input) is a plain text <input>, which Chromium's
+   :focus-visible heuristic always matches on focus regardless of input modality -- typing
+   fields are assumed to need a visible caret/indicator whether focus arrived by click or by
+   Tab. So the app-wide :focus-visible ring at the top of this file cannot by itself tell mouse
+   clicks apart from keyboard focus here the way it can for buttons/radios/checkboxes. `.pointer-
+   focus` is a class toggled in modals.ts on mousedown/blur to make that distinction explicit:
+   a mouse-focused title keeps only the existing bottom-border indicator (tinted blue here,
+   rather than the neutral --border-strong above, since it is now the field's primary focus
+   cue), while a keyboard-focused title still gets the global ring. No dimension change. */
+.modal-input.pointer-focus:focus {
+  border-bottom-color: var(--accent-focus);
+}
+
+.modal-input.pointer-focus:focus-visible {
+  outline: none;
+}
+
 .primary-button {
   border: none;
   background: var(--accent);

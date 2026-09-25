@@ -808,6 +808,17 @@ const setupEvents = () => {
       saveEdit();
     }
   });
+  // The title field is a plain text input, and Chromium's :focus-visible heuristic always
+  // matches focused text fields regardless of input modality -- so CSS alone cannot tell a
+  // mouse click apart from Tab landing here the way it can for buttons/radios/checkboxes.
+  // `.pointer-focus` (see styles.css) makes that distinction explicit: set right before a
+  // mousedown-driven focus, cleared on blur so a later Tab back in shows the keyboard ring again.
+  refs.editInput?.addEventListener('mousedown', () => {
+    refs.editInput?.classList.add('pointer-focus');
+  });
+  refs.editInput?.addEventListener('blur', () => {
+    refs.editInput?.classList.remove('pointer-focus');
+  });
   refs.overlay?.addEventListener('click', (event) => {
     if (event.target === refs.overlay) {
       closeEditModal();

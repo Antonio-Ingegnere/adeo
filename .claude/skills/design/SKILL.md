@@ -13,19 +13,9 @@ delivery just to make design work possible.
 
 ## Lifecycle preflight
 
-Before launching the designer, perform exactly one compact preflight:
-
-```text
-if [ -f .claude/delivery/current.json ]; then python3 .claude/scripts/delivery.py status --json; else printf '{"state":"NONE"}\n'; fi
-```
-
-Interpret it mechanically:
-
-- `NONE`, `DONE`, or `FAILED` with no worker/verifier claim: standalone design is allowed.
-- Any active delivery state (`UNDERSTANDING`, `BLOCKED_DECISION`, `IMPLEMENTING`,
-  `VERIFYING`, `REPAIRING`, `NEEDS_HUMAN_REVIEW`, `READY_FOR_MANUAL_QA`) or any
-  stale claim: stop. Do not launch the designer in parallel with delivery work,
-  do not edit `current.json`, and do not start a throwaway `/deliver`.
+Before launching, run `python3 .claude/scripts/delivery-owner-guard.py --role product-designer`
+with `{}` on stdin. A nonzero result means an active or inconsistent lifecycle: stop.
+Do not create, claim, resume or rewrite delivery state to enable standalone design.
 
 ## Dispatch
 

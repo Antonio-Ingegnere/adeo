@@ -1,141 +1,40 @@
 #!/usr/bin/env python3
-"""Stop delivery subagents before they consume context for an unowned phase."""
-
-from __future__ import annotations
-
+"""Keep standalone design outside active or inconsistent delivery lifecycles."""
 import argparse
+import importlib.util
 import json
 import os
-import re
-import sys
 from pathlib import Path
+import subprocess
+import sys
 
 
-READ_STATES = {
-    "product-designer": {"UNDERSTANDING", "IMPLEMENTING", "REPAIRING"},
-}
-WRITE_STATES = {
-    "product-designer": {"IMPLEMENTING", "REPAIRING"},
-}
-
-
-def fail(role: str, message: str) -> None:
-    print(f"{role} delivery boundary: {message}", file=sys.stderr)
-    raise SystemExit(2)
-
-
-def runtime(role: str) -> tuple[str, str | None] | None:
-    root = Path(os.environ["CLAUDE_PROJECT_DIR"]).resolve()
-    current = root / ".claude" / "delivery" / "current.json"
-    if not current.is_file():
-        return None
-    try:
-        data = json.loads(current.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        fail(role, "delivery state is unreadable")
-    if not isinstance(data, dict):
-        fail(role, "delivery state has invalid shape")
-    state = str(data.get("state") or "")
-    claim = data.get("worker_claim")
-    verifier_claim = data.get("verifier_claim")
-
-    # A terminal delivery is historical state, not an owned execution phase.
-    # Standalone agents (notably product-designer) must remain usable after a
-    # completed/failed delivery without deleting current.json. Stale claims are
-    # intentionally *not* ignored: they indicate inconsistent machine state and
-    # should keep the guard closed until resolved.
-    if state in {"DONE", "FAILED"} and not claim and not verifier_claim:
-        return None
-
-    owner = claim.get("role") if isinstance(claim, dict) else None
-    return state, str(owner) if owner else None
-
-
-def safe_control(command: str, role: str) -> str | None:
-    normalized = " ".join(command.split())
-    if re.fullmatch(
-        rf"python3?\s+\.claude/scripts/delivery\.py\s+worker-claim\s+--role\s+{re.escape(role)}(?:\s+--json)?",
-        normalized,
-    ):
-        return "claim"
-    if re.fullmatch(
-        r"python3?\s+\.claude/scripts/delivery\.py\s+status(?:\s+--json)?",
-        normalized,
-    ):
-        return "status"
-    if role == "product-designer" and re.fullmatch(
-        r"python3?\s+\.claude/scripts/delivery\.py\s+model\s+--file\s+\S+",
-        normalized,
-    ):
-        return "model"
-    return None
-
-
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--role", choices=sorted(READ_STATES), required=True)
-    args = parser.parse_args()
-    role = args.role
-
-    data = json.load(sys.stdin)
-    tool = str(data.get("tool_name", ""))
-    tool_input = data.get("tool_input") or {}
-    if not isinstance(tool_input, dict):
-        fail(role, "invalid tool input")
-
-    context = runtime(role)
-    if context is None:
-        return  # standalone agent use outside /deliver remains supported
-    state, owner = context
-
-    if tool == "Bash":
-        command = str(tool_input.get("command", ""))
-        normalized = " ".join(command.split())
-        if re.search(r"delivery\.py\s+status\b.*(?:^|\s)--full(?:\s|$)", normalized):
-            fail(role, "full delivery status is runtime-debug only; use compact `delivery.py status --json`")
-        if role == "product-designer" and (
-            re.search(
-                r"delivery\.py\s+(quality|verifier(?:-claim)?|authorize-high|handoff|checkpoint|qa-fix|qa-accept|report)\b",
-                normalized,
-            )
-            or re.search(r"\bnpm\s+run\s+quality:delivery\b", normalized)
-        ):
-            fail(role, "execution owners cannot record quality/verification/readiness receipts")
-        control = safe_control(command, role)
-        if control in {"claim", "status"}:
-            return
-        if owner != role:
-            fail(role, f"phase is owned by {owner or 'nobody'}; claim it before doing work")
-        if control == "model":
-            if state != "UNDERSTANDING":
-                fail(role, f"Change Model may not be recorded while state is {state}")
-            return
-        if state not in READ_STATES[role]:
-            fail(role, f"work is not allowed while delivery is {state}")
-        if state == "UNDERSTANDING":
-            mutates = bool(
-                re.search(
-                    r"\b(?:apply_patch|sed\s+-i|perl\s+-pi|rm|mv|cp|touch|mkdir|truncate)\b|(?:>{1,2}|\btee\b)",
-                    normalized,
-                )
-            )
-            if mutates and not re.search(r"(?:/tmp/|/private/tmp/|/dev/)", normalized):
-                fail(role, "repository mutation is forbidden before the Change Model is recorded")
-        return
-
-    if owner != role:
-        fail(role, f"phase is owned by {owner or 'nobody'}; claim it before reading context")
-
-    if tool in {"Read", "Grep", "Glob"}:
-        if state not in READ_STATES[role]:
-            fail(role, f"reads are not allowed while delivery is {state}")
-        return
-
-    if tool in {"Write", "Edit"}:
-        if state not in WRITE_STATES[role]:
-            fail(role, f"repository writes are not allowed while delivery is {state}")
-        return
+    parser.add_argument('--role', choices=['product-designer'], required=True)
+    parser.parse_args()
+    root = Path(os.environ['CLAUDE_PROJECT_DIR']).resolve()
+    try:
+        current = root / '.switchyard/current.json'
+        if current.exists():
+            spec = importlib.util.spec_from_file_location('delivery', Path(__file__).with_name('delivery.py'))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            config = module.configuration(root)
+            result = subprocess.run([config['python_executable'], str(root / '.claude/scripts/delivery.py'), 'status'],
+                                    capture_output=True, text=True, timeout=30)
+            if result.returncode or json.loads(result.stdout)['status'] != 'closed':
+                raise ValueError('active or inconsistent Switchyard lifecycle')
+        legacy = root / '.claude/delivery/current.json'
+        if legacy.exists():
+            state = json.loads(legacy.read_text())
+            if state.get('state') not in ('DONE', 'FAILED') or state.get('worker_claim') or state.get('verifier_claim'):
+                raise ValueError('active or inconsistent legacy lifecycle')
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.TimeoutExpired):
+        print('Standalone design blocked by active/inconsistent delivery state', file=sys.stderr)
+        return 2
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -7,13 +7,16 @@ effort: low
 disable-model-invocation: false
 ---
 
+If `.switchyard/current.json` exists, run `python3 .claude/scripts/delivery.py status`.
+An active lifecycle must use `/accept` with human QA and exact staged-patch approval;
+never bypass it with a direct commit. On inconsistent state, stop. Never stage `.switchyard/`
+or append to the legacy metrics ledger. Push remains separate explicit authorization.
+
 Perform a **safe narrow commit followed by an ordinary push**. Git bookkeeping only; never implement, repair, redesign, or re-review product code.
 
 ## Commit boundary
 
 1. Inspect `git status --short`, current branch, and staged state.
-2. If `.claude/delivery/current.json` exists, read only compact `python3 .claude/scripts/delivery.py status --json`; use its `changed_paths` as the primary delivery-owned candidate set. Never read `status --full`.
-3. Include `docs/agent/delivery-metrics.jsonl` only if it changed as the append-only acceptance record for this delivery. Never commit `.claude/delivery/current.json`.
 4. Never use `git add .`, `git add -A`, `git commit -a`, wildcard staging, or directory-wide staging. Stage explicit paths only.
 5. Leave pre-existing unrelated modified/untracked files untouched. Ambiguous path ownership means stop and report the candidate list rather than guessing.
 6. Inspect only the staged diff needed to verify the boundary; do not conduct another product review.

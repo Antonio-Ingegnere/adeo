@@ -1,0 +1,117 @@
+id: DELIVERY-002
+goal: |
+  Integrate Adeo's deliver, repair and human-approved accept commands with the
+  accepted Switchyard presets, without changing Switchyard contracts.
+scope:
+  - .claude/scripts/delivery.py and focused integration tests
+  - .claude/skills and obsolete delivery-only agents/guards
+  - scripts/verify-delivery.py
+  - CLAUDE.md, delivery documentation, package scripts and .gitignore
+old_workflow: |
+  delivery.py owns Change Model, worker/verifier receipts and repeated repairs.
+  /deliver routes Haiku orchestration to Sonnet implementation and risk-selected
+  LLM verifiers. /qa-fix can bootstrap without a lifecycle and routes Haiku/Sonnet
+  using bug reopen counts. /qa-escalate changes provider route. /qa-accept marks
+  DONE and appends manual metrics, but does not perform the accepted Git preset.
+new_workflow: |
+  /deliver creates a correlation ID and runs deliver once. /repair uses the active
+  correlation and latest QA-ready parent, with FRESH_DIAGNOSIS. /accept requires
+  explicit manual QA and review of exact staged patch/HEAD, then uses accept.
+  Codex handles all agent states. No automatic follow-up run or provider switching.
+state_and_recovery: |
+  Ignored .switchyard/current.json contains only correlation_id, latest_run_id,
+  latest_terminal, status and events_file. A process lock excludes simultaneous
+  commands. Status running is persisted before execution; a crash or recorder
+  failure blocks subsequent commands pending manual evidence review. A missing
+  log or disagreement with canonical history is an error. No implicit recovery.
+  Events append through JsonlRecorder at .switchyard/runs/<correlation>.jsonl.
+  Existing active legacy state is preserved and blocks new deliver until explicitly
+  archived by the operator. Closed current pointers may be replaced by a new deliver.
+artifacts_and_portability: |
+  Keep the accepted preset's unique .switchyard/delivery/<session>/analysis.md:
+  it already isolates each diagnosis/run, survives stage boundaries and is ignored.
+  .switchyard/config.json supplies absolute Switchyard checkout, Python, Codex,
+  Git, Node and npm paths. No flow schema or PATH-resolution change.
+verification_command: |
+  <configured absolute Python> scripts/verify-delivery.py. Build/typecheck once,
+  run workflow integration tests, all existing scripts/*-selftest.mjs sequentially,
+  and Storybook build. Electron harnesses use isolated data. Task-row-focus checks
+  actual DOM focus, ArrowDown and Tab navigation, not only CSS classes.
+constraints:
+  - No Switchyard/runtime/preset/analytics changes, provider calls in mandatory tests or push.
+  - Never auto-stage or synthesize patch approval; exact HEAD/hash supplied after review.
+  - QA remains outside runs; no background orchestration or hidden retries.
+  - Legacy metrics and legacy state remain intact; no canonical-event migration.
+  - Analytics reads events only and cannot select transitions.
+acceptance:
+  - Deliver/accept and deliver/repair/accept preserve correlation and QA parent provenance.
+  - OBS-006 observes one manual reopen for repair and none for automatic repair.
+  - Second verifier failure stops; one repair attempt maximum.
+  - No active state, closed state, concurrent deliver and missing logs fail safely.
+  - Mixed or stale Git scope blocks without committing; approved isolated patch commits.
+verification:
+  - Focused offline tests with real presets/runtime/recorder/Git and fake agent boundaries.
+  - Complete deterministic Adeo verifier and unchanged Switchyard offline regressions.
+non_goals:
+  - Lifecycle-management UI, dashboard, analytics CLI, provider costs or runtime extensions.
+verification_results:
+  focused: "20 offline integration tests pass, including command processes and recorder failure."
+  designer: "Standalone designer exclusion regression passes."
+  switchyard: "231 tests run: 230 passed, one existing platform skip; checkout unchanged."
+  project: |
+    Full verifier completed with two failures in unchanged application tests:
+    board-selftest: long multi-day recurrence summary; task-delete-selftest:
+    kebab hidden before hover. Build/typecheck, Storybook and other checks pass,
+    including 86 task-row-focus checks. These failures remain visible to VERIFY.
+baseline_regression_triage:
+  date: "2026-09-27"
+  baseline_commit: a7fb743627dae30e1807de753e7f56d508d18df7
+  baseline_subject: Make every task row a Tab stop and show row ring only on real row focus
+  method: |
+    Clean git archive of the pre-integration HEAD, with no DELIVERY-002 files.
+    Both trees freshly built with /opt/homebrew/bin/npm run build (exit 0).
+    Baseline uses the same installed node_modules and .venv via symlinks; identical
+    package-lock.json SHA-256 94eb97b38af404055ca6def5717c705162475bfea244d9da3a4e8e2cb2886844.
+    Same inherited parent environment, host/session and isolated Electron test harness.
+    Each execution creates fresh temporary user data and SQLite; real-data guards retained.
+    Only checkout paths and per-test temporary data paths differ. No test/source edits.
+  tools:
+    node: v26.7.0
+    npm: 11.19.0
+    python: 3.14.7
+    electron: 39.2.6
+    playwright_core: 1.62.1
+  tests:
+    - name: board-selftest / long multi-day recurrence summary
+      command: /opt/homebrew/bin/node scripts/board-selftest.mjs
+      classification: PRE_EXISTING
+      baseline_result: "2/2 runs exit 1, identical assertion after 20 checks."
+      delivery_002_result: "2/2 runs exit 1, identical assertion after 20 checks."
+      exact_error: "Board self-test failed after 20 checks: 1a: the card shows the long multi-day recurrence summary"
+      observed_behavior: |
+        Visible card .task-reminder text does not match the asserted English regex
+        /Every week on Tuesday, Thursday, Friday/. Actual text is not printed by the
+        unmodified test; no stronger claim about the recurrence implementation is made.
+      determinism: Reproduced identically in all four comparison runs on this environment.
+    - name: task-delete-selftest / hover visibility
+      command: /opt/homebrew/bin/node scripts/task-delete-selftest.mjs
+      classification: PRE_EXISTING
+      baseline_result: "2/2 runs exit 1, identical assertion after 16 checks."
+      delivery_002_result: "2/2 runs exit 1, identical assertion after 16 checks."
+      exact_error: "Task delete self-test failed after 16 checks: 2: the kebab is hidden until the row is hovered"
+      observed_behavior: |
+        The task-menu button exists but isHidden() returns false after moving the
+        pointer to (5, 5) and waiting 100 ms, before row.hover().
+      determinism: Reproduced identically in all four comparison runs on this environment.
+  disposition: |
+    Verified baseline debt, not DELIVERY-002 regressions. Tests remain enabled and
+    unchanged. No production fix, test weakening, workflow redesign or Switchyard
+    contract change. Full verifier must continue reporting these failures.
+  final_validation:
+    integration_command: npm run test:workflow
+    integration_result: "Exit 0: 20 integration tests pass; standalone designer guard regression passes."
+    verifier_command: python3 scripts/verify-delivery.py
+    verifier_result: |
+      Exit 1 with exactly the two proven PRE_EXISTING failures above. All other
+      checks pass, including build/typecheck, Storybook and task-row-focus (86 checks).
+    completion: DELIVERY-002 complete with explicitly documented verified baseline debt.

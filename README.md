@@ -141,3 +141,8 @@ Windows uses a bundled PowerShell script (`server/reminder_notify_windows.ps1`) 
 - Windows embeddable packages: https://www.python.org/downloads/windows/
 - macOS/Linux standalone builds: https://github.com/astral-sh/python-build-standalone
 - Python license: https://docs.python.org/3/license.html
+
+## Delivery workflow
+
+Use `/deliver <task>`, then human QA and `/accept` or `/repair <bug report>`.
+See [Switchyard setup, verification and migration](docs/agent/switchyard-delivery.md).

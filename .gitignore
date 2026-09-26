@@ -45,3 +45,6 @@ ui-ux/ux/concepts/markdown-split-preview.stories.ts
 ui-ux/ux/concepts/markdown-split-preview.ts
 ui-ux/ux/concepts/multi-column-board.css
 ui-ux/ux/concepts/multi-column-board.stories.ts
+
+# Project-local Switchyard configuration, lifecycle pointers, logs and artifacts
+.switchyard/

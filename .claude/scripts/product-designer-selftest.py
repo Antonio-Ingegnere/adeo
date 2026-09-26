@@ -50,7 +50,7 @@ def main() -> None:
     if not SKILL.is_file():
         raise AssertionError("missing /design skill")
     skill = SKILL.read_text(encoding="utf-8")
-    for token in ("name: design", "model: haiku", "product-designer", "DONE", "FAILED"):
+    for token in ("name: design", "model: haiku", "product-designer"):
         if token not in skill:
             raise AssertionError(f"/design skill missing {token!r}")
     if not AGENT.is_file():
@@ -83,9 +83,13 @@ def main() -> None:
         guard(root, allowed=False)
 
         write_state(root, state="IMPLEMENTING", worker_claim={"role": "product-designer", "id": "W-design"})
-        guard(root, allowed=True)
+        guard(root, allowed=False)
 
         current.unlink(missing_ok=True)
+        switchyard = root / '.switchyard/current.json'
+        switchyard.parent.mkdir()
+        switchyard.write_text('{"status":"closed"}')
+        guard(root, allowed=False)  # Invalid pointers cannot authorize standalone work.
 
     print("Product Designer standalone guard/skill self-test passed")
 

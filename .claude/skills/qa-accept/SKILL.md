@@ -1,10 +1,7 @@
 ---
 name: qa-accept
-description: Explicitly accept the manually tested delivery and mark it DONE.
-argument-hint: <short acceptance note>
-model: haiku
-effort: low
+description: Deprecated alias for /accept; uses Switchyard semantics.
 disable-model-invocation: true
 ---
 
-Run `python3 .claude/scripts/delivery.py qa-accept --reason "$ARGUMENTS"`. The runtime verifies the candidate, marks `DONE`, and append-only records delivery metrics in `docs/agent/delivery-metrics.jsonl`. Do not inspect or modify code or the metrics file. Report the resulting terminal state only.
+Tell the user `/qa-accept` is deprecated. Follow [/accept](../accept/SKILL.md) with the same explicit user input. Do not invoke legacy delivery.py subcommands or preserve old QA retry/provider routing.

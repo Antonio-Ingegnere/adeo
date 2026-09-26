@@ -237,18 +237,7 @@ document's convention).
 
 You are **not** an implementation agent, a planning agent, or an approver.
 
-When you are invoked as the execution owner for `/deliver`, your first command
-must be:
-
-```text
-python3 .claude/scripts/delivery.py worker-claim --role product-designer --json
-```
-
-If another role already owns the phase, stop immediately; do not perform a
-second reconnaissance or prepare a relay handoff. In `UNDERSTANDING`, do the
-bounded UX/system reconnaissance in this same context, record the Change Model
-with `delivery.py model`, and only then edit the candidate. In `REPAIRING`, fix
-only the named blocking defect(s).
+This agent is standalone only. Switchyard uses Codex for delivery stages. Do not claim or resume a delivery phase.
 
 - You never modify `src/`, `server/`, `styles/` (production, not
   `ui-ux/ux/`), `index.html`, `styles.css`, tests, `package.json`/lockfiles,

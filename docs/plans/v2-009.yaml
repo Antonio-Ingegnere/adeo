@@ -1,0 +1,160 @@
+id: V2-009
+goal: Migrate new Adeo single-work-item FEATURE and BUGFIX delivery to frozen Switchyard V2, including human QA acceptance and reopen.
+status: complete
+frozen_switchyard: 51d69e9239758b614beea5328f88a8c2e7cce417
+scope:
+  - Audit current Adeo DELIVERY-002 integration and dependency mechanism.
+  - Map consumer wrappers, state ownership, lifecycle operations and compatibility before implementation.
+  - Reproduce the QA workspace location conflict through frozen public APIs using a disposable Git repository.
+constraints:
+  - Switchyard is frozen; no source edits or unapproved follow-up implementation.
+  - No live provider calls, hidden provider memory, project orchestration, automatic retry or push.
+  - Preserve existing uncommitted metrics/report and all historical delivery records.
+  - Stop on a consumer requirement that frozen public APIs cannot express.
+acceptance:
+  - New FEATURE and BUGFIX work uses V2 end-to-end, including QA candidate, accept/block and reopen.
+  - Adeo remains UX/pointer owner and never duplicates runtime or final commit authority.
+  - Relevant offline integration and compatibility suites pass before completion.
+verification:
+  - Completed read-only code/configuration/storage/command audit.
+  - Completed disposable real-Git workspace-location probe with no model calls.
+  - Migration suites deferred because implementation stopped at the consumer storage boundary.
+non_goals:
+  - Switchyard framework changes, packaging, local-path commits, historical conversion, project/epic scheduling.
+  - Circumventing the external-only QA guard through private APIs or path tricks.
+audit:
+  current_adeo_commit: 91b2962
+  dependency:
+    mechanism: Ignored .switchyard/config.json supplies switchyard_root and Python/executable paths. load_switchyard inserts the checkout into sys.path. No package/submodule migration is needed.
+    configured_checkout_head: 9328ade12ba7ba6f26eefe55a02466ca3217d144
+    required_setup: Point existing ignored local configuration at the frozen checkout after storage policy is resolved; do not alter or commit machine-local paths.
+  user_surface: Claude skills invoke .claude/scripts/delivery.py. This is developer workflow tooling, not an Electron delivery controller.
+  request: --task is human text passed as WorkUnit.task; no durable feature/bugfix discriminator or full V2 request/artifact store exists.
+  target: Delivery uses the actual Adeo repository root for provider cwd and acceptance. No task-worktree provisioning exists in this integration.
+  pointer: .switchyard/current.json stores correlation_id, latest_run_id, latest_terminal, status and relative events_file; no current pointer exists on the audited machine.
+  events: Canonical events append to .switchyard/runs/<correlation>.jsonl; status validates pointer against read_events/summarize_runs.
+  advisory_context: Each DELIVERY-001 instantiation writes .switchyard/delivery/<session>/analysis.md for its stages.
+  locking_and_restart: fcntl command lock; running marker before execution. Interrupted/inconsistent history blocks follow-ups and requires manual review. start/handoff only inspect; no automatic resume.
+  commit: Existing accept uses build_accept and AcceptanceApproval for manually staged HEAD/patch digest. No competing arbitrary commit in the wrapper; commit/commit-push skills prohibit bypassing active delivery.
+  verifier: Configured Python scripts/verify-delivery.py builds, runs workflow/product-designer and JS selftests, then Storybook; verification stays deterministic.
+  provider: Existing build_change wires Codex through local executable config; no Claude config field or V2 model-alias config yet.
+  historical: .claude/delivery/current.json and docs/agent/delivery-metrics.jsonl remain legacy history; active old state blocks new delivery. No conversion occurs.
+  existing_changes: docs/agent/delivery-metrics.jsonl is modified and .claude/delivery/verifier-report-D-003.json is untracked; neither changed by this audit.
+migration_map:
+  - component: /deliver and delivery.py entry point
+    classification: ADAPT
+    replacement: Require explicit human feature|bugfix choice and call execute_v2_workflow; no LLM classification.
+  - component: build_change deliver and manual executor/preset wiring
+    classification: REPLACE
+    replacement: V2 loader/runner and ProviderRuntimeConfig using canonical roles/capabilities; no copied graph.
+  - component: /repair and build_change repair
+    classification: DEPRECATE
+    replacement: Explicitly direct new defect work to BUGFIX; never silently resume/relabel historical REPAIR.
+  - component: /accept, inspect and staged AcceptanceApproval
+    classification: REPLACE
+    replacement: Candidate identity from READY_FOR_MANUAL_QA and human-selected accept_v2_work; no Adeo staging/commit.
+  - component: /qa-fix and /qa-accept aliases
+    classification: ADAPT
+    replacement: Explicit compatibility guidance to reopen with human feedback and V2 accept respectively; no immediate model run during reopen.
+  - component: /qa-escalate
+    classification: KEEP
+    replacement: Existing deprecation-only stop; runtime owns escalation.
+  - component: task/request construction
+    classification: ADAPT
+    replacement: Immutable human request in WorkWorkspace; follow-up may explicitly include read qa_feedback text as part of a new human request, never transcripts or synthesized MicroSpecs.
+  - component: .switchyard/current.json and command.lock
+    classification: ADAPT
+    replacement: Engine-tagged lightweight work/workspace/candidate references validated against authoritative V2 records; retain command serialization.
+  - component: JsonlRecorder, read_events and summarize_runs
+    classification: KEEP
+    replacement: Public V2-compatible recording/projection APIs; derive logical-state/rung/profile display from compiled plan/events.
+  - component: status and generic execution-error display
+    classification: ADAPT
+    replacement: Show flow/state/rung/profile, exact lifecycle terminal and safe bounded V2 errors; do not swallow causes or expose transcripts.
+  - component: old per-lifecycle JSONL and analysis directories
+    classification: HISTORICAL-READ-ONLY
+    replacement: Preserve and read as legacy; no cross-engine resume or invented V2 artifacts.
+  - component: scripts/verify-delivery.py and local toolchain configuration
+    classification: KEEP
+    replacement: Bind existing project verifier through public declarative command-profile values; no model verification.
+  - component: provider executable configuration
+    classification: ADAPT
+    replacement: Preserve local-checkout mechanism; configure Claude/Codex and optional external aliases through ProviderRuntimeConfig, not Adeo command assembly.
+  - component: delivery-owner-guard and standalone product design
+    classification: ADAPT
+    replacement: Preserve independent design scope and active/inconsistent-work exclusion; understand new pointer lifecycle terminals.
+  - component: unrelated Git/product behavior
+    classification: KEEP
+    replacement: Preserve non-delivery behavior and existing application tests.
+  - component: old metrics and legacy worker/QA records
+    classification: HISTORICAL-READ-ONLY
+    replacement: Preserve; no manual append or fabricated completion.
+blocker_history:
+  requirement: Keep V2 runtime workspaces project-local, consistent with existing ignored .switchyard storage, while delivery and QA target the actual Adeo root worktree.
+  public_api: switchyard.qa_lifecycle.create_qa_candidate(target, source_workspace, source_result, source_flow, work_root)
+  attempted_location: <target>/.switchyard/qa/<work-id>
+  result: 'LifecycleError: candidate workspace must be fresh and outside target worktree'
+  cause: Frozen create_qa_candidate rejects work_root.resolve().is_relative_to(target), regardless of Git ignore status. There is no public option for an ignored internal QA workspace.
+  control: Same target/request/QA-ready result succeeded with an external fresh QA WorkWorkspace. The delivery WorkWorkspace inside ignored .switchyard was valid.
+  evidence: v2-009-workspace-probe-sxdfufw_/report.json (retained local probe artifact)
+  probe: Real disposable Git baseline; intended source modification; QA-ready terminal-only runtime result; actual public WorkWorkspace and candidate APIs. No provider execution or acceptance commit. HEAD unchanged; internal QA directory never created.
+  generic_or_specific: Generic workspace placement policy conflict with this consumer's project-local storage requirement; not a missing feature/bugfix/accept primitive.
+  smallest_no_framework_resolution: Authorize persistent external QA storage via existing ignored local configuration, with project-local delivery workspace and lightweight pointer. Frozen V2 already supports this; no Switchyard follow-up needed if permitted.
+  alternative_followup: If all QA records must be inside the target, separately scope support for an explicitly verified ignored internal lifecycle directory with scope exclusion, path/symlink checks and candidate-drift/commit regressions. Do not implement it in this migration.
+  can_migrate_now: Not under the strict all-workspaces-inside-target interpretation. It can migrate without engine changes if external QA storage is accepted. Introducing task-worktree provisioning solely to evade this restriction would expand the requested migration.
+result_before_storage_decision:
+  migration_implemented: false
+  source_files_changed: none
+  live_provider_calls: 0
+  switchyard_source_changed: false
+  adeo_commit_created: false
+  next_step: Resolve QA storage policy before implementation; preserve this blocked audit and existing work.
+
+resumption:
+  decision: External persistent QA workspace approved; project-local delivery state and lightweight pointer retained; no Switchyard framework change required.
+  persistent_data_reused: Existing scripts/lib/isolated-electron.mjs normalUserDataDir, matching Adeo Electron user-data conventions on macOS/Windows/Linux. Python calls the Node helper without a second platform path policy or dependency.
+  qa_layout: <Adeo persistent data>/switchyard/qa/<sha256 canonical target path>/<uuid work-id>/
+  identity: SHA-256 is only a collision-safe directory namespace; V2 candidate identity/target/Git/base and manifest remain authoritative. No existing public V2 pre-candidate namespace identifier exists.
+  retention: Candidates and decisions retained after finalization. No automatic deletion or relocation; missing state is an explicit error and never recreated.
+  dependency: Existing ignored config.json now references frozen checkout and its interpreter; prior ignored config backed up locally. No absolute developer paths or aliases in committed configuration.
+implementation:
+  entry: .claude/scripts/delivery.py deliver --kind feature|bugfix --task human-text
+  public_apis: load_workflow_bundle, compile_workflow, execute_v2_workflow, ProviderRuntimeConfig, WorkWorkspace, create_qa_candidate, accept_v2_work, reopen_v2_work, JsonlRecorder, read_events, summarize_runs; immutable public bundle/profile/command values adapted with dataclasses.replace.
+  verification_binding: Canonical command profile argv replaced with configured Python and Adeo scripts/verify-delivery.py. Graph, routing, roles, capabilities, exit mapping and evidence capture unchanged. Common provider timeout 1800 seconds; each verifier check bounded to 180 seconds.
+  delivery_workspace: Ignored .switchyard/work/<work-id> contains immutable request, artifacts, handoffs, manifest and events.jsonl.
+  pointer_fields: [engine, work_id, repo_id, flow, phase, candidate_identity, terminal]
+  pointer_authority: Identity/provenance checked against workspace and canonical events. Terminal is cached navigation only; final lifecycle decisions override stale pending status.
+  candidate: Created only after READY_FOR_MANUAL_QA at a fresh persistent external path; pending QA stops delivery without commit.
+  accept: Human action bound to reviewed candidate identity; only accept_v2_work stages/commits. Drift returns frozen COMMIT_BLOCKED reason; no old-accept fallback.
+  reopen: Human feedback passed only to reopen_v2_work; durable qa_feedback displayed by status. No automatic provider invocation. Later explicit work may include that feedback in its new human request.
+  historical_compatibility: Original DELIVERY-002 wrapper and 20 regressions retained as delivery_legacy.py / delivery-legacy-selftest.py. New production dispatcher uses only legacy read/active-state guard, never its execution/accept methods. Active old pointers block cutover; no cross-engine resume.
+  retired_commands: repair and qa-fix direct CLI calls explicitly reject; repair skill directs explicit new BUGFIX, qa-fix skill redirects human QA feedback to reopen. qa-accept follows V2 accept; qa-escalate remains removed.
+  progress: Logical state and last invocation rung/provider/profile projected via public compiler plan and canonical events. No duplicate transition engine.
+  restart: Reconstructed controller uses pointer, persistent Adeo data root, WorkWorkspace integrity and event history. Missing/corrupt state or unresolved intent fails explicitly; stale finalized pointer reconciles from immutable V2 decision.
+  runtime_guard: Exact frozen commit and unmodified tracked checkout required before imports. Virtualenv executable identity compares lexical absolute paths, not resolved symlink targets, so system Python cannot bypass configured dependencies.
+verification_progress:
+  initial_v2: 12 integration tests passed with fake provider CLIs, real verifier and real disposable Git.
+  expanded_v2: 14 integration tests including separate-process restart, missing/corrupt state, two repositories with identical leaf names, stale candidate/finalized pointer, forbidden QA provider calls and no old preset dispatch.
+  legacy: 20 original DELIVERY-002 regressions passed.
+  frozen_smoke: 4 Switchyard readiness/canonical-profile tests passed without modifying the frozen source or invoking live providers.
+  pre_migration_verifier: Full Adeo verifier run before edits; build/Storybook and all other checks passed except the existing board-selftest and task-delete-selftest failures.
+  baseline_failures:
+    - 'board-selftest.mjs: after 20 checks, 1a: the card shows the long multi-day recurrence summary'
+    - 'task-delete-selftest.mjs: after 16 checks, 2: the kebab is hidden until the row is hovered'
+  baseline_log: adeo-v2-009-baseline.log (local verification evidence)
+  provider_calls: Zero live providers; fake executable processes only.
+  audit_path_portability: Original absolute temporary probe path replaced by retained artifact name in the committed plan; original blocker/probe findings preserved. No machine-specific checkout/configuration path committed.
+
+completion:
+  statement: New Adeo FEATURE/BUGFIX work uses frozen V2 delivery, durable workspace, deterministic verifier, READY_FOR_MANUAL_QA and external QA candidates, ACCEPT/COMMIT_BLOCKED and REOPEN. Adeo has no competing transition or final-commit authority for migrated work.
+  focused: 14 V2 integration tests passed; 20 preserved DELIVERY-002 tests passed; standalone product-designer guard/skill selftest passed.
+  full_verifier: Build/typecheck, workflow suites, existing JavaScript/Electron checks and Storybook executed. Exactly the two pre-existing board/task-delete failures reproduced at the same assertions; all other checks passed; zero new failures.
+  final_log: adeo-v2-009-final-verifier.log (local verification evidence)
+  focused_log: adeo-v2-009-focused-final.log (local verification evidence)
+  switchyard_smoke_log: adeo-v2-009-switchyard-smoke.log (4 tests passed; frozen checkout remains clean)
+  integration_evidence: FEATURE and BUGFIX reached READY_FOR_MANUAL_QA with real verifier and no delivery commit; ACCEPT made one exact-scope commit containing catalog.py or task_queue.py respectively; REOPEN retained HEAD/worktree and readable feedback; unrelated-path/content drift propagated frozen reasons; restart and same-leaf repository isolation passed.
+  failures_not_hidden: Existing board/task-delete tests were neither changed nor skipped. No claim of a fully green application suite.
+  scope: No source or policy changes in Switchyard; no live providers, model tuning, dependencies, project/epic scheduling or push. No machine-local aliases or executable paths committed.
+  user_changes: Pre-existing docs/agent/delivery-metrics.jsonl modification and .claude/delivery/verifier-report-D-003.json left untouched and excluded from commit.
+  local_reference: Updated ignored configuration from checkout 9328ade12ba7ba6f26eefe55a02466ca3217d144 to 51d69e9239758b614beea5328f88a8c2e7cce417 using the same local checkout/sys.path mechanism; old local config retained in ignored backup.
+  stop: V2-009 only; no project/epic work begun.

@@ -1,12 +1,12 @@
 # Adeo workflow tooling
 
-See [Switchyard delivery](../docs/agent/switchyard-delivery.md) for current commands,
-setup, Git approval, verification and recovery. `/deliver`, `/repair`, `/accept`
-are the delivery entrypoints. `/start` and `/handoff` inspect state only.
+- `/deliver feature <request>` starts a feature; `/deliver bugfix <report>` starts a defect fix.
+- READY_FOR_MANUAL_QA means stop and test the result yourself. Delivery has not committed.
+- `/accept` accepts the reviewed candidate; unsafe or changed work reports COMMIT_BLOCKED.
+- `/reopen <feedback>` preserves work and records feedback; it starts no provider.
+- `/repair` is retired. `/qa-fix` redirects to `/reopen`; `/qa-accept` redirects to `/accept`.
+- `/qa-escalate` remains removed. `/start` and `/handoff` inspect only; no crash resume.
 
-`/qa-fix` and `/qa-accept` are deprecated aliases. `/qa-escalate` stops with migration
-instructions. Legacy provider routing, worker claims, LLM verifier receipts and
-metrics dashboard generation have been removed. Historical logs remain untouched.
-
-Standalone `/design` retains its UX-only scope. `/commit` cannot bypass active delivery
-acceptance. `/push` requires separate explicit authorization; delivery never pushes.
+See [setup and recovery](../docs/agent/switchyard-delivery.md). Historical work stays readable,
+never reinterpreted as V2. Standalone `/design` retains UX-only scope. `/commit` cannot bypass
+active delivery acceptance. Push requires separate authorization and is not part of V2.

@@ -8,7 +8,7 @@ disable-model-invocation: false
 ---
 
 If `.switchyard/current.json` exists, run `python3 .claude/scripts/delivery.py status`.
-An active lifecycle must use `/accept` with human QA and exact staged-patch approval;
+An active lifecycle must use `/accept` with human QA bound to the V2 candidate identity;
 never bypass it with a direct commit. On inconsistent state, stop. Never stage `.switchyard/`
 or append to the legacy metrics ledger. Push remains separate explicit authorization.
 

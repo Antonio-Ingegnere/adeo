@@ -1,210 +1,272 @@
 #!/usr/bin/env python3
-"""Adeo lifecycle pointers around the accepted Switchyard delivery presets."""
+"""Adeo human commands around frozen Switchyard V2; no workflow or Git engine."""
 from __future__ import annotations
-
 import argparse
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import replace
 import fcntl
+import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
+import re
+import subprocess
 import sys
 from uuid import uuid4
 
+FROZEN = '51d69e9239758b614beea5328f88a8c2e7cce417'
 
 class DeliveryError(ValueError):
     pass
 
 
+def check_reference(root):
+    root = Path(root).resolve()
+    try:
+        head = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], stderr=subprocess.DEVNULL, text=True).strip()
+        clean = subprocess.run(['git', '-C', str(root), 'diff', '--quiet', 'HEAD', '--']).returncode == 0
+        if head != FROZEN or not clean: raise ValueError()
+    except (OSError, ValueError, subprocess.SubprocessError):
+        raise DeliveryError('Switchyard checkout must be unmodified frozen V2 '+FROZEN) from None
+
+
 def configuration(root):
     try:
-        config = json.loads((root / '.switchyard/config.json').read_text())
-        keys = {'switchyard_root', 'python_executable', 'codex_executable',
-                'git_executable', 'node_executable', 'npm_executable'}
-        if set(config) != keys or any(type(v) is not str or not Path(v).is_absolute() for v in config.values()):
-            raise ValueError()
-        if not (Path(config['switchyard_root']) / 'examples/delivery/analytics.py').is_file():
-            raise ValueError()
-        for key in keys - {'switchyard_root'}:
-            if not Path(config[key]).is_file():
-                raise ValueError()
-        return config
-    except (OSError, ValueError, TypeError) as exc:
-        raise DeliveryError('Configure absolute paths in .switchyard/config.json; see docs/agent/switchyard-delivery.md') from exc
+        config = json.loads((Path(root)/'.switchyard/config.json').read_text())
+        required = {'switchyard_root','python_executable','codex_executable','claude_executable',
+                    'git_executable','node_executable','npm_executable'}
+        if not required <= config.keys() or config.keys()-required-{'model_aliases_file'}: raise ValueError()
+        if any(type(v) is not str or not Path(v).is_absolute() for v in config.values()): raise ValueError()
+        if any(not Path(config[k]).is_file() for k in config if k != 'switchyard_root'): raise ValueError()
+    except (OSError, ValueError, TypeError, AttributeError):
+        raise DeliveryError('Configure local executable paths in .switchyard/config.json; see docs/agent/switchyard-delivery.md') from None
+    check_reference(config['switchyard_root'])
+    return config
 
 
 def load_switchyard(config):
+    check_reference(config['switchyard_root'])
     sys.path.insert(0, config['switchyard_root'])
-    # Import the existing public APIs, without copying any runtime or recorder logic.
-    global run, WorkUnit, RunContext, JsonlRecorder, read_events, summarize_runs
-    global build_change, build_accept, AcceptanceApproval, GitAcceptance
-    from runtime import run, WorkUnit, RunContext
+    global RunResult, JsonlRecorder, read_events, summarize_runs, WorkWorkspace
+    global load_workflow_bundle, compile_workflow, execute_v2_workflow, ProviderRuntimeConfig
+    global create_qa_candidate, accept_v2_work, reopen_v2_work
+    from runtime import RunResult
     from runtime.recording import JsonlRecorder
     from switchyard.observability import read_events, summarize_runs
-    from examples.delivery.presets import build_change, build_accept
-    from examples.delivery.acceptance import AcceptanceApproval, GitAcceptance
+    from switchyard.work_contract import WorkWorkspace
+    from switchyard.workflow_bundle import load_workflow_bundle
+    from switchyard.workflow_compiler import compile_workflow
+    from switchyard.workflow_execution import execute_v2_workflow
+    from switchyard.provider_stages import ProviderRuntimeConfig
+    from switchyard.qa_lifecycle import create_qa_candidate, accept_v2_work, reopen_v2_work
+    for name in ('runtime','switchyard'):
+        if not Path(sys.modules[name].__file__).resolve().is_relative_to(Path(config['switchyard_root']).resolve()):
+            raise DeliveryError('A different Switchyard checkout is already imported; restart with frozen V2')
+
+
+def application_data(root, config):
+    # Reuse Adeo's existing cross-platform normalUserDataDir; do not mirror OS policy.
+    helper = (Path(root)/'scripts/lib/isolated-electron.mjs').resolve().as_uri()
+    code = 'import {normalUserDataDir} from '+json.dumps(helper)+'; console.log(normalUserDataDir());'
+    try:
+        raw = subprocess.check_output([config['node_executable'],'--input-type=module','-e',code],
+                                      text=True, stderr=subprocess.PIPE, timeout=15).strip()
+        if not Path(raw).is_absolute(): raise ValueError()
+        return Path(raw).resolve()
+    except (OSError, ValueError, subprocess.SubprocessError):
+        raise DeliveryError('Adeo persistent application-data directory is unavailable') from None
+
+
+def legacy_module():
+    spec = importlib.util.spec_from_file_location('adeo_delivery_legacy', Path(__file__).with_name('delivery_legacy.py'))
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
 
 
 class Delivery:
-    def __init__(self, root, config):
-        self.root = Path(root).resolve()
-        self.config = config
-        self.directory = self.root / '.switchyard'
-        self.pointer = self.directory / 'current.json'
+    def __init__(self, root, config, *, data_root=None):
+        self.root = Path(root).resolve(); self.config = config
+        self.directory = self.root/'.switchyard'; self.pointer = self.directory/'current.json'
+        # A location namespace, not a replacement for V2's repository/candidate identity.
+        self.repo_id = hashlib.sha256(os.fsencode(self.root)).hexdigest()
+        self.data_root = Path(data_root).resolve() if data_root is not None else application_data(self.root,config)
+        self.qa_base = self.data_root/'switchyard/qa'/self.repo_id
+        if self.qa_base.resolve().is_relative_to(self.root):
+            raise DeliveryError('Persistent QA storage must be outside the target worktree')
 
     @contextmanager
     def locked(self):
         self.directory.mkdir(exist_ok=True)
-        with (self.directory / 'command.lock').open('a') as lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                raise DeliveryError('Another delivery command is running') from exc
-            try:
-                yield
-            finally:
-                fcntl.flock(lock, fcntl.LOCK_UN)
+        with (self.directory/'command.lock').open('a') as lock:
+            try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError: raise DeliveryError('Another delivery command is running') from None
+            try: yield
+            finally: fcntl.flock(lock, fcntl.LOCK_UN)
 
     def save(self, state):
-        temporary = self.pointer.with_suffix('.tmp')
-        temporary.write_text(json.dumps(state, indent=2) + '\n')
-        temporary.replace(self.pointer)
+        path = self.pointer.with_suffix('.tmp')
+        with path.open('w') as stream:
+            stream.write(json.dumps(state,indent=2)+'\n'); stream.flush(); os.fsync(stream.fileno())
+        path.replace(self.pointer)
+
+    def paths(self, state):
+        work = self.directory/'work'/state['work_id']
+        qa = self.qa_base/state['work_id']
+        if qa.resolve().is_relative_to(self.root) or qa.resolve() != qa:
+            raise DeliveryError('QA storage path changed or resolves inside target')
+        if work.resolve() != work:
+            raise DeliveryError('Delivery workspace path changed')
+        return work, qa
 
     def current(self):
-        if not self.pointer.exists():
-            raise DeliveryError('No active Switchyard lifecycle; start /deliver')
         try:
+            if not self.pointer.is_file(): raise DeliveryError('No current work; start /deliver feature or /deliver bugfix')
             state = json.loads(self.pointer.read_text())
-            expected = {'correlation_id', 'latest_run_id', 'latest_terminal', 'status', 'events_file'}
-            if set(state) != expected or type(state['correlation_id']) is not str:
-                raise ValueError()
-            correlation = state['correlation_id']
-            if len(correlation) != 39 or not correlation.startswith('change-') or any(c not in '0123456789abcdef' for c in correlation[7:]):
-                raise ValueError()
-            if state['events_file'] != f'.switchyard/runs/{correlation}.jsonl':
-                raise ValueError()
-            if state['status'] == 'running':
-                raise DeliveryError('Interrupted/running lifecycle; inspect canonical history before manual recovery')
-            events = tuple(read_events(self.root / state['events_file']))
-            summaries = summarize_runs(events)
-            if not summaries or any(s.correlation_id != correlation for s in summaries):
-                raise ValueError()
-            last = summaries[-1]
-            if (last.run_id != state['latest_run_id'] or last.terminal_state != state['latest_terminal']
-                    or not last.completed_normally or any(not s.completed_normally for s in summaries)
-                    or state['status'] != ('closed' if last.terminal_state == 'ACCEPTED' else 'active')):
-                raise ValueError()
-            return state
-        except DeliveryError:
-            raise
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            raise DeliveryError('Inconsistent lifecycle pointer/event history; no recovery facts were invented') from exc
+            if 'engine' not in state:
+                old = legacy_module(); old.load_switchyard(self.config)
+                # Compatibility reader only. Never dispatch its execute/accept methods.
+                value = old.Delivery(self.root,self.config).current()
+                return {**value,'engine':'legacy','read_only':True}
+            keys = {'engine','work_id','repo_id','flow','phase','candidate_identity','terminal'}
+            if set(state) != keys or state['engine'] != 'v2': raise ValueError()
+            if not re.fullmatch('[a-f0-9]{32}',state['work_id']) or state['repo_id'] != self.repo_id: raise ValueError()
+            if state['flow'] not in ('feature','bugfix'): raise ValueError()
+            work, qa = self.paths(state)
+            if not (work/'manifest.jsonl').is_file() or not (work/'events.jsonl').is_file():
+                raise DeliveryError('Persisted delivery state is unavailable; inspect retained history')
+            workspace = WorkWorkspace.open(work)
+            events = tuple(read_events(work/'events.jsonl')); summaries = summarize_runs(events)
+            if len(summaries) != 1 or not summaries[0].completed_normally:
+                raise DeliveryError('Interrupted delivery; inspect durable history; no automatic resume')
+            terminal = summaries[0].terminal_state
+            class ProjectionOnly:
+                def run(self, request): raise AssertionError('status never executes')
+            bundle = load_workflow_bundle(Path(self.config['switchyard_root'])/'examples/delivery/workflows-v2.yaml')
+            compiled = compile_workflow(bundle,state['flow'],lambda binding: ProjectionOnly())
+            entry = next(e for e in reversed(events) if e.kind=='state_entered')
+            latest = next((e for e in reversed(events) if e.kind=='invocation_started'),None)
+            binding = compiled.plan[latest.state].binding if latest else None
+            progress = dict(logical_state=compiled.plan[entry.state].logical_state,
+                            last_invocation=None if binding is None else dict(logical_state=binding.logical_state,
+                            rung=binding.rung_index,provider=binding.provider,profile=binding.profile_name))
+            if terminal != 'READY_FOR_MANUAL_QA':
+                return {**state,**progress,'terminal':terminal,'status':'active','read_only':True}
+            if state['phase'] not in ('qa','decision','lifecycle_running'):
+                raise DeliveryError('Interrupted QA creation; inspect durable state before recovery')
+            if not (qa/'manifest.jsonl').is_file():
+                raise DeliveryError('Persisted QA lifecycle state is unavailable; restore it or inspect history; no replacement created')
+            store = WorkWorkspace.open(qa)
+            record = store.latest_artifact('qa_candidate')
+            if record is None or record.sha256 != state['candidate_identity']: raise ValueError()
+            candidate = json.loads(store.read_artifact('qa_candidate'))
+            if (candidate['target'] != str(self.root) or candidate['source_workspace'] != str(work)
+                or candidate['source_run_id'] != events[0].run_id or candidate['source_flow'] != state['flow']
+                or candidate['source_request_sha256'] != workspace.latest_artifact('request').sha256): raise ValueError()
+            decision = store.latest_artifact('qa_decision')
+            reason = None; feedback = None
+            if decision:
+                result = json.loads(store.read_artifact('qa_decision'))
+                if result['candidate_identity'] != record.sha256: raise ValueError()
+                terminal, reason = result['terminal'],result['reason']
+                if terminal == 'REOPENED': feedback = store.read_artifact('qa_feedback')
+            elif store.versions('qa_intent'):
+                raise DeliveryError('Unresolved QA intent; inspect lifecycle state and Git before manual recovery')
+            status = 'closed' if terminal == 'ACCEPTED' else 'reopened' if terminal == 'REOPENED' else 'active'
+            # Lifecycle record is authority even if the process died before pointer update.
+            if decision and (state['terminal'] != terminal or state['phase'] != 'decision'):
+                state.update(terminal=terminal,phase='decision'); self.save(state)
+            return {**state,**progress,'terminal':terminal,'status':status,'reason':reason,'feedback':feedback,
+                    'workspace':str(work),'qa_workspace':str(qa),'source_run_id':events[0].run_id}
+        except DeliveryError: raise
+        except Exception:
+            raise DeliveryError('Inconsistent current-work pointer or durable V2 state; inspect before recovery') from None
 
-    def legacy_check(self):
-        legacy = self.root / '.claude/delivery/current.json'
-        if legacy.exists():
-            try:
-                closed = json.loads(legacy.read_text()).get('state') in ('DONE', 'FAILED')
-            except (OSError, ValueError, AttributeError):
-                closed = False
-            if not closed:
-                raise DeliveryError('Active legacy delivery exists; explicitly archive it after review before /deliver')
-
-    def execute(self, command, task='', approval=None):
+    def execute(self, command, task='', *, kind=None, candidate_identity=None):
+        if command in ('repair','qa-fix'):
+            raise DeliveryError('/repair and /qa-fix are retired: use /reopen with feedback, then explicitly start /deliver bugfix for new work')
         with self.locked():
             if command == 'deliver':
-                if self.pointer.exists() and self.current()['status'] != 'closed':
-                    raise DeliveryError('A lifecycle is already active; /deliver cannot overwrite it')
-                self.legacy_check()
-                correlation = 'change-' + uuid4().hex
-                state = dict(correlation_id=correlation, latest_run_id=None,
-                             latest_terminal=None, status='active',
-                             events_file=f'.switchyard/runs/{correlation}.jsonl')
-                parent = None
-            else:
-                state = self.current()
-                if state['status'] == 'closed':
-                    raise DeliveryError('Lifecycle is closed; start a new /deliver')
-                if state['latest_terminal'] != 'READY_FOR_MANUAL_QA':
-                    raise DeliveryError('Command requires the latest run to be READY_FOR_MANUAL_QA')
-                parent = state['latest_run_id']
-            if command == 'accept':
-                if approval is None:
-                    raise DeliveryError('Explicit human QA and exact staged patch/HEAD approval required')
-                loaded = build_accept(workspace=str(self.root), git_executable=self.config['git_executable'], approval=approval)
-                task = 'Accept the explicitly reviewed change after human manual QA'
-            else:
-                if not task.strip():
-                    raise DeliveryError('A nonempty task or bug report is required')
-                loaded = build_change(command, workspace=str(self.root),
-                                      codex_executable=self.config['codex_executable'],
-                                      verifier_executable=self.config['python_executable'],
-                                      verifier_argv=(str(self.root / 'scripts/verify-delivery.py'),),
-                                      agent_timeout=1800, verifier_timeout=1200)
-            events_file = self.root / state['events_file']
-            events_file.parent.mkdir(exist_ok=True)
-            state['status'] = 'running'
-            self.save(state)
-            # On any exception leave the running marker. Never guess which events persisted.
-            result = run(WorkUnit(task), loaded.flow, loaded.executors,
-                         recorder=JsonlRecorder(events_file),
-                         context=RunContext(state['correlation_id'], parent))
-            state.update(latest_run_id=result.events[0].run_id,
-                         latest_terminal=result.terminal_state,
-                         status='closed' if result.terminal_state == 'ACCEPTED' else 'active')
-            self.save(state)
-            return state
+                if kind not in ('feature','bugfix') or not task.strip():
+                    raise DeliveryError('Choose feature or bugfix and supply a nonempty human request')
+                if self.pointer.exists():
+                    previous = self.current()
+                    if previous['status'] not in ('closed','reopened'):
+                        raise DeliveryError('Current work is active; no overwrite or cross-engine resume')
+                old = legacy_module(); old.Delivery(self.root,self.config).legacy_check()
+                state = dict(engine='v2', work_id=uuid4().hex, repo_id=self.repo_id, flow=kind,
+                             phase='delivery_running',candidate_identity=None,terminal=None)
+                work, qa = self.paths(state)
+                if work.exists() or qa.exists(): raise DeliveryError('Work identity already exists')
+                work.mkdir(parents=True); self.save(state)
+                # Consumer verifier binding only; all graph/role/capability/budget data stays canonical.
+                bundle = load_workflow_bundle(Path(self.config['switchyard_root'])/'examples/delivery/workflows-v2.yaml')
+                profiles = dict(bundle.profiles)
+                profiles['command'] = replace(profiles['command'],command=replace(profiles['command'].command,
+                    argv=(self.config['python_executable'],str(self.root/'scripts/verify-delivery.py'))))
+                bundle = replace(bundle,profiles=profiles)
+                aliases = json.loads(Path(self.config['model_aliases_file']).read_text()) if self.config.get('model_aliases_file') else {}
+                config = ProviderRuntimeConfig(str(self.root),self.config['claude_executable'],self.config['codex_executable'],
+                                                model_aliases=aliases, timeout_seconds=1800)
+                execution = execute_v2_workflow(bundle,kind,task,work,config,recorder=JsonlRecorder(work/'events.jsonl'))
+                state.update(terminal=execution.result.terminal_state,phase='delivery_done'); self.save(state)
+                if state['terminal']=='READY_FOR_MANUAL_QA':
+                    candidate = create_qa_candidate(self.root,execution.workspace,execution.result,kind,qa,
+                                                    git_executable=self.config['git_executable'])
+                    state.update(phase='qa',candidate_identity=candidate.identity); self.save(state)
+                return self.current()
+            if command not in ('accept','reopen'): raise DeliveryError('Unknown delivery operation')
+            current = self.current()
+            if current['engine'] != 'v2': raise DeliveryError('Legacy work is read-only; no cross-engine accept/resume')
+            if current['terminal'] != 'READY_FOR_MANUAL_QA': raise DeliveryError('Current candidate is not pending QA')
+            if candidate_identity != current['candidate_identity']:
+                raise DeliveryError('Reviewed candidate does not match current work; refresh QA status')
+            if command=='reopen' and not task.strip(): raise DeliveryError('Reopen requires nonempty human feedback')
+            state=json.loads(self.pointer.read_text());state['phase']='lifecycle_running';self.save(state)
+            _,qa=self.paths(state)
+            if command=='accept': accept_v2_work(self.root,qa,git_executable=self.config['git_executable'])
+            else: reopen_v2_work(self.root,qa,task)
+            return self.current()
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('deliver', 'repair'):
-        sub.add_parser(name).add_argument('--task', required=True)
-    accept = sub.add_parser('accept')
-    accept.add_argument('--approved-head', required=True)
-    accept.add_argument('--approved-patch-sha256', required=True)
-    accept.add_argument('--message', required=True)
-    accept.add_argument('--manual-qa-passed', action='store_true', required=True)
-    sub.add_parser('inspect')
+    parser=argparse.ArgumentParser(description=__doc__)
+    sub=parser.add_subparsers(dest='command',required=True)
+    d=sub.add_parser('deliver');d.add_argument('--kind',choices=('feature','bugfix'),required=True);d.add_argument('--task',required=True)
+    for op in ('accept','reopen'):
+        p=sub.add_parser(op);p.add_argument('--candidate',required=True)
+        if op=='reopen':p.add_argument('--feedback',required=True)
     sub.add_parser('status')
-    args = parser.parse_args(argv)
-    root = Path(__file__).resolve().parents[2]
+    for op in ('repair','qa-fix'):
+        sub.add_parser(op).add_argument('--task',default='')
+    args=parser.parse_args(argv);root=Path(__file__).resolve().parents[2]
     try:
-        config = configuration(root)
-        if Path(sys.executable).resolve() != Path(config['python_executable']).resolve():
-            os.execv(config['python_executable'], [config['python_executable'], str(Path(__file__).resolve()), *sys.argv[1:]])
-        load_switchyard(config)
-        delivery = Delivery(root, config)
-        if args.command == 'status':
-            with delivery.locked():
-                print(json.dumps(delivery.current()))
-            return 0
-        if args.command == 'inspect':
-            with delivery.locked():
-                state = delivery.current()
-                if state['status'] != 'active' or state['latest_terminal'] != 'READY_FOR_MANUAL_QA':
-                    raise DeliveryError('Scope inspection requires the latest QA-ready run')
-                print(json.dumps(asdict(GitAcceptance(str(root), config['git_executable']).inspect())))
-            return 0
-        approval = (AcceptanceApproval(args.approved_head, args.approved_patch_sha256,
-                                       args.message, args.manual_qa_passed)
-                    if args.command == 'accept' else None)
-        state = delivery.execute(args.command, getattr(args, 'task', ''), approval)
-        print(state['latest_terminal'])
-        print('Correlation: ' + state['correlation_id'])
-        print('Run: ' + state['latest_run_id'])
-        print('Events: ' + state['events_file'])
-        return 0 if state['latest_terminal'] in ('READY_FOR_MANUAL_QA', 'ACCEPTED') else 1
-    except (DeliveryError, ValueError, OSError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except Exception:
-        # Public output excludes executor payloads. Pointer remains running for inspection.
-        print('Execution failed; inspect lifecycle event history before recovery', file=sys.stderr)
+        config=configuration(root)
+        if Path(sys.executable).absolute()!=Path(config['python_executable']).absolute():
+            os.execv(config['python_executable'],[config['python_executable'],str(Path(__file__).resolve()),*(argv if argv is not None else sys.argv[1:])])
+        load_switchyard(config);app=Delivery(root,config)
+        if args.command=='status':
+            with app.locked(): result=app.current()
+        else: result=app.execute(args.command,getattr(args,'task',getattr(args,'feedback','')),
+                                 kind=getattr(args,'kind',None),candidate_identity=getattr(args,'candidate',None))
+        print(json.dumps(result,indent=2))
+        return 0 if result.get('terminal',result.get('latest_terminal')) in ('READY_FOR_MANUAL_QA','ACCEPTED','REOPENED') else 1
+    except DeliveryError as exc:
+        print(str(exc),file=sys.stderr);return 2
+    except Exception as exc:
+        # Canonical contract diagnostics are safe; never echo arbitrary process exception text.
+        from switchyard.work_contract import WorkContractError
+        from flow_config import FlowConfigError
+        from switchyard.workflow_compiler import WorkflowCompileError
+        from switchyard.provider_process import ProviderExecutionError
+        from switchyard.provider_stages import ProviderResolutionError
+        from switchyard.qa_lifecycle import LifecycleError
+        current=exc;seen=[]
+        while current is not None:
+            if isinstance(current,(WorkContractError,ProviderExecutionError,ProviderResolutionError,LifecycleError,FlowConfigError,WorkflowCompileError)):
+                seen.append(type(current).__name__+': '+str(current)[:2048])
+            current=current.__cause__
+        print('\n'.join(seen) or 'Execution interrupted; inspect durable events and QA intent before recovery',file=sys.stderr)
         return 3
 
-
-if __name__ == '__main__':
-    raise SystemExit(main())
+if __name__=='__main__': raise SystemExit(main())

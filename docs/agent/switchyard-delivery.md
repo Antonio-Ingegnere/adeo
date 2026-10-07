@@ -1,103 +1,106 @@
-# Switchyard delivery in Adeo
+# Switchyard V2 delivery in Adeo
 
-DELIVERY-002 uses the accepted DELIVERY-001 presets and OBS-006 consumer unchanged.
+V2-009 consumes frozen Switchyard `51d69e9239758b614beea5328f88a8c2e7cce417` through the existing
+local checkout/sys.path mechanism. No package installation or copied workflow engine is introduced.
 
-## Setup
+## Local setup
 
-Use the Switchyard checkout containing OBS-006 (tested at 409b0dc) with its requirements.txt
-installed for the configured Python. Create ignored `.switchyard/config.json` with absolute paths:
+Use that exact unmodified checkout with its requirements installed. Ignored `.switchyard/config.json`
+contains absolute local paths for `switchyard_root`, `python_executable`, `claude_executable`,
+`codex_executable`, `git_executable`, `node_executable`, and `npm_executable`. An optional
+`model_aliases_file` points to local JSON in the existing V2 provider/selector mapping format.
+Never commit these paths, aliases or credentials. Configuration rejects older/modified engine sources.
+ProviderRuntimeConfig receives executable/cwd/alias configuration; capabilities and provider commands
+remain Switchyard-owned. Adeo targets its actual root worktree, never a common parent directory.
 
-```json
-{
-  "switchyard_root": "/absolute/path/to/switchyard",
-  "python_executable": "/absolute/path/to/switchyard/.venv/bin/python",
-  "codex_executable": "/absolute/path/to/codex",
-  "git_executable": "/usr/bin/git",
-  "node_executable": "/absolute/path/to/node",
-  "npm_executable": "/absolute/path/to/npm"
-}
+Adeo loads `examples/delivery/workflows-v2.yaml` directly. It replaces only the public command-profile
+argv with `<configured Python> <target>/scripts/verify-delivery.py`, preserving exit mapping, evidence
+capture, graph, budgets, models, efforts and capability policy. The invocation timeout is 1800 seconds;
+each individual project-verifier check retains its existing 180-second bound. No model verdict.
+
+## Commands
+
+The human explicitly chooses feature or bugfix—there is no automatic task classification:
+
+```
+python3 .claude/scripts/delivery.py deliver --kind feature --task "Human request"
+python3 .claude/scripts/delivery.py deliver --kind bugfix --task "Human bug report"
+python3 .claude/scripts/delivery.py status
 ```
 
-This is project-side instantiation, not YAML environment interpolation. Codex handles
-ANALYZE/FRESH_DIAGNOSIS, IMPLEMENT/FIX and REPAIR_ONCE. Normal commands use Python 3.10+
-and PyYAML; the configured interpreter runs the deterministic verifier. npm build scripts
-also require their normal Node/toolchain PATH. No provider calls occur in offline tests.
+FEATURE runs SPECIFY → IMPLEMENT → VERIFY; BUGFIX runs TRIAGE → REPRODUCE → DIAGNOSE →
+SPECIFY_FIX → FIX → VERIFY. Configured escalation/repair stays inside V2. Delivery never commits.
+At READY_FOR_MANUAL_QA the wrapper captures the exact worktree as a V2 QA candidate. Review all
+candidate changes; isolate unrelated work before starting delivery. Pre-existing staging blocks capture.
 
-## Commands and evidence
+The slash-command tooling binds the human's decision to the candidate displayed by status:
 
-- `/deliver <task>` generates a correlation ID, records a new deliver run and stops at
-  READY_FOR_MANUAL_QA or NEEDS_REDIAGNOSIS. Only one automatic corrective attempt exists.
-- `/repair <bug report>` requires the latest run to be QA-ready, uses it as parent, and
-  starts the repair preset with fresh diagnosis. It stops at READY_FOR_MANUAL_QA or NEEDS_HUMAN.
-- `/accept` means the human tested the latest QA-ready result. Review and explicitly stage
-  only the intended patch, run `python3 .claude/scripts/delivery.py inspect`, and approve
-  the reported HEAD, patch_sha256 and message. Supply those exact values with `accept
-  --approved-head ... --approved-patch-sha256 ... --message ... --manual-qa-passed`.
-  The preset performs CHECK_WORKTREE, CHECK_SCOPE, COMMIT and ends ACCEPTED or COMMIT_BLOCKED.
-  No automatic staging, scope approval, stashing, unrelated commits or push occurs.
-
-A file can contain unrelated hunks: deterministic Git inspection cannot decide semantic
-ownership. The human approves the exact reviewed patch. An unstaged/untracked remainder
-blocks the conservative preset; do not hide it or broaden the commit to get through.
-Stale HEAD or staged patch is rejected. Commit uses the accepted preset's commit-tree and
-compare-and-swap update-ref, not commit hooks; run the deterministic verifier before QA.
-
-`.switchyard/current.json` holds correlation_id, latest_run_id, latest_terminal, status and
-relative events_file. Logs append via JsonlRecorder to `.switchyard/runs/<correlation>.jsonl`.
-A file lock excludes concurrent commands. The pointer is not execution evidence.
-Each preset instantiation creates its own `.switchyard/delivery/<session>/analysis.md`,
-shared between its stages and advisory to implementation. This existing unique run area
-avoids overwriting old diagnosis. All `.switchyard/` data is ignored and never accepted.
-
-## Deterministic verification
-
-Exact entrypoint: `<configured Python> scripts/verify-delivery.py` (`npm run quality:delivery`).
-It builds/typechecks once, tests workflow integration, runs every existing `scripts/*-selftest.mjs`
-in deterministic filename order, then builds Storybook. Checks include query, shortcuts,
-i18n and isolated real-Electron task, board, sidebar, window, markdown and focus behavior.
-The task-row focus suite checks real ArrowDown/Tab DOM focus movement and rendered outlines.
-No LLM verdict is evidence. An individual check is bounded to 180 seconds, full verifier to
-1200 seconds; failures/timeouts are normal verifier outcomes and do not start another run.
-
-## Migration and recovery
-
-Old `/deliver` performed Change Model/worker claims, Sonnet implementation and risk-routed
-Haiku/Sonnet LLM verification with repeated repairs. `/qa-fix` could bootstrap without state,
-reuse diagnosis and select providers from reopen counts. `/qa-escalate` changed provider routing.
-`/qa-accept` marked DONE and wrote manual metrics, without the new Git acceptance preset.
-
-Now `/qa-fix` aliases `/repair`; `/qa-accept` aliases `/accept` including exact approval.
-`/qa-escalate` only explains removal and stops. Old orchestration and its provider workers
-are removed. `/start` and `/handoff` inspect only, never replay/resume a run.
-`docs/agent/delivery-metrics.jsonl` and existing `.claude/delivery/current.json` remain historical;
-new commands never append manual metrics or convert legacy prose to canonical events.
-
-An existing active legacy state blocks new deliver. Review it, explicitly decide to abandon
-or archive that old workflow, then move the pointer to a retained archive yourself. No automatic
-migration, deletion or implied closure occurs. An accepted Switchyard pointer can be replaced
-by the next explicit deliver; its per-lifecycle log remains.
-
-No active lifecycle, missing/corrupt logs, closed follow-ups, or a second active deliver fail
-clearly. A `running` marker after interruption/recorder failure also blocks: inspect JSONL and
-Git before manual recovery. Do not replay acceptance (a commit may already exist), rewrite
-history, invent completion, or relabel a failed run. Keep the inconsistent pointer/log as evidence;
-explicit abandonment/archive after review is the recovery boundary for this slice.
-COMMIT_BLOCKED, NEEDS_HUMAN and NEEDS_REDIAGNOSIS do not automatically restart.
-
-## Analytics after acceptance
-
-In Python with the configured Switchyard checkout on sys.path:
-
-```python
-from switchyard.observability import read_events
-from examples.delivery.analytics import (
-    summarize_delivery_lifecycles, summarize_delivery_analytics,
-)
-events = tuple(read_events(".switchyard/runs/<correlation>.jsonl"))
-lifecycles = summarize_delivery_lifecycles(events)
-analytics = summarize_delivery_analytics(events)
+```
+python3 .claude/scripts/delivery.py accept --candidate <reviewed-candidate-identity>
+python3 .claude/scripts/delivery.py reopen --candidate <reviewed-candidate-identity> --feedback "Human feedback"
 ```
 
-Integration tests prove deliver → repair → accept yields one QA reopen and accepted lifecycle;
-automatic REPAIR_ONCE yields one automatic repair and zero manual reopens. Analytics never
-controls transitions. No dashboard or analytics CLI is added.
+The ID is a stale-action guard, not a manually authored artifact. Humans choose accept/reopen;
+Switchyard owns safe staging and the final commit. Do not run git add/commit as a competing acceptance.
+COMMIT_BLOCKED includes the frozen reason; there is no cleanup, fallback or retry. REOPENED retains
+HEAD/worktree and feedback. A later explicitly requested delivery may include the displayed durable
+feedback in its new immutable human request. No transcript/session recovery or automatic follow-up.
+
+`/repair` now explicitly refuses new calls and points to BUGFIX. `/qa-fix` redirects to `/reopen`;
+`/qa-accept` aliases `/accept`; `/qa-escalate` stays retired. No second orchestration engine is active.
+
+## Persistence and restart
+
+Ordinary delivery state remains under ignored `.switchyard/work/<work-id>/`: request, artifacts,
+handoffs, manifest and events.jsonl. `.switchyard/current.json` contains only engine, work_id,
+repo_id, flow, phase, candidate_identity and a cached terminal. It contains no artifact bodies,
+fingerprints, provider configuration, environment or decision records. Events and V2 records are
+read and verified when presenting status; cached terminal values do not authorize acceptance.
+Status projects logical state and last invocation rung/provider/profile from the public compiled
+plan and recorded events, without resolving or invoking model adapters.
+
+QA storage uses Adeo's **existing** `normalUserDataDir()` from `scripts/lib/isolated-electron.mjs`,
+which mirrors its Electron user-data convention across macOS/Windows/Linux. The Python consumer
+calls that Node helper; it does not duplicate platform path logic or add a dependency.
+
+```
+<Adeo persistent data>/switchyard/qa/<SHA-256 of canonical target path>/<work-id>/
+```
+
+This digest is a storage namespace, not a semantic Git identity. V2's candidate retains authoritative
+target/Git/base identity. Different directories named `app` cannot collide. Paths resolve before
+use; symlink redirection or inside-target QA locations fail. Each work ID is new and gets a fresh
+QA workspace. Production never uses temporary storage. Tests explicitly inject external test roots.
+Repository relocation/data-root relocation is not transparent: old state must be inspected, not
+silently remapped. No lifecycle records are deleted after ACCEPTED or REOPENED; retention is a
+future operational concern. External records need no repository ignore rules.
+
+Restart uses the lightweight pointer plus the data root and verified WorkWorkspace/events.
+Candidate digest, source workspace/request/run/flow and target must match. Missing external state
+produces an explicit error; no blank replacement, provider rerun or old acceptance fallback occurs.
+A final V2 decision overrides stale navigation status. Candidate finalization prevents repeat commits.
+A write failure before pointer publication or unresolved intent/running delivery requires manual
+inspection; do not replay or rewrite evidence. These are durable boundaries, not runtime crash-resume.
+
+## History and compatibility
+
+The old DELIVERY-002 consumer remains in `delivery_legacy.py` solely for compatibility tests and
+legacy pointer reading. Production commands never dispatch its execute/accept methods. Existing
+`.switchyard/runs/<correlation>.jsonl`, advisory analysis files, `.claude/delivery/` and historical
+metrics remain unchanged. Active legacy work blocks a new delivery until explicitly archived after
+review; it cannot resume or accept as V2. A closed legacy pointer can yield to new V2 work.
+`/start` and `/handoff` inspect status; standalone design still refuses active/inconsistent work.
+
+## Verification and inherited limitations
+
+Run `npm run test:workflow` for V2 integration, legacy compatibility and standalone design tests.
+`python3 scripts/verify-delivery.py` additionally builds, runs all existing JS selftests and builds
+Storybook. Tests use fake provider processes and real disposable Git repositories; zero live calls.
+Existing Electron harnesses isolate application data and databases.
+
+Inherited V2 limitations remain: no automatic provider retry, no independent successful command-tool
+telemetry, no push/PR automation, no provider-session authority, no automatic interrupted-run resume,
+and manual recovery for documented partial writes/commit publication ambiguity. Worktree/workspace
+access must be exclusive and cooperative during QA. The developer-command wrapper retains
+its existing POSIX flock requirement; the reused application-data resolver is cross-platform. See the frozen checkout's
+`docs/design/v2-readiness.md` and `docs/design/work-contract.md` for authoritative contracts.

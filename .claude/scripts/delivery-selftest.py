@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline project integration: real presets, runtime, recorder, analytics and Git."""
+"""Adeo V2 boundary: fake provider CLIs, actual runtime/verifier/workspaces/Git."""
 import importlib.util
 import json
 import os
@@ -11,245 +11,212 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('delivery', Path(__file__).with_name('delivery.py'))
-delivery = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(delivery)
-PROJECT = Path(__file__).resolve().parents[2]
-SWITCHYARD = os.environ.get('SWITCHYARD_ROOT') or delivery.configuration(PROJECT)['switchyard_root']
-if not os.environ.get('SWITCHYARD_ROOT'):
-    interpreter = delivery.configuration(PROJECT)['python_executable']
-    if Path(sys.executable).resolve() != Path(interpreter).resolve():
-        os.execv(interpreter, [interpreter, str(Path(__file__).resolve()), *sys.argv[1:]])
-delivery.load_switchyard({'switchyard_root': SWITCHYARD})
-from runtime import ExecutorResult, InvocationResponse
-from flow_config import LoadedFlow
-from examples.delivery.analytics import summarize_delivery_analytics, summarize_delivery_lifecycles
-from examples.delivery.acceptance import AcceptanceApproval, GitAcceptance
-
+ROOT=Path(__file__).resolve().parents[2]
+spec=importlib.util.spec_from_file_location('adeo_delivery',Path(__file__).with_name('delivery.py'))
+delivery=importlib.util.module_from_spec(spec);spec.loader.exec_module(delivery)
+CONFIG=delivery.configuration(ROOT)
+if Path(sys.executable).absolute()!=Path(CONFIG['python_executable']).absolute():
+    os.execv(CONFIG['python_executable'],[CONFIG['python_executable'],str(Path(__file__).resolve()),*sys.argv[1:]])
+delivery.load_switchyard(CONFIG)
+from switchyard.work_contract import WorkWorkspace
+from examples.delivery.offline_lifecycle import FIX as FEATURE_FIX
 
 class Integration(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name).resolve()
-        self.git_path = shutil.which('git')
-        self.git('init', '-q')
-        self.git('config', 'user.name', 'Offline Test')
-        self.git('config', 'user.email', 'offline@example.invalid')
-        (self.root / '.gitignore').write_text('.switchyard/\n.claude/delivery/current.json\n')
-        (self.root / 'change.txt').write_text('before\n')
-        self.git('add', '.gitignore', 'change.txt')
-        self.git('commit', '-qm', 'baseline')
-        self.app = delivery.Delivery(self.root, {'git_executable': self.git_path,
-            'codex_executable': sys.executable, 'python_executable': sys.executable})
-        self.requests = []
-        self.verify_outcomes = ['success']
-        original = delivery.build_change
-        outer = self
-        class Fake:
-            def __init__(self, role): self.role = role
-            def run(self, request):
-                outer.requests.append((self.role, request))
-                if self.role == 'verifier':
-                    outcome = outer.verify_outcomes.pop(0)
-                else:
-                    outcome = 'success'
-                return InvocationResponse(ExecutorResult(outcome))
-        def build(kind, **kwargs):
-            loaded = original(kind, **kwargs)
-            return LoadedFlow(loaded.flow, {key: Fake(key) for key in loaded.executors})
-        self.mock = patch.object(delivery, 'build_change', side_effect=build)
-        self.mock.start()
-        self.addCleanup(self.mock.stop)
+        self.temp=tempfile.TemporaryDirectory(prefix='adeo-v2-');self.addCleanup(self.temp.cleanup)
+        self.base=Path(self.temp.name).resolve();self.data=self.base/'persistent-data'
+        self.root=self.base/'client-a/app'
+        self.environment=patch.dict(os.environ,{'PYTHONDONTWRITEBYTECODE':'1'});self.environment.start();self.addCleanup(self.environment.stop)
+        self.config=dict(CONFIG)
+        self.calls=self.base/'calls.jsonl';self.plan=self.base/'plan.json'
+        # Existing offline CLI fixture speaks the real adapter protocols.
+        script=(Path(CONFIG['switchyard_root'])/'tests/fixtures/provider_cli.py').read_text()
+        script=script.replace("outcome=plan.get", "if state in ('IMPLEMENT','FIX'):\n    change=plan['change']\n    Path(change['path']).write_text(change['content'])\noutcome=plan.get")
+        bins=self.base/'bin';bins.mkdir()
+        for provider in ('claude','codex'):
+            path=bins/provider;path.write_text('#!'+sys.executable+'\n'+script);path.chmod(0o755)
+            self.config[provider+'_executable']=str(path)
+        self.config['python_executable']=sys.executable
+        self.env=patch.dict(os.environ,{'FAKE_LOG':str(self.calls),'FAKE_PLAN':str(self.plan)})
+        self.env.start();self.addCleanup(self.env.stop)
+        self.make_repo(self.root,'feature')
 
-    def git(self, *args):
-        return subprocess.check_output([self.git_path, '-C', str(self.root), *args], stderr=subprocess.PIPE).decode().strip()
+    def git(self,*args,root=None):
+        return subprocess.check_output([self.config['git_executable'],'-C',str(root or self.root),*args],stderr=subprocess.STDOUT).decode().strip()
 
-    def deliver(self, outcomes=None):
-        self.verify_outcomes = outcomes or ['success']
-        return self.app.execute('deliver', 'change requested')
+    def make_repo(self,root,kind):
+        shutil.copytree(Path(CONFIG['switchyard_root'])/'tests/fixtures'/('feature_dogfood_project' if kind=='feature' else 'bugfix_dogfood_project'),root,
+                        ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+        (root/'scripts/lib').mkdir(parents=True)
+        shutil.copyfile(ROOT/'scripts/lib/isolated-electron.mjs',root/'scripts/lib/isolated-electron.mjs')
+        (root/'scripts/verify-delivery.py').write_text('import subprocess,sys\nraise SystemExit(subprocess.call([sys.executable,"-m","unittest","discover","-s","tests"]))\n')
+        (root/'.gitignore').write_text('.switchyard/\n__pycache__/\n*.pyc\n')
+        self.git('init','-b','main',root=root);self.git('config','user.name','Offline Adeo',root=root)
+        self.git('config','user.email','test@example.invalid',root=root);self.git('config','commit.gpgsign','false',root=root)
+        paths=['.gitignore','scripts/verify-delivery.py','scripts/lib/isolated-electron.mjs',
+               'catalog.py' if kind=='feature' else 'task_queue.py',
+               'tests/test_catalog.py' if kind=='feature' else 'tests/test_task_queue.py']
+        self.git('add','--',*paths,root=root);self.git('commit','-m','baseline',root=root)
 
-    def approval(self):
-        (self.root / 'change.txt').write_text('approved change\n')
-        self.git('add', 'change.txt')
-        snapshot = GitAcceptance(str(self.root), self.git_path).inspect()
-        return AcceptanceApproval(snapshot.head, snapshot.patch_sha256, 'Approved change', True)
+    def app(self,root=None):return delivery.Delivery(root or self.root,self.config,data_root=self.data)
 
-    def analytics(self):
-        state = self.app.current()
-        events = tuple(delivery.read_events(self.root / state['events_file']))
-        return summarize_delivery_analytics(events), events
+    def start(self,kind='feature',root=None):
+        # Contract-aware output avoids manually manufacturing provider artifacts in Adeo.
+        spec=json.dumps(dict(id='OFFLINE',goal='Requested behavior',scope=['source'],constraints=[],
+                             acceptance=['Independent tests pass'],verification=['unittest'],non_goals=[]))
+        outputs={name:[{'name':artifact,'content':spec if artifact in ('microspec','bug_spec','fix_microspec') else 'Durable facts'}]
+                 for name,artifact in [('SPECIFY','microspec'),('IMPLEMENT','implementation_handoff'),('TRIAGE','bug_spec'),
+                 ('REPRODUCE','reproduction_evidence'),('DIAGNOSE','diagnosis'),('SPECIFY_FIX','fix_microspec'),('FIX','implementation_handoff')]}
+        # Use exact known fixture fix for bugfix (no contract/source changes by harness during run).
+        fix=FEATURE_FIX if kind=='feature' else (Path(CONFIG['switchyard_root'])/'tests/fixtures/bugfix_dogfood_project/task_queue.py').read_text().replace('self._pending = []','self._pending = []\n        self._sequence = 0').replace('(priority, len(self._pending), task))','(priority, self._sequence, task))\n        self._sequence += 1')
+        self.plan.write_text(json.dumps({'artifacts':outputs,'change':{'path':'catalog.py' if kind=='feature' else 'task_queue.py','content':fix}}))
+        with patch('examples.delivery.presets.build_change',side_effect=AssertionError('legacy repair/delivery forbidden')), \
+             patch('examples.delivery.presets.build_accept',side_effect=AssertionError('legacy accept forbidden')):
+            return self.app(root).execute('deliver','Human request',kind=kind)
 
-    def test_deliver_accept(self):
-        first = self.deliver()
-        accepted = self.app.execute('accept', approval=self.approval())
-        self.assertEqual(accepted['latest_terminal'], 'ACCEPTED')
-        self.assertEqual(first['correlation_id'], accepted['correlation_id'])
-        analytics, events = self.analytics()
-        summaries = delivery.summarize_runs(events)
-        self.assertEqual(summaries[1].parent_run_id, summaries[0].run_id)
-        self.assertEqual(analytics.accepted_lifecycle_count, 1)
-        self.assertEqual(analytics.manual_qa_pass_count, 1)
-        self.assertEqual(len(summarize_delivery_lifecycles(events)), 1)
-        self.assertEqual(self.git('log', '-1', '--format=%s'), 'Approved change')
+    def qa(self,op,state,feedback='',root=None):
+        before=self.calls.read_bytes()
+        with patch('switchyard.provider_stages.ProviderStageExecutorResolver.__call__',side_effect=AssertionError('no QA resolver')), \
+             patch('switchyard.provider_stages.execute',side_effect=AssertionError('no QA provider')):
+            value=self.app(root).execute(op,feedback,candidate_identity=state['candidate_identity'])
+        self.assertEqual(self.calls.read_bytes(),before)
+        return value
 
-    def test_repair_is_fresh_new_run(self):
-        self.deliver()
-        self.verify_outcomes = ['success']
-        self.app.execute('repair', 'observed bug')
-        self.app.execute('accept', approval=self.approval())
-        analytics, events = self.analytics()
-        summaries = delivery.summarize_runs(events)
-        self.assertEqual(len({s.correlation_id for s in summaries}), 1)
-        self.assertEqual(summaries[1].parent_run_id, summaries[0].run_id)
-        self.assertEqual(summaries[2].parent_run_id, summaries[1].run_id)
-        self.assertIn('FRESH_DIAGNOSIS', summaries[1].state_visit_counts)
-        self.assertEqual([r.work_unit.task for k, r in self.requests if k == 'analysis'], ['change requested', 'observed bug'])
-        self.assertEqual(analytics.manual_qa_reopen_count, 1)
-        self.assertEqual(analytics.accepted_lifecycle_count, 1)
+    def assert_ready(self,state,base,path,root=None):
+        root=root or self.root
+        self.assertEqual(state['terminal'],'READY_FOR_MANUAL_QA')
+        self.assertEqual(self.git('rev-parse','HEAD',root=root),base)
+        self.assertFalse(Path(state['qa_workspace']).resolve().is_relative_to(root))
+        self.assertTrue(Path(state['qa_workspace']).is_relative_to(self.data))
+        pointer=json.loads((root/'.switchyard/current.json').read_text())
+        self.assertEqual(set(pointer),{'engine','work_id','repo_id','flow','phase','candidate_identity','terminal'})
+        qa=WorkWorkspace.open(state['qa_workspace']);self.assertEqual(qa.latest_artifact('qa_candidate').sha256,pointer['candidate_identity'])
+        self.assertEqual(list(json.loads(qa.read_artifact('qa_candidate'))['files']),[path])
+        self.assertIn('OK',WorkWorkspace.open(state['workspace']).read_artifact('verifier_evidence'))
 
-    def test_automatic_repair_not_manual(self):
-        self.deliver(['failed', 'success'])
-        self.app.execute('accept', approval=self.approval())
-        analytics, _ = self.analytics()
-        self.assertEqual(analytics.automatic_repair_count, 1)
-        self.assertEqual(analytics.manual_qa_reopen_count, 0)
-        self.assertEqual(sum(k == 'repair' for k, _ in self.requests), 1)
+    def test_feature_restart_accept_exact_scope(self):
+        base=self.git('rev-parse','HEAD');state=self.start();self.assert_ready(state,base,'catalog.py')
+        restored=self.app().current();self.assertEqual(restored['candidate_identity'],state['candidate_identity'])
+        result=self.qa('accept',restored)
+        self.assertEqual(result['terminal'],'ACCEPTED')
+        self.assertEqual(self.git('rev-parse','HEAD^'),base)
+        self.assertEqual(self.git('diff-tree','--no-commit-id','--name-only','-r','HEAD'),'catalog.py')
+        self.assertEqual(self.git('status','--porcelain'),'')
+        self.assertEqual(self.git('show','HEAD:catalog.py'),FEATURE_FIX.strip())
 
-    def test_second_failure_stops(self):
-        state = self.deliver(['failed', 'failed'])
-        self.assertEqual(state['latest_terminal'], 'NEEDS_REDIAGNOSIS')
-        self.assertEqual(sum(k == 'repair' for k, _ in self.requests), 1)
-        self.assertEqual(len(delivery.summarize_runs(self.analytics()[1])), 1)
-        with self.assertRaises(delivery.DeliveryError):
-            self.app.execute('repair', 'another attempt')
-        with self.assertRaises(delivery.DeliveryError):
-            self.app.execute('accept', approval=self.approval())
+    def test_bugfix_accept(self):
+        root=self.base/'bugs/app';self.make_repo(root,'bugfix');base=self.git('rev-parse','HEAD',root=root)
+        state=self.start('bugfix',root);self.assert_ready(state,base,'task_queue.py',root)
+        calls=[json.loads(s)['binding']['logical_state'] for s in self.calls.read_text().splitlines()]
+        self.assertEqual(calls,['TRIAGE','REPRODUCE','DIAGNOSE','SPECIFY_FIX','FIX'])
+        self.assertEqual(self.qa('accept',state,root=root)['terminal'],'ACCEPTED')
+        self.assertEqual(self.git('diff-tree','--no-commit-id','--name-only','-r','HEAD',root=root),'task_queue.py')
 
-    def test_no_lifecycle(self):
-        for command in ('repair', 'accept'):
-            with self.subTest(command=command), self.assertRaises(delivery.DeliveryError):
-                self.app.execute(command, 'bug')
+    def test_reopen_restart_feedback_and_fresh_followup(self):
+        base=self.git('rev-parse','HEAD');state=self.start()
+        result=self.qa('reopen',state,'Review naming')
+        self.assertEqual(result['terminal'],'REOPENED');self.assertEqual(self.app().current()['feedback'],'Review naming')
+        self.assertEqual(self.git('rev-parse','HEAD'),base)
+        self.assertEqual(self.git('diff','--name-only'),'catalog.py')
+        self.assertEqual(self.git('diff','--cached','--name-only'),'')
+        next_state=self.start()
+        self.assertNotEqual(next_state['qa_workspace'],state['qa_workspace'])
+        self.assertTrue(Path(state['qa_workspace']).exists())
 
-    def test_second_deliver_preserves_pointer(self):
-        state = self.deliver()
-        with self.assertRaises(delivery.DeliveryError): self.deliver()
-        self.assertEqual(self.app.current(), state)
+    def test_extra_work_blocks_without_cleanup(self):
+        base=self.git('rev-parse','HEAD');state=self.start();(self.root/'unrelated.txt').write_text('keep')
+        result=self.qa('accept',state)
+        self.assertEqual((result['terminal'],result['reason']),('COMMIT_BLOCKED','unexpected_worktree_paths'))
+        self.assertEqual(self.git('rev-parse','HEAD'),base);self.assertEqual((self.root/'unrelated.txt').read_text(),'keep')
+        self.assertIn('catalog.py',self.git('diff','--name-only'))
 
-    def test_closed_lifecycle_rejects_followup(self):
-        self.deliver()
-        self.app.execute('accept', approval=self.approval())
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('accept')
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('repair', 'bug')
-        self.verify_outcomes = ['success']
-        self.assertEqual(self.app.execute('deliver', 'next')['status'], 'active')
+    def test_candidate_drift_reason(self):
+        state=self.start();(self.root/'catalog.py').write_text('changed after QA')
+        self.assertEqual(self.qa('accept',state)['reason'],'candidate_drift')
 
-    def test_mixed_worktree_blocks_commit(self):
-        self.deliver()
-        approval = self.approval()
-        before = self.git('rev-parse', 'HEAD')
-        (self.root / 'unrelated.txt').write_text('unapproved\n')
-        self.assertEqual(self.app.execute('accept', approval=approval)['latest_terminal'], 'COMMIT_BLOCKED')
-        self.assertEqual(self.git('rev-parse', 'HEAD'), before)
+    def test_two_same_leaf_repositories_and_swapped_pointer(self):
+        other=self.base/'client-b/app';self.make_repo(other,'feature')
+        one=self.start();two=self.start(root=other)
+        self.assertNotEqual(one['candidate_identity'],two['candidate_identity']);self.assertNotEqual(one['qa_workspace'],two['qa_workspace'])
+        with self.assertRaisesRegex(delivery.DeliveryError,'does not match'):
+            self.app().execute('accept',candidate_identity=two['candidate_identity'])
+        pointer=(self.root/'.switchyard/current.json');original=pointer.read_bytes()
+        pointer.write_bytes((other/'.switchyard/current.json').read_bytes())
+        with self.assertRaisesRegex(delivery.DeliveryError,'Inconsistent'):self.app().current()
+        pointer.write_bytes(original)
+        self.qa('accept',one);self.assertEqual(self.app(other).current()['terminal'],'READY_FOR_MANUAL_QA')
 
-    def test_stale_patch_blocks_commit(self):
-        self.deliver()
-        approval = self.approval()
-        (self.root / 'change.txt').write_text('mixed content\n')
-        self.git('add', 'change.txt')
-        self.assertEqual(self.app.execute('accept', approval=approval)['latest_terminal'], 'COMMIT_BLOCKED')
-        self.assertEqual(self.git('rev-parse', 'HEAD'), approval.base_commit)
+    def test_missing_external_never_recreates(self):
+        state=self.start();path=Path(state['qa_workspace']);path.rename(path.with_name('retained-missing'))
+        with self.assertRaisesRegex(delivery.DeliveryError,'QA lifecycle state is unavailable'):self.app().current()
+        self.assertFalse(path.exists())
 
-    def test_stale_head_blocks_commit(self):
-        self.deliver()
-        approval = self.approval()
-        self.git('commit', '--allow-empty', '-qm', 'outside commit')
-        (self.root / 'change.txt').write_text('new content\n')
-        self.git('add', 'change.txt')
-        head = self.git('rev-parse', 'HEAD')
-        self.assertEqual(self.app.execute('accept', approval=approval)['latest_terminal'], 'COMMIT_BLOCKED')
-        self.assertEqual(self.git('rev-parse', 'HEAD'), head)
+    def test_finalized_authority_over_stale_pointer(self):
+        state=self.start();pointer=self.root/'.switchyard/current.json';before=pointer.read_bytes()
+        self.qa('accept',state);pointer.write_bytes(before)
+        self.assertEqual(self.app().current()['terminal'],'ACCEPTED')
+        with self.assertRaisesRegex(delivery.DeliveryError,'not pending'):self.qa('accept',state)
 
-    def test_approval_never_invented(self):
-        self.deliver()
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('accept')
-        self.assertEqual(len(delivery.summarize_runs(self.analytics()[1])), 1)
+    def test_production_data_resolver_and_internal_rejection(self):
+        resolved=delivery.application_data(ROOT,CONFIG)
+        self.assertTrue(resolved.is_absolute());self.assertFalse(resolved.is_relative_to(ROOT))
+        with self.assertRaisesRegex(delivery.DeliveryError,'outside'):
+            delivery.Delivery(self.root,self.config,data_root=self.root/'.switchyard/qa')
 
-    def test_missing_log(self):
-        state = self.deliver()
-        (self.root / state['events_file']).unlink()
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('repair', 'bug')
+    def test_retired_repair_and_qa_fix_never_execute(self):
+        for command in ('repair','qa-fix'):
+            with self.assertRaisesRegex(delivery.DeliveryError,'retired'):self.app().execute(command,'bug')
+        self.assertFalse(self.calls.exists())
 
-    def test_pointer_mismatch(self):
-        state = self.deliver()
-        state['latest_run_id'] = 'fake'
-        self.app.save(state)
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('repair', 'bug')
+    def test_legacy_current_readable_and_no_cross_engine_accept(self):
+        old=delivery.legacy_module();old.load_switchyard(self.config)
+        from runtime import Flow,State,WorkUnit,RunContext,run
+        from runtime.recording import JsonlRecorder
+        correlation='change-'+'a'*32
+        path=self.root/'.switchyard/runs'/f'{correlation}.jsonl';path.parent.mkdir(parents=True)
+        result=run(WorkUnit('legacy'),Flow('READY_FOR_MANUAL_QA',{'READY_FOR_MANUAL_QA':State(terminal=True)}),{},
+                   recorder=JsonlRecorder(path),context=RunContext(correlation))
+        state=dict(correlation_id=correlation,latest_run_id=result.events[0].run_id,latest_terminal='READY_FOR_MANUAL_QA',
+                   status='active',events_file=f'.switchyard/runs/{correlation}.jsonl')
+        self.app().save(state);before=path.read_bytes()
+        self.assertEqual(self.app().current()['engine'],'legacy')
+        with self.assertRaisesRegex(delivery.DeliveryError,'read-only'):self.app().execute('accept',candidate_identity='x')
+        self.assertEqual(path.read_bytes(),before)
+        with self.assertRaisesRegex(delivery.DeliveryError,'active'):self.start()
 
-    def test_interruption_blocks_followup(self):
-        with patch.object(delivery, 'run', side_effect=RuntimeError('crash')):
-            with self.assertRaises(RuntimeError): self.deliver()
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('repair', 'bug')
-        self.assertEqual(json.loads(self.app.pointer.read_text())['status'], 'running')
+    def test_process_restart_pending_candidate_accept(self):
+        state=self.start();before=self.calls.read_bytes()
+        code = """import importlib.util,json,sys
+from unittest.mock import patch
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('delivery',sys.argv[1]);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+c=json.loads(sys.argv[2]);m.load_switchyard(c);app=m.Delivery(sys.argv[3],c,data_root=sys.argv[4])
+with patch('switchyard.provider_stages.execute',side_effect=AssertionError('no provider in QA')):
+    pending=app.current()
+    assert pending['terminal']=='READY_FOR_MANUAL_QA'
+    result=app.execute('accept',candidate_identity=pending['candidate_identity'])
+    print(json.dumps(result))
+"""
+        child=subprocess.run([sys.executable,'-c',code,str(Path(__file__).with_name('delivery.py')),
+                              json.dumps(self.config),str(self.root),str(self.data)],capture_output=True,text=True)
+        self.assertEqual(child.returncode,0,child.stderr)
+        self.assertEqual(json.loads(child.stdout)['terminal'],'ACCEPTED')
+        self.assertEqual(self.calls.read_bytes(),before)
+        self.assertEqual(self.app().current()['terminal'],'ACCEPTED')
 
-    def test_legacy_state_retained(self):
-        legacy = self.root / '.claude/delivery/current.json'
-        legacy.parent.mkdir(parents=True)
-        legacy.write_text('{"state":"REPAIRING"}')
-        with self.assertRaises(delivery.DeliveryError): self.deliver()
-        self.assertEqual(legacy.read_text(), '{"state":"REPAIRING"}')
+    def test_missing_delivery_and_corrupt_candidate_fail_closed(self):
+        state=self.start();manifest=Path(state['workspace'])/'manifest.jsonl'
+        original=manifest.read_bytes();manifest.unlink()
+        with self.assertRaisesRegex(delivery.DeliveryError,'delivery state is unavailable'):self.app().current()
+        manifest.write_bytes(original)
+        qa=WorkWorkspace.open(state['qa_workspace']);record=qa.latest_artifact('qa_candidate')
+        (qa.root/record.path).write_text('{}')
+        with self.assertRaisesRegex(delivery.DeliveryError,'Inconsistent'):self.app().current()
+        self.assertNotEqual(self.git('status','--porcelain'),'')
 
-    def test_recorder_failure_stays_interrupted(self):
-        class BrokenRecorder:
-            def __init__(self, path): pass
-            def record(self, event): raise OSError('disk failure')
-        with patch.object(delivery, 'JsonlRecorder', BrokenRecorder):
-            with self.assertRaises(Exception): self.deliver()
-        with self.assertRaises(delivery.DeliveryError): self.app.current()
-        self.assertEqual(json.loads(self.app.pointer.read_text())['status'], 'running')
+    def test_reference_guard_and_explicit_kind(self):
+        with self.assertRaisesRegex(delivery.DeliveryError,'frozen V2'):delivery.check_reference(self.root)
+        with self.assertRaisesRegex(delivery.DeliveryError,'Choose feature or bugfix'):self.app().execute('deliver','task')
+        self.assertFalse(self.calls.exists())
 
-    def test_truncated_history_blocks_followup(self):
-        state = self.deliver()
-        with (self.root / state['events_file']).open('ab') as stream:
-            stream.write(b'{"kind":')
-        with self.assertRaises(delivery.DeliveryError): self.app.execute('repair', 'bug')
-
-    def cli(self, *args):
-        script = self.root / '.claude/scripts/delivery.py'
-        script.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(Path(__file__).with_name('delivery.py'), script)
-        config = dict(switchyard_root=SWITCHYARD, python_executable=sys.executable,
-                      codex_executable=sys.executable, git_executable=self.git_path,
-                      node_executable=shutil.which('node'), npm_executable=shutil.which('npm'))
-        self.app.directory.mkdir(exist_ok=True)
-        (self.app.directory / 'config.json').write_text(json.dumps(config))
-        # The disposable fixture's wrapper is tooling, not part of the accepted change.
-        exclude = self.root / '.git/info/exclude'
-        exclude.write_text('.claude/scripts/\n')
-        return subprocess.run([sys.executable, str(script), *args], capture_output=True, text=True)
-
-    def test_cli_accept_and_status(self):
-        self.deliver()
-        approval = self.approval()
-        result = self.cli('accept', '--approved-head', approval.base_commit,
-                          '--approved-patch-sha256', approval.patch_sha256,
-                          '--message', approval.message, '--manual-qa-passed')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('ACCEPTED', result.stdout)
-        status = self.cli('status')
-        self.assertEqual(status.returncode, 0, status.stderr)
-        self.assertEqual(json.loads(status.stdout)['status'], 'closed')
-        self.assertEqual(self.cli('repair', '--task', 'bug').returncode, 2)
-
-    def test_cli_missing_approval_and_no_lifecycle(self):
-        self.assertEqual(self.cli('accept').returncode, 2)
-        self.assertEqual(self.cli('repair', '--task', 'bug').returncode, 2)
-        self.assertFalse(self.app.pointer.exists())
-
-    def test_concurrent_command(self):
-        with self.app.locked():
-            with self.assertRaises(delivery.DeliveryError): self.deliver()
-
-
-if __name__ == '__main__':
-    unittest.main()
+if __name__=='__main__':unittest.main()

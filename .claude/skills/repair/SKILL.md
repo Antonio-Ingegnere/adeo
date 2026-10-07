@@ -1,11 +1,10 @@
 ---
 name: repair
-description: Start fresh diagnosis for a human-reported bug in the active QA-ready lifecycle.
+description: Retired old REPAIR preset; use explicit V2 bugfix delivery.
 disable-model-invocation: true
 ---
 
-Run `python3 .claude/scripts/delivery.py repair --task "<complete bug report>"` once.
-If the user supplies a report file, read its contents and pass the report as task text, safely quoted.
-The wrapper requires an active QA-ready parent and starts a new FRESH_DIAGNOSIS run.
-Do not bootstrap missing lifecycle state, choose providers, or continue an old diagnosis.
-Report READY_FOR_MANUAL_QA or NEEDS_HUMAN and stop. Do not automatically retry.
+Explain that standalone REPAIR is retired for new work. Do not invoke the old preset.
+For pending QA use `/reopen` with human feedback first. For a new defect operation use
+`/deliver bugfix <report>` only when explicitly requested. Do not silently reinterpret this command,
+resume a legacy run or automatically start a model.

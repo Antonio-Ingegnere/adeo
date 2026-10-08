@@ -237,7 +237,12 @@ class Delivery:
                 # Immutable per-run evidence, not another editable configuration source.
                 with (work/'project-config.yaml').open('xb') as stream:
                     stream.write(snapshot); stream.flush(); os.fsync(stream.fileno())
-                config = ProviderRuntimeConfig(str(self.root),self.config['claude_executable'],self.config['codex_executable'])
+                config = ProviderRuntimeConfig(
+                    str(self.root),
+                    self.config['claude_executable'],
+                    self.config['codex_executable'],
+                    timeout_seconds=1800
+                    )
                 execution = execute_v2_workflow(bundle,kind,task,work,config,recorder=JsonlRecorder(work/'events.jsonl'))
                 state.update(terminal=execution.result.terminal_state,phase='delivery_done'); self.save(state)
                 if state['terminal']=='READY_FOR_MANUAL_QA' and project.lifecycle.manual_qa:

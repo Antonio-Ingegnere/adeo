@@ -46,5 +46,6 @@ ui-ux/ux/concepts/markdown-split-preview.ts
 ui-ux/ux/concepts/multi-column-board.css
 ui-ux/ux/concepts/multi-column-board.stories.ts
 
-# Project-local Switchyard configuration, lifecycle pointers, logs and artifacts
-.switchyard/
+# One editable config; runtime state and old local configuration stay ignored
+.switchyard/*
+!.switchyard/config.yaml

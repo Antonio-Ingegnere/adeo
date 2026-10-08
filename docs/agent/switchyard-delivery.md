@@ -1,22 +1,53 @@
 # Switchyard V2 delivery in Adeo
 
-V2-009 consumes frozen Switchyard `51d69e9239758b614beea5328f88a8c2e7cce417` through the existing
-local checkout/sys.path mechanism. No package installation or copied workflow engine is introduced.
+CONFIG-001 retains the proven V2 engine and replaces normal configuration with ONE
+committed file: [`.switchyard/config.yaml`](../../.switchyard/config.yaml). It is the
+complete default FEATURE/BUGFIX configuration, including the deterministic verifier
+and lifecycle policy. Runtime workspaces are state, not configuration.
 
-## Local setup
+## Configure the project
 
-Use that exact unmodified checkout with its requirements installed. Ignored `.switchyard/config.json`
-contains absolute local paths for `switchyard_root`, `python_executable`, `claude_executable`,
-`codex_executable`, `git_executable`, `node_executable`, and `npm_executable`. An optional
-`model_aliases_file` points to local JSON in the existing V2 provider/selector mapping format.
-Never commit these paths, aliases or credentials. Configuration rejects older/modified engine sources.
-ProviderRuntimeConfig receives executable/cwd/alias configuration; capabilities and provider commands
-remain Switchyard-owned. Adeo targets its actual root worktree, never a common parent directory.
+Edit `agents.spec.provider`, `model`, `effort` to change all specification stages.
+The default is Codex `gpt-6-astra`, high effort, read workspace plus shell. FEATURE
+SPECIFY and BUGFIX TRIAGE/SPECIFY_FIX all reference `agent: spec`.
+Change a state's `agent` to change only that state. Edit `flows.<name>.states` to
+change transitions, artifacts or escalation. Edit `agents.tests.command` to change
+verification. There are no consumer-side role, model, effort or capability overrides.
+The config itself contains the full readable default; Switchyard's `docs/configuration.md`
+documents the public keys and defaults. Verbose V2 bundles are advanced/legacy only.
 
-Adeo loads `examples/delivery/workflows-v2.yaml` directly. It replaces only the public command-profile
-argv with `<configured Python> <target>/scripts/verify-delivery.py`, preserving exit mapping, evidence
-capture, graph, budgets, models, efforts and capability policy. The invocation timeout is 1800 seconds;
-each individual project-verifier check retains its existing 180-second bound. No model verdict.
+```sh
+python -m switchyard config validate .switchyard/config.yaml
+python -m switchyard config show .switchyard/config.yaml
+```
+
+These commands run locally with no provider calls. From the Switchyard checkout use
+an explicit project file path; from the project put Switchyard on PYTHONPATH.
+
+## Launch setup
+
+Adeo keeps its existing local-checkout/sys.path dependency mechanism. Set
+`SWITCHYARD_ROOT` to the CONFIG-001 checkout referenced by `delivery.py` (or expose
+that checkout via PYTHONPATH). Its `.venv/bin/python` is selected if present; otherwise
+the calling interpreter is used. Install Switchyard's existing requirements there.
+`SWITCHYARD_PYTHON` may select another interpreter. Provider CLIs and Git/Node/npm
+are discovered on PATH; optional `SWITCHYARD_CLAUDE`, `SWITCHYARD_CODEX`,
+`SWITCHYARD_GIT`, `SWITCHYARD_NODE`, `SWITCHYARD_NPM` select executable locations.
+These are launch paths, never model/profile/capability overrides. Do not commit local
+absolute paths. Secrets remain in provider authentication/environment.
+
+Commit configuration edits before starting delivery that will proceed to QA. V2 intentionally
+protects changed `.switchyard` paths: an uncommitted config change blocks candidate creation,
+and a post-candidate config edit blocks accept with `unsupported_path`. Adeo does not auto-commit
+configuration, ignore tracked changes or weaken that safety policy.
+
+The old `.switchyard/config.json` and alias file are ignored for new work. Existing
+files can be retained for historical use; their contents do not affect delivery.
+Concrete YAML models pass directly to the adapters. No machine-local model alias is
+needed. Configuration validation catches unsupported workspace/shell combinations
+before invocation. Adeo invokes the command agent exactly as written, in the target
+worktree; it no longer replaces verifier argv. `python3 scripts/verify-delivery.py`
+remains the default. No model verification.
 
 ## Commands
 
@@ -40,9 +71,13 @@ python3 .claude/scripts/delivery.py accept --candidate <reviewed-candidate-ident
 python3 .claude/scripts/delivery.py reopen --candidate <reviewed-candidate-identity> --feedback "Human feedback"
 ```
 
+Lifecycle policy is captured with each work item. `manual_qa: false` skips candidate creation
+and reports delivered work without claiming ACCEPTED. `accept.commit: false` disables accept;
+`reopen: false` disables reopen. Neither changes V2 safety or permits an uncommitted ACCEPTED.
+
 The ID is a stale-action guard, not a manually authored artifact. Humans choose accept/reopen;
 Switchyard owns safe staging and the final commit. Do not run git add/commit as a competing acceptance.
-COMMIT_BLOCKED includes the frozen reason; there is no cleanup, fallback or retry. REOPENED retains
+COMMIT_BLOCKED includes the V2 reason; there is no cleanup, fallback or retry. REOPENED retains
 HEAD/worktree and feedback. A later explicitly requested delivery may include the displayed durable
 feedback in its new immutable human request. No transcript/session recovery or automatic follow-up.
 
@@ -53,10 +88,16 @@ feedback in its new immutable human request. No transcript/session recovery or a
 
 Ordinary delivery state remains under ignored `.switchyard/work/<work-id>/`: request, artifacts,
 handoffs, manifest and events.jsonl. `.switchyard/current.json` contains only engine, work_id,
-repo_id, flow, phase, candidate_identity and a cached terminal. It contains no artifact bodies,
+repo_id, flow, phase, candidate_identity, config_sha256 and a cached terminal. It contains no artifact bodies,
 fingerprints, provider configuration, environment or decision records. Events and V2 records are
 read and verified when presenting status; cached terminal values do not authorize acceptance.
-Status projects logical state and last invocation rung/provider/profile from the public compiled
+Each run stores `project-config.yaml` with a digest in the navigation pointer. This immutable
+snapshot records the exact configuration used, not a second editable config. Restart/status and
+pending lifecycle policy use that snapshot; new runs use only the current project config. Missing
+or corrupted snapshots fail explicitly. Editing the tracked config after QA also triggers normal
+V2 worktree-drift checks. Historical V2-009 runs lacking a snapshot use their original fixed graph
+for read/projection compatibility; new work never loads that advanced bundle.
+Status projects logical state and last invocation rung/provider/agent/model/effort from the public compiled
 plan and recorded events, without resolving or invoking model adapters.
 
 QA storage uses Adeo's **existing** `normalUserDataDir()` from `scripts/lib/isolated-electron.mjs`,

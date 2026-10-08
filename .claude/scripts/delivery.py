@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Adeo human commands around frozen Switchyard V2; no workflow or Git engine."""
+"""Adeo human commands around one-file Switchyard configuration; no workflow or Git engine."""
 from __future__ import annotations
 import argparse
 from contextlib import contextmanager
-from dataclasses import replace
 import fcntl
 import hashlib
 import importlib.util
@@ -12,10 +11,11 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import shutil
 import sys
 from uuid import uuid4
 
-FROZEN = '51d69e9239758b614beea5328f88a8c2e7cce417'
+FROZEN = '84dbd3982ec7a4449e055a78f0ceacfdc1014f02'
 
 class DeliveryError(ValueError):
     pass
@@ -32,16 +32,20 @@ def check_reference(root):
 
 
 def configuration(root):
-    try:
-        config = json.loads((Path(root)/'.switchyard/config.json').read_text())
-        required = {'switchyard_root','python_executable','codex_executable','claude_executable',
-                    'git_executable','node_executable','npm_executable'}
-        if not required <= config.keys() or config.keys()-required-{'model_aliases_file'}: raise ValueError()
-        if any(type(v) is not str or not Path(v).is_absolute() for v in config.values()): raise ValueError()
-        if any(not Path(config[k]).is_file() for k in config if k != 'switchyard_root'): raise ValueError()
-    except (OSError, ValueError, TypeError, AttributeError):
-        raise DeliveryError('Configure local executable paths in .switchyard/config.json; see docs/agent/switchyard-delivery.md') from None
-    check_reference(config['switchyard_root'])
+    """Launch environment only. Project semantics come exclusively from config.yaml."""
+    checkout = os.environ.get('SWITCHYARD_ROOT')
+    if not checkout:
+        spec = importlib.util.find_spec('switchyard')
+        if spec and spec.origin: checkout = str(Path(spec.origin).resolve().parent.parent)
+    if not checkout:
+        raise DeliveryError('Set SWITCHYARD_ROOT to the supported local checkout (or put it on PYTHONPATH); see docs/agent/switchyard-delivery.md')
+    checkout = str(Path(checkout).resolve())
+    check_reference(checkout)
+    default_python = Path(checkout)/'.venv/bin/python'
+    config = {'switchyard_root':checkout,
+              'python_executable':os.environ.get('SWITCHYARD_PYTHON',str(default_python) if default_python.is_file() else sys.executable)}
+    for tool in ('claude','codex','git','node','npm'):
+        config[tool+'_executable'] = os.environ.get('SWITCHYARD_'+tool.upper()) or shutil.which(tool) or tool
     return config
 
 
@@ -50,12 +54,14 @@ def load_switchyard(config):
     sys.path.insert(0, config['switchyard_root'])
     global RunResult, JsonlRecorder, read_events, summarize_runs, WorkWorkspace
     global load_workflow_bundle, compile_workflow, execute_v2_workflow, ProviderRuntimeConfig
+    global load_simple_config, simple_config_from_text, compile_simple_config
     global create_qa_candidate, accept_v2_work, reopen_v2_work
     from runtime import RunResult
     from runtime.recording import JsonlRecorder
     from switchyard.observability import read_events, summarize_runs
     from switchyard.work_contract import WorkWorkspace
     from switchyard.workflow_bundle import load_workflow_bundle
+    from switchyard.simple_config import load_simple_config, simple_config_from_text, compile_simple_config
     from switchyard.workflow_compiler import compile_workflow
     from switchyard.workflow_execution import execute_v2_workflow
     from switchyard.provider_stages import ProviderRuntimeConfig
@@ -119,6 +125,15 @@ class Delivery:
             raise DeliveryError('Delivery workspace path changed')
         return work, qa
 
+    def project_config(self, state):
+        work, _ = self.paths(state)
+        try:
+            snapshot = (work/'project-config.yaml').read_bytes()
+            if hashlib.sha256(snapshot).hexdigest() != state['config_sha256']: raise ValueError()
+            return simple_config_from_text(snapshot.decode('utf-8'))
+        except Exception:
+            raise DeliveryError('Persisted project configuration is unavailable or inconsistent; inspect retained work') from None
+
     def current(self):
         try:
             if not self.pointer.is_file(): raise DeliveryError('No current work; start /deliver feature or /deliver bugfix')
@@ -129,7 +144,7 @@ class Delivery:
                 value = old.Delivery(self.root,self.config).current()
                 return {**value,'engine':'legacy','read_only':True}
             keys = {'engine','work_id','repo_id','flow','phase','candidate_identity','terminal'}
-            if set(state) != keys or state['engine'] != 'v2': raise ValueError()
+            if set(state) not in (keys,keys|{'config_sha256'}) or state['engine'] != 'v2': raise ValueError()
             if not re.fullmatch('[a-f0-9]{32}',state['work_id']) or state['repo_id'] != self.repo_id: raise ValueError()
             if state['flow'] not in ('feature','bugfix'): raise ValueError()
             work, qa = self.paths(state)
@@ -142,16 +157,27 @@ class Delivery:
             terminal = summaries[0].terminal_state
             class ProjectionOnly:
                 def run(self, request): raise AssertionError('status never executes')
-            bundle = load_workflow_bundle(Path(self.config['switchyard_root'])/'examples/delivery/workflows-v2.yaml')
+            if 'config_sha256' in state:
+                project = self.project_config(state)
+                bundle = compile_simple_config(project)
+            else:
+                if (work/'project-config.yaml').exists():
+                    raise DeliveryError('Current-work pointer is missing its project configuration digest')
+                # Historical V2-009 runs had this fixed graph. Never used for new delivery.
+                project = None
+                bundle = load_workflow_bundle(Path(self.config['switchyard_root'])/'examples/delivery/workflows-v2.yaml')
             compiled = compile_workflow(bundle,state['flow'],lambda binding: ProjectionOnly())
             entry = next(e for e in reversed(events) if e.kind=='state_entered')
             latest = next((e for e in reversed(events) if e.kind=='invocation_started'),None)
             binding = compiled.plan[latest.state].binding if latest else None
             progress = dict(logical_state=compiled.plan[entry.state].logical_state,
                             last_invocation=None if binding is None else dict(logical_state=binding.logical_state,
-                            rung=binding.rung_index,provider=binding.provider,profile=binding.profile_name))
+                            rung=binding.rung_index,provider=binding.provider,agent=binding.profile_name,model=binding.model,effort=binding.effort))
             if terminal != 'READY_FOR_MANUAL_QA':
                 return {**state,**progress,'terminal':terminal,'status':'active','read_only':True}
+            if project is not None and not project.lifecycle.manual_qa:
+                return {**state,**progress,'terminal':terminal,'status':'delivered','read_only':True,
+                        'lifecycle':'manual QA disabled by project config','workspace':str(work)}
             if state['phase'] not in ('qa','decision','lifecycle_running'):
                 raise DeliveryError('Interrupted QA creation; inspect durable state before recovery')
             if not (qa/'manifest.jsonl').is_file():
@@ -183,34 +209,38 @@ class Delivery:
             raise DeliveryError('Inconsistent current-work pointer or durable V2 state; inspect before recovery') from None
 
     def execute(self, command, task='', *, kind=None, candidate_identity=None):
-        if command in ('repair','qa-fix'):
-            raise DeliveryError('/repair and /qa-fix are retired: use /reopen with feedback, then explicitly start /deliver bugfix for new work')
+        if command == 'repair':
+            raise DeliveryError('/repair is retired: explicitly start /deliver bugfix for new work')
+        if command == 'qa-fix': command = 'reopen'
         with self.locked():
             if command == 'deliver':
                 if kind not in ('feature','bugfix') or not task.strip():
                     raise DeliveryError('Choose feature or bugfix and supply a nonempty human request')
                 if self.pointer.exists():
                     previous = self.current()
-                    if previous['status'] not in ('closed','reopened'):
+                    if previous['status'] not in ('closed','reopened','delivered'):
                         raise DeliveryError('Current work is active; no overwrite or cross-engine resume')
                 old = legacy_module(); old.Delivery(self.root,self.config).legacy_check()
-                state = dict(engine='v2', work_id=uuid4().hex, repo_id=self.repo_id, flow=kind,
+                try:
+                    snapshot = (self.directory/'config.yaml').read_bytes()
+                    text = snapshot.decode('utf-8')
+                except (OSError, UnicodeError):
+                    raise DeliveryError('Cannot read .switchyard/config.yaml as UTF-8; restore the project configuration') from None
+                project = simple_config_from_text(text)
+                bundle = compile_simple_config(project)
+                bundle.flow(kind)
+                state = dict(config_sha256=hashlib.sha256(snapshot).hexdigest(),engine='v2', work_id=uuid4().hex, repo_id=self.repo_id, flow=kind,
                              phase='delivery_running',candidate_identity=None,terminal=None)
                 work, qa = self.paths(state)
                 if work.exists() or qa.exists(): raise DeliveryError('Work identity already exists')
                 work.mkdir(parents=True); self.save(state)
-                # Consumer verifier binding only; all graph/role/capability/budget data stays canonical.
-                bundle = load_workflow_bundle(Path(self.config['switchyard_root'])/'examples/delivery/workflows-v2.yaml')
-                profiles = dict(bundle.profiles)
-                profiles['command'] = replace(profiles['command'],command=replace(profiles['command'].command,
-                    argv=(self.config['python_executable'],str(self.root/'scripts/verify-delivery.py'))))
-                bundle = replace(bundle,profiles=profiles)
-                aliases = json.loads(Path(self.config['model_aliases_file']).read_text()) if self.config.get('model_aliases_file') else {}
-                config = ProviderRuntimeConfig(str(self.root),self.config['claude_executable'],self.config['codex_executable'],
-                                                model_aliases=aliases, timeout_seconds=1800)
+                # Immutable per-run evidence, not another editable configuration source.
+                with (work/'project-config.yaml').open('xb') as stream:
+                    stream.write(snapshot); stream.flush(); os.fsync(stream.fileno())
+                config = ProviderRuntimeConfig(str(self.root),self.config['claude_executable'],self.config['codex_executable'])
                 execution = execute_v2_workflow(bundle,kind,task,work,config,recorder=JsonlRecorder(work/'events.jsonl'))
                 state.update(terminal=execution.result.terminal_state,phase='delivery_done'); self.save(state)
-                if state['terminal']=='READY_FOR_MANUAL_QA':
+                if state['terminal']=='READY_FOR_MANUAL_QA' and project.lifecycle.manual_qa:
                     candidate = create_qa_candidate(self.root,execution.workspace,execution.result,kind,qa,
                                                     git_executable=self.config['git_executable'])
                     state.update(phase='qa',candidate_identity=candidate.identity); self.save(state)
@@ -219,6 +249,11 @@ class Delivery:
             current = self.current()
             if current['engine'] != 'v2': raise DeliveryError('Legacy work is read-only; no cross-engine accept/resume')
             if current['terminal'] != 'READY_FOR_MANUAL_QA': raise DeliveryError('Current candidate is not pending QA')
+            state=json.loads(self.pointer.read_text())
+            if 'config_sha256' in state:
+                policy = self.project_config(state).lifecycle
+                if not policy.manual_qa or not (policy.commit if command=='accept' else policy.reopen):
+                    raise DeliveryError(command+' is disabled by this work item project configuration')
             if candidate_identity != current['candidate_identity']:
                 raise DeliveryError('Reviewed candidate does not match current work; refresh QA status')
             if command=='reopen' and not task.strip(): raise DeliveryError('Reopen requires nonempty human feedback')
@@ -233,12 +268,11 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     sub=parser.add_subparsers(dest='command',required=True)
     d=sub.add_parser('deliver');d.add_argument('--kind',choices=('feature','bugfix'),required=True);d.add_argument('--task',required=True)
-    for op in ('accept','reopen'):
+    for op in ('accept','reopen','qa-fix'):
         p=sub.add_parser(op);p.add_argument('--candidate',required=True)
-        if op=='reopen':p.add_argument('--feedback',required=True)
+        if op in ('reopen','qa-fix'):p.add_argument('--feedback',required=True)
     sub.add_parser('status')
-    for op in ('repair','qa-fix'):
-        sub.add_parser(op).add_argument('--task',default='')
+    sub.add_parser('repair').add_argument('--task',default='')
     args=parser.parse_args(argv);root=Path(__file__).resolve().parents[2]
     try:
         config=configuration(root)

@@ -1,0 +1,59 @@
+id: CONFIG-001
+goal: Configure every new Adeo FEATURE/BUGFIX delivery using only .switchyard/config.yaml over the proven V2 engine.
+status: complete
+scope:
+  - Commit one readable project file with agents, flows and lifecycle policy.
+  - Load SimpleConfig through the existing local-checkout dependency mechanism.
+  - Remove consumer verifier substitution, alias-file loading and project-specific model/permission decisions.
+  - Preserve persistent external QA, safe accept/reopen, current-pointer reconstruction and historical compatibility.
+constraints:
+  - No runtime/compiler duplication, provider tool broadening, model retries or live providers.
+  - Preserve unrelated metrics/report changes; no project/epic functionality.
+  - Keep historical DELIVERY-002 and V2-009 records readable without rewriting them.
+acceptance:
+  - Shared spec agent selects Codex gpt-6-astra high with read workspace and shell for FEATURE SPECIFY and BUGFIX TRIAGE/SPECIFY_FIX.
+  - Editing only the shared agent changes its specification states; no aliases, override tables or second workflow file participate.
+  - Command-agent YAML owns verifier argv and pass/fail mapping; Adeo does not replace it.
+  - FEATURE and BUGFIX execute through fake real-process adapters and deterministic verifier to READY_FOR_MANUAL_QA and exact-scope ACCEPTED.
+  - REOPEN/qa-fix preserves work and durable feedback; COMMIT_BLOCKED reasons propagate; restart and repository isolation remain safe.
+  - No new failures in the complete relevant Adeo suite.
+verification:
+  - delivery-selftest.py covers one-file config, Astra binding, manual model switch, unsupported permissions, policy gates, immutable snapshot and old override rejection.
+  - Existing delivery integration tests cover real temporary Git, external QA, restart, drift blocking and exact-scope commit.
+  - delivery-legacy-selftest.py and product-designer-selftest.py preserve compatibility/non-Switchyard behavior.
+  - scripts/verify-delivery.py builds and runs the complete existing offline matrix, compared against known baseline failures.
+non_goals:
+  - Switchyard runtime changes, automatic acceptance, release packaging, live model tuning or project/epic orchestration.
+architecture:
+  source: .switchyard/config.yaml is the only editable project agent/model/effort/permission/graph/verifier/lifecycle configuration.
+  lowering: load_simple_config and compile_simple_config feed the existing execute_v2_workflow runner.
+  dependency: Existing local-checkout/sys.path mechanism, selected by SWITCHYARD_ROOT or importable checkout; exact CONFIG-001 revision checked in delivery.py.
+  launch: PATH or optional SWITCHYARD executable environment selects processes only; CLI authentication/environment carries secrets. No project alias resolution.
+  removed: New work no longer reads config.json, model_aliases_file, canonical advanced workflow, consumer command-profile override or stage/provider mapping.
+  retained_advanced: Switchyard verbose V2 and alias APIs remain available for other advanced consumers; DELIVERY-002 compatibility code stays historical.
+  snapshot: Each delivery retains exact config bytes in work/project-config.yaml with SHA-256 in the navigation pointer. It is immutable run evidence, not an editable override.
+  lifecycle: Snapshot policy gates candidate creation and accept/reopen; V2 owns all safety checks and final commit. Disabling commit never yields ACCEPTED.
+  state: Project-local delivery work and lightweight pointer; fresh persistent external QA in existing Adeo data root; records remain authoritative across restart.
+  history: V2-009 snapshots did not exist; only that historical read/projection path uses its original fixed advanced graph. New runs never do.
+  qa_fix: Compatibility alias invokes reopen only with reviewed candidate identity and nonempty human feedback; never launches repair.
+  repair: Explicitly retired; start a new human-selected BUGFIX operation instead.
+  drift: Editing config after QA changes tracked worktree scope and is blocked by the existing V2 acceptance checks; status still reconstructs the original run.
+results:
+  switchyard_revision: 84dbd3982ec7a4449e055a78f0ceacfdc1014f02
+  adeo_integration: 26 passed, including FEATURE, BUGFIX, exact-scope accept, reopen, QA-fix alias, external persistence, restart, isolation and one-file edits.
+  legacy: 20 passed; standalone product-designer guard passed.
+  full_verifier: 19 checks; 17 passed; same two pre-existing UI failures; zero new failures.
+  known_failures:
+    - Board selftest recurrence-summary assertion after 20 checks, unchanged from V2-009 baseline.
+    - Task-delete selftest hidden-kebab assertion after 16 checks, unchanged from V2-009 baseline.
+  logs:
+    - /tmp/config-001-adeo-focused-final.log
+    - /tmp/config-001-adeo-full.log
+  default_equivalence: Compiled Adeo config exactly matches the Switchyard simple example for topology, providers, models, efforts, permissions, outcomes, inputs, outputs, escalation, budgets and terminals; only declared command argv differs for the project verifier.
+  switchyard_verification: 22 new focused tests passed; full suite 550 tests with 548 passed, unchanged synthetic SIGKILL failure and existing platform skip.
+  safety: Changed .switchyard/config.yaml remains protected by existing QA safety. Commit config edits before delivery; post-QA edits block with unsupported_path. No policy was weakened.
+  live_provider_calls: 0
+  unrelated_preserved:
+    - docs/agent/delivery-metrics.jsonl
+    - .claude/delivery/verifier-report-D-003.json
+  scope: No runtime/Event, compiler semantics, provider behavior, Git lifecycle safety, machine-local aliases, release infrastructure or project/epic changes.

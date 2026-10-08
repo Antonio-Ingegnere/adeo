@@ -15,11 +15,13 @@ spec = importlib.util.spec_from_file_location('delivery', Path(__file__).with_na
 delivery = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(delivery)
 PROJECT = Path(__file__).resolve().parents[2]
-SWITCHYARD = os.environ.get('SWITCHYARD_ROOT') or json.loads((PROJECT/'.switchyard/config.json').read_text())['switchyard_root']
-if not os.environ.get('SWITCHYARD_ROOT'):
-    interpreter = json.loads((PROJECT/'.switchyard/config.json').read_text())['python_executable']
-    if Path(sys.executable).absolute() != Path(interpreter).absolute():
-        os.execv(interpreter, [interpreter, str(Path(__file__).resolve()), *sys.argv[1:]])
+config_spec=importlib.util.spec_from_file_location('launch_config',Path(__file__).with_name('delivery.py'))
+launch=importlib.util.module_from_spec(config_spec);config_spec.loader.exec_module(launch)
+launch_config=launch.configuration(PROJECT)
+SWITCHYARD=launch_config['switchyard_root']
+interpreter=launch_config['python_executable']
+if Path(sys.executable).absolute()!=Path(interpreter).absolute():
+    os.execv(interpreter,[interpreter,str(Path(__file__).resolve()),*sys.argv[1:]])
 delivery.load_switchyard({'switchyard_root': SWITCHYARD})
 from runtime import ExecutorResult, InvocationResponse
 from flow_config import LoadedFlow

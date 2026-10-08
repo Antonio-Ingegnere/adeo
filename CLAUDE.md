@@ -2,7 +2,7 @@
 
 Adeo is an Electron todo app with TypeScript main/renderer and local FastAPI + SQLite.
 
-- `/deliver feature <request>` or `/deliver bugfix <report>` runs frozen Switchyard V2 once.
+- `/deliver feature <request>` or `/deliver bugfix <report>` runs Switchyard V2 using `.switchyard/config.yaml` once.
 - READY_FOR_MANUAL_QA ends delivery without a commit. The human tests the application externally.
 - `/accept` commits the reviewed candidate through deterministic V2 safety checks; no manual staging or push.
 - `/reopen <feedback>` preserves changes and records human feedback without starting a model.

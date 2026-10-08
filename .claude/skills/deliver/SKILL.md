@@ -1,6 +1,6 @@
 ---
 name: deliver
-description: Start explicit feature or bugfix work through frozen Switchyard V2.
+description: Start explicit feature or bugfix work through Switchyard V2 using `.switchyard/config.yaml`.
 disable-model-invocation: true
 ---
 

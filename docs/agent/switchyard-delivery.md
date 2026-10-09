@@ -16,7 +16,7 @@ python3 -m venv .venv
 ```
 
 The existing `server/requirements.txt` also includes that pinned dependency.
-`switchyard-runtime` 2.1.0 is installed by ordinary pip from the revision in the
+`switchyard-runtime` 2.2.0 is installed by ordinary pip from the revision in the
 requirements file. Delivery imports that installed package and verifies its package
 version and installation origin. No external Git checkout, PYTHONPATH injection or
 SWITCHYARD_ROOT is required. The local wrapper selects `.venv` automatically.
@@ -39,7 +39,7 @@ specification stages, a state's `agent` to change only that state, and
 override tables. Old config.json/alias files do not affect new work.
 
 Current deadlines: spec, investigate, diagnose-deep and independent use 600 seconds;
-code and tests use 1800. Only `timeout` is a public key. It must be a finite positive
+code, baseline and tests use 1800. Only `timeout` is a public key. It must be a finite positive
 number, not a boolean/string. The selected agent's deadline reaches the actual
 provider process. Invalid values fail at `agents.<name>.timeout`.
 
@@ -48,7 +48,7 @@ provider process. Invalid values fail at `agents.<name>.timeout`.
 ```text
 /deliver feature "<request>"
 /deliver bugfix "<request>"
-/deliver resume
+/deliver resume ["reason"]
 /deliver rollback ["reason"]
 /accept
 /qa-fix "<feedback>"
@@ -59,14 +59,14 @@ The local command equivalents are:
 ```sh
 python3 .claude/scripts/delivery.py deliver feature "Human request"
 python3 .claude/scripts/delivery.py deliver bugfix "Human bug report"
-python3 .claude/scripts/delivery.py deliver resume
+python3 .claude/scripts/delivery.py deliver resume "Verification failures confirmed environmental"
 python3 .claude/scripts/delivery.py deliver rollback "Wrong direction"
 python3 .claude/scripts/delivery.py status
 ```
 
-The human chooses feature/bugfix. FEATURE runs SPECIFY → IMPLEMENT → VERIFY; BUGFIX
-runs TRIAGE → REPRODUCE → DIAGNOSE → SPECIFY_FIX → FIX → VERIFY. Switchyard owns any
-configured escalation/repair. READY_FOR_MANUAL_QA ends delivery without committing.
+The human chooses feature/bugfix. FEATURE runs SPECIFY → BASELINE_VERIFY → IMPLEMENT →
+VERIFY; BUGFIX runs TRIAGE → REPRODUCE → DIAGNOSE → SPECIFY_FIX → BASELINE_VERIFY → FIX →
+VERIFY. Switchyard owns any configured escalation/repair. READY_FOR_MANUAL_QA ends delivery without committing.
 Review all candidate paths; pre-existing unrelated changes are also part of the QA
 snapshot, and pre-existing staging blocks capture. Rollback remains available if
 candidate capture cannot complete.
@@ -90,6 +90,45 @@ Lifecycle flags live in the same project config and are captured with each work.
 `manual_qa: false` disables candidate creation; `accept.commit: false` disables
 acceptance; `reopen: false` disables reopen. None bypasses V2 safety.
 
+## Baseline-aware verification
+
+`scripts/verify-delivery.py` is Adeo's deterministic verifier. Once per delivery,
+BASELINE_VERIFY runs it with `--baseline` on the unchanged repository, immediately before
+the first source-writing stage, and records the result as the `verification_baseline`
+artifact. A recorded baseline continues even when checks fail; only a verifier crash
+(`error`) stops at NEEDS_HUMAN. VERIFY and VERIFY_AGAIN receive that artifact through
+Switchyard's generic `SWITCHYARD_ARTIFACTS` directory and compare every check:
+
+| Baseline | After delivery | Classification | Blocks |
+| --- | --- | --- | --- |
+| pass or absent | fail | NEW_FAILURE | yes |
+| fail (X) | fail (X, same exit code) | PRE_EXISTING_SAME | no |
+| fail (X) | fail (Y or other exit code) | CHANGED_FAILURE | yes |
+| fail | pass | RESOLVED_BASELINE_FAILURE | no (improvement) |
+
+A check identity is its stable name (`build`, `board-selftest`, ...). A failure
+identity is its exit code plus a bounded normalized signature: Adeo self-test failure
+labels (`... failed after N checks: <label>`, without the count), `FAIL:`/`ERROR:` items,
+TypeScript errors, otherwise the last output lines. Paths, temp directories, durations
+and timestamps are normalized; more than five lines fold into a SHA-256 digest. The
+comparison is code, never a model judgement. There is no ignore list or switch.
+Checks skipped behind a failed build and baseline checks that disappeared also block.
+
+Evidence ends with a human summary and a structured block between
+`--- ADEO VERIFICATION RESULT ---` markers: mode, `raw_exit_code`, per-check command,
+exit code, outcome and signature, and the baseline, current, pre-existing, new,
+changed and resolved failures with `relative_outcome`. The process exits 0 only when
+nothing blocks, so READY_FOR_MANUAL_QA can coexist with raw red checks. The summary
+lists retained pre-existing failures explicitly and never says all tests passed. Without
+a baseline (older work or a manual run) every failure blocks.
+
+Known baseline-identical failures therefore never reach DIAGNOSE_FAILURE. Diagnosis is
+for new or changed failures. Its ladder is sequential, so every trigger that reaches the
+independent rung is also listed on the deep rung: `verification_same_failure` (the
+diagnoser claims the failure is the one already present and not caused by the change,
+contradicting the deterministic comparison) escalates to a deeper and then a fresh
+independent assessment before NEEDS_REDIAGNOSIS.
+
 ## Interrupted delivery and explicit resume
 
 A known timeout kills the provider process group and waits for the direct process.
@@ -112,6 +151,20 @@ No automatic retry occurs. An already exhausted run returns RESUME_BLOCKED. Huma
 edits after the checkpoint also block resume rather than being merged. The timeout
 edit is the only permitted config change; if accepted later, its exact reviewed bytes
 are included in the QA candidate. Config changes after QA still block acceptance.
+
+## Resume from NEEDS_REDIAGNOSIS
+
+NEEDS_REDIAGNOSIS stops automation. `status` reports `resume_allowed` and `resume_to`.
+The FEATURE flow declares `NEEDS_REDIAGNOSIS: {terminal: true, resume_to: VERIFY}`;
+after a human has resolved or confirmed the verification cause outside the worktree,
+`/deliver resume ["reason"]` re-enters VERIFY in the same work and run. Completed
+stages, artifacts, handoffs and events stay; nothing before VERIFY reruns. VERIFY
+reserves a second visit and invocation for this; the second recovery is refused.
+The reason is stored as recovery metadata and never chooses a state. There is no
+goto/rewind option. Worktree drift, configuration changes beyond timeouts or exhausted
+budgets return RESUME_BLOCKED and leave the work untouched. NEEDS_HUMAN and BUGFIX
+terminals declare no route and stay stopped. Work started before this configuration
+(including 4f0cf1a6…) has no declared route and no baseline evidence; it is not resumable.
 
 ## Explicit rollback
 

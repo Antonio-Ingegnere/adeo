@@ -1,0 +1,45 @@
+id: VERIFICATION-RECOVERY-001
+goal: Block delivery only on regressions the delivery introduced, keep pre-existing failures visible, and recover NEEDS_REDIAGNOSIS explicitly.
+status: complete
+scope:
+  - BASELINE_VERIFY runs Adeo's verifier once per delivery before the first source-writing stage (FEATURE before IMPLEMENT, BUGFIX before FIX).
+  - VERIFY/VERIFY_AGAIN compare with that baseline deterministically and exit 0 only without new, changed or unverifiable failures.
+  - Structured verifier evidence with raw exit code, per-check exit code and failure signatures.
+  - Sequential diagnosis ladders list every trigger that reaches the independent rung on the deep rung.
+  - NEEDS_REDIAGNOSIS declares resume_to VERIFY; /deliver resume ["reason"] uses Switchyard's generic recovery.
+constraints:
+  - No ignore list or switch; baseline failures are named only as fixtures in tests.
+  - No LLM decides whether a failure is pre-existing; Switchyard knows no Adeo check names.
+  - Historical work is never mutated or given invented baseline evidence.
+audit:
+  observed_run: 4f0cf1a693204792a2ccf982c14d6f08 failed VERIFY on board-selftest and task-delete-selftest, both failing on clean HEAD. DIAGNOSE_FAILURE rung 0 returned verification_same_failure; only rung 2 listed it, rung 1 did not, so the sequential ladder went straight to on_exhausted NEEDS_REDIAGNOSIS.
+  verification_same_failure: The diagnoser claims the failure is materially the one already present and not introduced by the change. Known baseline-identical failures are resolved by the verifier before diagnosis, so the claim now contradicts deterministic evidence and escalates to a deeper, then fresh independent assessment.
+  historical_work: No resume_to in its frozen configuration and no baseline; a scratch copy refuses RESUME_BLOCKED no_declared_recovery_route. Left untouched, as is the main worktree with the attachments implementation (this branch lives in a separate Git worktree so base HEAD and its rollback stay valid).
+implementation:
+  verifier: scripts/delivery_verification.py (policy) and scripts/verify-delivery.py (Adeo check list); --baseline records, otherwise compares with $SWITCHYARD_ARTIFACTS/verification_baseline.
+  identity: check name plus exit code plus bounded normalized signature (self-test label without check count, FAIL/ERROR items, TS errors, else last lines; paths, temp dirs, durations, timestamps normalized; >5 lines folded into SHA-256).
+  classifications: [PRE_EXISTING_SAME, NEW_FAILURE, CHANGED_FAILURE, RESOLVED_BASELINE_FAILURE]
+  blocking: NEW_FAILURE, CHANGED_FAILURE, checks not run behind a failed build gate, baseline checks missing afterwards.
+  budgets: feature run 12 (baseline and one recovery VERIFY added), VERIFY 2 visits and 2 invocations; bugfix run 15.
+  dependency: switchyard-runtime 2.2.0 at 64904b2df0f25e4b10ecab441a7615a488b7f1f3 (must be pushed before the pin installs).
+results:
+  verification_selftest: 19 passed (classification, CLI evidence, compiled routing, dogfood-equivalent, regression, changed failure, NEEDS_REDIAGNOSIS resume, drift and undeclared-route refusal).
+  delivery_integration: 26 passed.
+  recovery_integration: 9 passed.
+  legacy: 20 passed.
+  real_verifier: Baseline 21 checks with 3 failures (board-selftest, task-delete-selftest, task-row-focus-selftest). Compare run 2 failures, both PRE_EXISTING_SAME, task-row-focus-selftest RESOLVED (flaky), no new/changed; exit 0, raw exit 1.
+  live_provider_calls: 0
+changed_files:
+  - .claude/HELP.md
+  - .claude/scripts/delivery-selftest.py
+  - .claude/scripts/delivery.py
+  - .claude/scripts/recovery-selftest.py
+  - .claude/scripts/verification-selftest.py
+  - .claude/skills/deliver/SKILL.md
+  - .switchyard/config.yaml
+  - CLAUDE.md
+  - docs/agent/switchyard-delivery.md
+  - docs/plans/verification-recovery-001.yaml
+  - requirements-delivery.txt
+  - scripts/delivery_verification.py
+  - scripts/verify-delivery.py

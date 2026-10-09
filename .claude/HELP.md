@@ -1,7 +1,7 @@
 # Adeo workflow tooling
 
 - `/deliver feature <request>` starts a feature; `/deliver bugfix <report>` starts a defect fix.
-- `/deliver resume` explicitly resumes an interrupted stage with remaining budget.
+- `/deliver resume ["reason"]` explicitly resumes an interrupted stage, or re-verifies NEEDS_REDIAGNOSIS work through its declared route, with remaining budget.
 - `/deliver rollback [reason]` restores pre-delivery work, preserves history and retires the attempt.
 - READY_FOR_MANUAL_QA means stop and test the result yourself. Delivery has not committed.
 - `/accept` accepts the reviewed candidate; unsafe or changed work reports COMMIT_BLOCKED.

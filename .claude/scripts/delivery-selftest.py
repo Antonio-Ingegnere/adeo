@@ -21,6 +21,17 @@ delivery.load_switchyard(CONFIG)
 from switchyard.work_contract import WorkWorkspace
 from examples.delivery.offline_lifecycle import FIX as FEATURE_FIX
 
+# Fixture verifier: Adeo's real baseline-aware verification over fixture checks.
+FIXTURE_VERIFIER='''import sys
+from pathlib import Path
+from delivery_verification import main
+ROOT=Path(__file__).resolve().parents[1]
+CHECKS=[('build',[sys.executable,'-m','compileall','-q','-x','tests|checks','.']),  # Gate, like npm run build.
+        ('unit',[sys.executable,'-m','unittest','discover','-s','tests'])]
+CHECKS+=[(p.stem,[sys.executable,str(p)]) for p in sorted((ROOT/'checks').glob('*.py'))]
+raise SystemExit(main(CHECKS,ROOT,sys.argv[1:]))
+'''
+
 class Integration(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='adeo-v2-');self.addCleanup(self.temp.cleanup)
@@ -49,13 +60,14 @@ class Integration(unittest.TestCase):
                         ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         (root/'scripts/lib').mkdir(parents=True)
         shutil.copyfile(ROOT/'scripts/lib/isolated-electron.mjs',root/'scripts/lib/isolated-electron.mjs')
-        (root/'scripts/verify-delivery.py').write_text('import subprocess,sys\nraise SystemExit(subprocess.call([sys.executable,"-m","unittest","discover","-s","tests"]))\n')
+        (root/'scripts/verify-delivery.py').write_text(FIXTURE_VERIFIER)
+        shutil.copyfile(ROOT/'scripts/delivery_verification.py',root/'scripts/delivery_verification.py')
         (root/'.gitignore').write_text('.switchyard/*\n!.switchyard/config.yaml\n__pycache__/\n*.pyc\n')
         (root/'.switchyard').mkdir()
         shutil.copyfile(ROOT/'.switchyard/config.yaml',root/'.switchyard/config.yaml')
         self.git('init','-b','main',root=root);self.git('config','user.name','Offline Adeo',root=root)
         self.git('config','user.email','test@example.invalid',root=root);self.git('config','commit.gpgsign','false',root=root)
-        paths=['.gitignore','.switchyard/config.yaml','scripts/verify-delivery.py','scripts/lib/isolated-electron.mjs',
+        paths=['.gitignore','.switchyard/config.yaml','scripts/verify-delivery.py','scripts/delivery_verification.py','scripts/lib/isolated-electron.mjs',
                'catalog.py' if kind=='feature' else 'task_queue.py',
                'tests/test_catalog.py' if kind=='feature' else 'tests/test_task_queue.py']
         self.git('add','--',*paths,root=root);self.git('commit','-m','baseline',root=root)
@@ -94,7 +106,10 @@ class Integration(unittest.TestCase):
         self.assertEqual(set(pointer),{'engine','work_id','repo_id','flow','phase','candidate_identity','terminal','config_sha256'})
         qa=WorkWorkspace.open(state['qa_workspace']);self.assertEqual(qa.latest_artifact('qa_candidate').sha256,pointer['candidate_identity'])
         self.assertEqual(list(json.loads(qa.read_artifact('qa_candidate'))['files']),[path])
-        self.assertIn('OK',WorkWorkspace.open(state['workspace']).read_artifact('verifier_evidence'))
+        work=WorkWorkspace.open(state['workspace'])
+        # The fixture's own tests fail before delivery; the verdict is relative to that baseline.
+        self.assertIn('Verification relative to baseline: PASS',work.read_artifact('verifier_evidence'))
+        self.assertIn('- unit: FAIL: test_',work.read_artifact('verification_baseline'))
 
     def test_feature_restart_accept_exact_scope(self):
         base=self.git('rev-parse','HEAD');state=self.start();self.assert_ready(state,base,'catalog.py')

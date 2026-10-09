@@ -63,7 +63,7 @@ class RecoveryIntegration(unittest.TestCase):
         self.assertEqual(calls,['SPECIFY','IMPLEMENT','IMPLEMENT'])
         events=tuple(read_events(Path(first['workspace'])/'events.jsonl'))
         self.assertEqual(len({e.run_id for e in events}),1)
-        self.assertEqual(len([e for e in events if e.kind=='invocation_started']),4)
+        self.assertEqual(len([e for e in events if e.kind=='invocation_started']),5)  # Includes BASELINE_VERIFY.
         self.assertEqual(self.qa('accept',ready)['terminal'],'ACCEPTED')
 
     def test_semantic_change_blocks_resume(self):
@@ -114,7 +114,7 @@ class RecoveryIntegration(unittest.TestCase):
             self.assertEqual(child.returncode,0,child.stderr)
             self.assertEqual(json.loads(child.stdout)['terminal'],terminal)
         probe=subprocess.check_output([sys.executable,'-c','from importlib.metadata import version; import switchyard; print(version("switchyard-runtime")); print(switchyard.__file__)'],env=env,cwd=self.root,text=True)
-        self.assertIn('2.1.0',probe);self.assertIn('site-packages',probe)
+        self.assertIn('2.2.0',probe);self.assertIn('site-packages',probe)
 
     def test_qa_capture_failure_still_allows_rollback(self):
         (self.root/'staged.txt').write_text('user staging')
@@ -130,7 +130,7 @@ class RecoveryIntegration(unittest.TestCase):
         source=Path(switchyard.__file__).parent
         checkout=self.base/'developer-checkout';checkout.mkdir()
         shutil.copytree(source,checkout/'switchyard')
-        (checkout/'pyproject.toml').write_text('version = "2.1.0"\n')
+        (checkout/'pyproject.toml').write_text('version = "2.2.0"\n')
         code="import importlib.util; s=importlib.util.spec_from_file_location('delivery',"+repr(str(Path(__file__).with_name('delivery.py')))+"); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); c=m.configuration("+repr(str(self.root))+"); m.load_switchyard(c); import switchyard; print(switchyard.__file__)"
         env={k:v for k,v in os.environ.items() if k!='PYTHONPATH'}
         env['SWITCHYARD_ROOT']=str(checkout)

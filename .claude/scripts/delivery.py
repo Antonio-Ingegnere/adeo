@@ -16,7 +16,7 @@ import shutil
 import sys
 from uuid import uuid4
 
-SUPPORTED_VERSION = '2.1.0'
+SUPPORTED_VERSION = '2.2.0'
 
 class DeliveryError(ValueError):
     pass
@@ -157,6 +157,7 @@ class Delivery:
             if not re.fullmatch('[a-f0-9]{32}',state['work_id']) or state['repo_id'] != self.repo_id: raise ValueError()
             if state['flow'] not in ('feature','bugfix'): raise ValueError()
             work, qa = self.paths(state)
+            recovery=None
             if (work/'recovery/manifest.jsonl').is_file():
                 recovery=recovery_status(work)
                 if recovery['phase'] in ('running','interrupted','rolled_back','rollback_running'):
@@ -191,7 +192,9 @@ class Delivery:
                             last_invocation=None if binding is None else dict(logical_state=binding.logical_state,
                             rung=binding.rung_index,provider=binding.provider,agent=binding.profile_name,model=binding.model,effort=binding.effort))
             if terminal != 'READY_FOR_MANUAL_QA':
-                return {**state,**progress,'terminal':terminal,'status':'active','read_only':True}
+                # Human terminals continue only through a route the frozen workflow declares.
+                route={k:recovery[k] for k in ('resume_allowed','resume_to')} if recovery else {}
+                return {**state,**progress,**route,'terminal':terminal,'status':'active','read_only':True,'workspace':str(work)}
             if project is not None and not project.lifecycle.manual_qa:
                 return {**state,**progress,'terminal':terminal,'status':'delivered','read_only':True,
                         'lifecycle':'manual QA disabled by project config','workspace':str(work)}
@@ -296,7 +299,7 @@ class Delivery:
                 text=(self.directory/'config.yaml').read_text(encoding='utf-8')
                 state.update(phase='delivery_running',terminal='RUNNING');self.save(state)
                 try:
-                    execution=resume_v2_work(work,text,config)
+                    execution=resume_v2_work(work,text,config,reason=task)  # Annotation only; never routing.
                 except RecoveryBlocked:
                     recovery=recovery_status(work)
                     state.update(phase=recovery['phase'],terminal=recovery['terminal']);self.save(state)

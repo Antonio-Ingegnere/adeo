@@ -1,4 +1,4 @@
-# Edit agents here; all specification states reuse spec.
+# Edit agents here; timeout is seconds. Write stages reserve one explicit resume invocation.
 agents:
   spec:
     provider: codex
@@ -6,34 +6,40 @@ agents:
     effort: high
     workspace: read
     shell: true
+    timeout: 600
   investigate:
     provider: claude
     model: haiku
     effort: medium
     workspace: read
     shell: true
+    timeout: 600
   diagnose-deep:
     provider: claude
     model: sonnet
     effort: high
     workspace: read
     shell: true
+    timeout: 600
   independent:
     provider: codex
     model: gpt-6-astra
     effort: high
     workspace: read
     shell: true
+    timeout: 600
   code:
     provider: claude
     model: sonnet
     effort: medium
     workspace: write
     shell: true
+    timeout: 1800
   tests:
     provider: command
     command: [python3, scripts/verify-delivery.py]
     capture: verifier_evidence
+    timeout: 1800
 flows:
   feature:
     start: SPECIFY
@@ -46,7 +52,9 @@ flows:
           microspec: {format: yaml, schema: microspec}
         on: {ready: IMPLEMENT, needs_clarification: NEEDS_HUMAN}
       IMPLEMENT:
-        agent: code
+        run:
+          - agent: code
+            budget: {invocations: 2}
         consumes: [request, microspec]
         produces:
           implementation_handoff: {format: markdown}
@@ -72,7 +80,9 @@ flows:
           failure_diagnosis: {format: markdown}
         on: {ready: REPAIR_ONCE, inconclusive: NEEDS_REDIAGNOSIS, needs_clarification: NEEDS_HUMAN}
       REPAIR_ONCE:
-        agent: code
+        run:
+          - agent: code
+            budget: {invocations: 2}
         consumes: [microspec, verifier_evidence, failure_diagnosis]
         produces:
           implementation_handoff: {format: markdown}
@@ -120,7 +130,9 @@ flows:
           fix_microspec: {format: yaml, schema: microspec}
         on: {ready: FIX, needs_clarification: NEEDS_HUMAN}
       FIX:
-        agent: code
+        run:
+          - agent: code
+            budget: {invocations: 2}
         consumes: [fix_microspec, diagnosis]
         produces:
           implementation_handoff: {format: markdown}
@@ -138,7 +150,9 @@ flows:
           revised_diagnosis: {format: markdown}
         on: {ready: REFIX, inconclusive: NEEDS_HUMAN}
       REFIX:
-        agent: code
+        run:
+          - agent: code
+            budget: {invocations: 2}
         consumes: [fix_microspec, revised_diagnosis, verifier_evidence]
         produces:
           implementation_handoff: {format: markdown}

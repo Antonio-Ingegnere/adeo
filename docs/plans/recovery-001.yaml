@@ -1,0 +1,98 @@
+id: RECOVERY-001
+goal: Expose Switchyard recovery and installed dependency through Adeo's existing delivery commands.
+status: complete
+scope:
+  - Consume installed switchyard-runtime 2.1.0 through ordinary pip requirements pinned to the focused Switchyard commit.
+  - Route new delivery, explicit resume and explicit rollback through generic Switchyard recovery APIs.
+  - Keep project config as the sole timeout/model/permission/flow source and external persistent QA storage unchanged.
+  - Update command help and verify the actual installed-package consumer with fake providers and real Git.
+constraints:
+  - Preserve unrelated pre-existing metrics/report changes, historical records and legacy read-only compatibility.
+  - No live providers, automatic retry/resume, competing Git commit logic or project orchestration.
+  - No normal SWITCHYARD_ROOT requirement or arbitrary external checkout import.
+acceptance:
+  - New feature and bugfix delivery creates a baseline before provider execution and an external QA candidate on success.
+  - Known timeout records INTERRUPTED in durable state and navigation instead of leaving a dead delivery running.
+  - Resume reuses work/artifact/event identity and partial source edits; timeout-only retuning succeeds without rerunning SPECIFY.
+  - Semantic config changes and human drift refuse; exhausted budgets are not reset.
+  - Rollback preserves dirty/untracked data, withdraws pending QA, retains history and permits a new delivery immediately.
+  - Accepted history cannot be rolled back and no provider executes during accept/reopen/rollback.
+  - CLI delivery/status/rollback work with SWITCHYARD_ROOT and PYTHONPATH unset; optional developer override is explicit and validated.
+verification:
+  - delivery-selftest.py covers FEATURE, BUGFIX, accept, reopen, blocked commits, restart, isolation and legacy reading.
+  - recovery-selftest.py covers timeout, retune/resume, same work and MicroSpec, drift, retirement, QA protection and installed CLI.
+  - delivery-legacy-selftest.py preserves 20 accepted legacy regressions.
+  - scripts/verify-delivery.py runs all integration groups, existing JS selftests and builds under TERM=dumb.
+non_goals:
+  - Retrofitting exact baselines for old work, generic crash-resume, cancellation, detached process supervision or automatic cleanup.
+  - Provider tuning, new config files, global Python configuration, package publication or push.
+audit:
+  old_bootstrap: SWITCHYARD_ROOT or PYTHONPATH identified a source checkout; wrapper verified external Git HEAD and injected sys.path.
+  new_bootstrap: Local .venv imports pip-installed switchyard-runtime and checks distribution version 2.1.0 plus installed origin; explicit contributor override remains optional.
+  timeout: Switchyard historically defaulted to 600 seconds; the audited Adeo HEAD had a hardcoded 1800-second workaround. The wrapper override is removed and every deadline comes from the selected YAML agent.
+  prior_reference: 84dbd3982ec7a4449e055a78f0ceacfdc1014f02
+  dependency: requirements-delivery.txt holds a Git commit pin; existing server/requirements.txt includes it. Local verification uses a built wheel of the exact source.
+  package_revision: 690975f9a590c52e4514b6532d320919e44d27d6
+implementation:
+  APIs:
+    - switchyard.recovery.execute_recoverable_v2_work
+    - switchyard.recovery.resume_v2_work
+    - switchyard.recovery.rollback_v2_work
+    - switchyard.recovery.recovery_status
+    - switchyard.recovery.attach_qa_candidate
+    - Existing SimpleConfig, WorkWorkspace, observability and QA lifecycle public APIs.
+  timeouts_seconds:
+    spec: 600
+    investigate: 600
+    diagnose-deep: 600
+    independent: 600
+    code: 1800
+    tests: 1800
+  budgets: New write rungs explicitly allow two invocations in the same visit; existing state/run budgets and all failed invocation charges remain authoritative.
+  pointer: Lightweight current.json retains identity/config digest/cached phase; core recovery and QA records are authoritative. ROLLED_BACK is closed and replaceable by a fresh work ID.
+  storage: Ignored project-local work and nested recovery data; QA remains in existing persistent Adeo data outside target.
+  QA: Exact tracked config.yaml is reviewed normally after timeout retuning; capture/accept scope and fingerprint safety remain enforced by Switchyard.
+  commands:
+    - /deliver feature request
+    - /deliver bugfix request
+    - /deliver resume
+    - /deliver rollback optional-reason
+    - /accept
+    - /qa-fix feedback
+  historical: Old work remains readable; absent baseline is explicit rather than guessed. No cross-engine resume or legacy acceptance fallback.
+results:
+  focused_recovery: 9 passed.
+  delivery_integration: 26 passed.
+  legacy: 20 passed.
+  full_verifier: 20 checks; 18 passed; unchanged board recurrence-summary and task-delete hidden-kebab failures; zero new failures.
+  installed_proof: Real CLI delivery/status/rollback runs in a disposable project without SWITCHYARD_ROOT or PYTHONPATH; site-packages origin and version asserted.
+  live_provider_calls: 0
+  logs:
+    - /tmp/recovery-adeo-release-recovery.log
+    - /tmp/recovery-adeo-release-delivery.log
+    - /tmp/recovery-adeo-full.log
+  unrelated_preserved:
+    - docs/agent/delivery-metrics.jsonl
+    - .claude/delivery/verifier-report-D-003.json
+changed_files:
+  - .claude/HELP.md
+  - .claude/scripts/delivery-legacy-selftest.py
+  - .claude/scripts/delivery-selftest.py
+  - .claude/scripts/delivery.py
+  - .claude/scripts/recovery-selftest.py
+  - .claude/skills/deliver/SKILL.md
+  - .claude/skills/qa-fix/SKILL.md
+  - .claude/test-fixtures/switchyard/bugfix_dogfood_project/task_queue.py
+  - .claude/test-fixtures/switchyard/bugfix_dogfood_project/tests/test_task_queue.py
+  - .claude/test-fixtures/switchyard/feature_dogfood_project/catalog.py
+  - .claude/test-fixtures/switchyard/feature_dogfood_project/tests/test_catalog.py
+  - .claude/test-fixtures/switchyard/provider_cli.py
+  - .switchyard/config.yaml
+  - CLAUDE.md
+  - README.md
+  - docs/agent/switchyard-delivery.md
+  - docs/plans/recovery-001.yaml
+  - requirements-delivery.txt
+  - scripts/verify-delivery.py
+  - server/requirements.txt
+switchyard_result: 573 tests; 571 passed; unchanged known synthetic SIGKILL failure and platform skip; zero new failures.

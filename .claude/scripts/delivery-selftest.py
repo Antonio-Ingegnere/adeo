@@ -30,7 +30,7 @@ class Integration(unittest.TestCase):
         self.config=dict(CONFIG)
         self.calls=self.base/'calls.jsonl';self.plan=self.base/'plan.json'
         # Existing offline CLI fixture speaks the real adapter protocols.
-        script=(Path(CONFIG['switchyard_root'])/'tests/fixtures/provider_cli.py').read_text()
+        script=(ROOT/'.claude/test-fixtures/switchyard/provider_cli.py').read_text()
         script=script.replace("outcome=plan.get", "if state in ('IMPLEMENT','FIX'):\n    change=plan['change']\n    Path(change['path']).write_text(change['content'])\noutcome=plan.get")
         bins=self.base/'bin';bins.mkdir()
         for provider in ('claude','codex'):
@@ -45,7 +45,7 @@ class Integration(unittest.TestCase):
         return subprocess.check_output([self.config['git_executable'],'-C',str(root or self.root),*args],stderr=subprocess.STDOUT).decode().strip()
 
     def make_repo(self,root,kind):
-        shutil.copytree(Path(CONFIG['switchyard_root'])/'tests/fixtures'/('feature_dogfood_project' if kind=='feature' else 'bugfix_dogfood_project'),root,
+        shutil.copytree(ROOT/'.claude/test-fixtures/switchyard'/('feature_dogfood_project' if kind=='feature' else 'bugfix_dogfood_project'),root,
                         ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         (root/'scripts/lib').mkdir(parents=True)
         shutil.copyfile(ROOT/'scripts/lib/isolated-electron.mjs',root/'scripts/lib/isolated-electron.mjs')
@@ -70,7 +70,7 @@ class Integration(unittest.TestCase):
                  for name,artifact in [('SPECIFY','microspec'),('IMPLEMENT','implementation_handoff'),('TRIAGE','bug_spec'),
                  ('REPRODUCE','reproduction_evidence'),('DIAGNOSE','diagnosis'),('SPECIFY_FIX','fix_microspec'),('FIX','implementation_handoff')]}
         # Use exact known fixture fix for bugfix (no contract/source changes by harness during run).
-        fix=FEATURE_FIX if kind=='feature' else (Path(CONFIG['switchyard_root'])/'tests/fixtures/bugfix_dogfood_project/task_queue.py').read_text().replace('self._pending = []','self._pending = []\n        self._sequence = 0').replace('(priority, len(self._pending), task))','(priority, self._sequence, task))\n        self._sequence += 1')
+        fix=FEATURE_FIX if kind=='feature' else (ROOT/'.claude/test-fixtures/switchyard/bugfix_dogfood_project/task_queue.py').read_text().replace('self._pending = []','self._pending = []\n        self._sequence = 0').replace('(priority, len(self._pending), task))','(priority, self._sequence, task))\n        self._sequence += 1')
         self.plan.write_text(json.dumps({'artifacts':outputs,'change':{'path':'catalog.py' if kind=='feature' else 'task_queue.py','content':fix}}))
         with patch('examples.delivery.presets.build_change',side_effect=AssertionError('legacy repair/delivery forbidden')), \
              patch('examples.delivery.presets.build_accept',side_effect=AssertionError('legacy accept forbidden')):
@@ -281,7 +281,7 @@ with patch('switchyard.provider_stages.execute',side_effect=AssertionError('no p
         self.assertEqual(snapshot.read_bytes(),(self.root/'.switchyard/config.yaml').read_bytes())
         (self.root/'.switchyard/config.yaml').write_text('not a valid config')
         self.assertEqual(self.app().current()['candidate_identity'],state['candidate_identity'])
-        self.assertEqual(self.qa('accept',state)['reason'],'unsupported_path')
+        self.assertEqual(self.qa('accept',state)['reason'],'unexpected_worktree_paths')
 
     def test_missing_project_config_is_actionable_before_invocation(self):
         (self.root/'.switchyard/config.yaml').unlink()
@@ -305,7 +305,7 @@ with patch('switchyard.provider_stages.execute',side_effect=AssertionError('no p
         self.assertEqual(b['model'],'gpt-6-astra')
 
     def test_reference_guard_and_explicit_kind(self):
-        with self.assertRaisesRegex(delivery.DeliveryError,'frozen V2'):delivery.check_reference(self.root)
+        with self.assertRaisesRegex(delivery.DeliveryError,'compatible Switchyard'):delivery.check_reference(self.root)
         with self.assertRaisesRegex(delivery.DeliveryError,'Choose feature or bugfix'):self.app().execute('deliver','task')
         self.assertFalse(self.calls.exists())
 

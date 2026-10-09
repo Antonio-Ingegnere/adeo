@@ -18,10 +18,11 @@ PROJECT = Path(__file__).resolve().parents[2]
 config_spec=importlib.util.spec_from_file_location('launch_config',Path(__file__).with_name('delivery.py'))
 launch=importlib.util.module_from_spec(config_spec);config_spec.loader.exec_module(launch)
 launch_config=launch.configuration(PROJECT)
-SWITCHYARD=launch_config['switchyard_root']
 interpreter=launch_config['python_executable']
 if Path(sys.executable).absolute()!=Path(interpreter).absolute():
     os.execv(interpreter,[interpreter,str(Path(__file__).resolve()),*sys.argv[1:]])
+launch.load_switchyard(launch_config)
+SWITCHYARD=launch_config['switchyard_root']
 delivery.load_switchyard({'switchyard_root': SWITCHYARD})
 from runtime import ExecutorResult, InvocationResponse
 from flow_config import LoadedFlow

@@ -3,16 +3,17 @@
 Adeo is an Electron todo app with TypeScript main/renderer and local FastAPI + SQLite.
 
 - `/deliver feature <request>` or `/deliver bugfix <report>` runs Switchyard V2 using `.switchyard/config.yaml` once.
+- `/deliver resume` resumes known interruptions explicitly; `/deliver rollback [reason]` restores the pre-delivery state.
 - READY_FOR_MANUAL_QA ends delivery without a commit. The human tests the application externally.
 - `/accept` commits the reviewed candidate through deterministic V2 safety checks; no manual staging or push.
 - `/reopen <feedback>` preserves changes and records human feedback without starting a model.
-- `/repair` is retired; `/qa-fix` redirects to reopen, not an automatic repair.
+- `/repair` is retired; `/qa-fix` records reopen feedback, not an automatic repair.
 - NEEDS_HUMAN, NEEDS_REDIAGNOSIS and COMMIT_BLOCKED stop automation.
 
 [Setup, commands, history and recovery](docs/agent/switchyard-delivery.md).
 Project-local `.switchyard/current.json` is navigation only; V2 WorkWorkspace owns durable truth.
 QA records live persistently outside the target in Adeo application data. Never edit pointers to
-bypass sequencing, resume interrupted runs, or invent history. Legacy records remain read-only.
+bypass sequencing or invent history; use the supported explicit recovery commands. Legacy records remain read-only.
 Agents never choose transitions, capabilities or final acceptance; Switchyard owns them.
 
 Inside a Switchyard invocation perform only the assigned stage. Never recursively invoke delivery,

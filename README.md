@@ -144,5 +144,8 @@ Windows uses a bundled PowerShell script (`server/reminder_notify_windows.ps1`) 
 
 ## Delivery workflow
 
-Use `/deliver <task>`, then human QA and `/accept` or `/repair <bug report>`.
+Install the pinned Python delivery dependency with `.venv/bin/python -m pip install -r requirements-delivery.txt`.
+Use `/deliver feature "request"` or `/deliver bugfix "report"`, then human QA and `/accept`
+or `/qa-fix "feedback"`. Use `/deliver resume` after an interruption, or `/deliver rollback [reason]`
+to discard the attempt safely. `SWITCHYARD_ROOT` is not required.
 See [Switchyard setup, verification and migration](docs/agent/switchyard-delivery.md).

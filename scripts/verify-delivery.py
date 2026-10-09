@@ -16,6 +16,7 @@ def main():
     npm, node, python = (config[k + '_executable'] for k in ('npm', 'node', 'python'))
     checks = [[npm, 'run', 'build'],
               [python, str(ROOT / '.claude/scripts/delivery-selftest.py')],
+              [python, str(ROOT / '.claude/scripts/recovery-selftest.py')],
               [python, str(ROOT / '.claude/scripts/delivery-legacy-selftest.py')],
               [python, str(ROOT / '.claude/scripts/product-designer-selftest.py')]]
     checks += [[node, str(path)] for path in sorted((ROOT / 'scripts').glob('*-selftest.mjs'))]

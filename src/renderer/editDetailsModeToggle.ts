@@ -22,22 +22,30 @@ export type EditDetailsController = Readonly<{
   toolbar: HTMLDivElement;
   setMarkdown: (markdown: string) => void;
   getMarkdown: () => string;
+  /** Inserts an attachment reference at the remembered selection/caret of whichever mode is
+   *  active, as one undoable edit -- see markdownEditorCommands.ts's insertLink / richEditor.ts's
+   *  insertAttachmentLink. */
+  insertAttachmentReference: (attachmentId: string, label: string) => void;
 }>;
 
 /**
  * Wires the toggle. `markdownHost` is `#edit-details` (a CodeMirror 6 mount point); `rich` is
  * `#edit-details-rich` (a TipTap mount point -- see dom.ts's editDetailsRich/editDetailsMode*).
+ * `onOpenAttachment` fires when the user activates an `attachment:<id>` reference in either mode
+ * (Ctrl/Cmd-click in Markdown, a plain click on the rendered link in WYSIWYG).
  */
 export const initEditDetailsModeToggle = (
   markdownHost: HTMLDivElement,
   rich: HTMLDivElement,
-  switchInputs: { markdown: HTMLInputElement; wysiwyg: HTMLInputElement }
+  switchInputs: { markdown: HTMLInputElement; wysiwyg: HTMLInputElement },
+  onOpenAttachment?: (attachmentId: string) => void
 ): EditDetailsController => {
   let mode: EditDetailsMode = 'markdown';
 
   const editor: MarkdownEditorHandle = createMarkdownEditor(markdownHost, {
     initialValue: '',
     placeholder: t('editModal.detailsPlaceholder'),
+    onOpenAttachment,
   });
   const stopLocaleListener = onLocaleChange(() => {
     editor.setPlaceholder(t('editModal.detailsPlaceholder'));
@@ -50,6 +58,7 @@ export const initEditDetailsModeToggle = (
   // lifecycle -- never recreated per keystroke or per mode switch.
   const richEditor: RichEditorHandle = createRichEditor(rich, {
     onUpdate: () => toolbarHandle.refreshActiveState(),
+    onOpenAttachment,
   });
 
   // WYSIWYG's semantic commands: thin bindings onto richEditor's TipTap chain commands and
@@ -137,5 +146,14 @@ export const initEditDetailsModeToggle = (
 
   applyMode();
 
-  return { toolbar: toolbarHandle.root, setMarkdown, getMarkdown };
+  const insertAttachmentReference = (attachmentId: string, label: string): void => {
+    const href = `attachment:${attachmentId}`;
+    if (mode === 'wysiwyg') {
+      richEditor.insertAttachmentLink(label, href);
+    } else {
+      editor.insertLink(label, href);
+    }
+  };
+
+  return { toolbar: toolbarHandle.root, setMarkdown, getMarkdown, insertAttachmentReference };
 };

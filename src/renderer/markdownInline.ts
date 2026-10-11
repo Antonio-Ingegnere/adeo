@@ -33,7 +33,31 @@ export type InlineNode =
   | { kind: 'text'; text: string }
   | { kind: 'code'; text: string }
   | { kind: 'strong'; children: InlineNode[] }
-  | { kind: 'em'; children: InlineNode[] };
+  | { kind: 'em'; children: InlineNode[] }
+  | { kind: 'attachmentLink'; id: string; label: string };
+
+/** Matches the one link form this scoped parser recognizes: `[label](attachment:<id>)`. Nothing
+ *  else shaped like `[...](...)` is a link here (see the task brief's non-goals: no general
+ *  Markdown hyperlink feature) -- it is left as literal text, same as any other unmatched `[`.
+ *  The label alternation (`\\.` or any non-`]`/non-`\` char) is escape-aware so a backslash-
+ *  escaped `]` inside the label -- as produced by escapeAttachmentLabel below, and by the
+ *  WYSIWYG editor's Markdown serializer -- doesn't end the token early. `ATTACHMENT_LINK_RE_GLOBAL`
+ *  is the same pattern, unanchored and global, for scanning a whole line (markdownEditor.ts's
+ *  Ctrl/Cmd-click hit test) rather than matching only at a known start offset. */
+const ATTACHMENT_LINK_RE = /^\[((?:\\.|[^\]\\])+)\]\(attachment:([A-Za-z0-9_-]+)\)/;
+export const ATTACHMENT_LINK_RE_GLOBAL = /\[((?:\\.|[^\]\\])+)\]\(attachment:([A-Za-z0-9_-]+)\)/g;
+
+/** Backslash-escapes the Markdown-significant characters used inside an attachment reference's
+ *  label so it round-trips through `[label](attachment:<id>)` even when it contains `]`, `` ` ``,
+ *  etc. Matches the character set `prosemirror-markdown`'s default serializer escapes (used by
+ *  the WYSIWYG editor via tiptap-markdown), so both editing modes produce consistently-escaped
+ *  Markdown that unescapeAttachmentLabel can decode the same way regardless of origin. */
+export const escapeAttachmentLabel = (label: string): string => label.replace(/[`*\\~[\]_]/g, '\\$&');
+
+/** Inverse of escapeAttachmentLabel (and of the WYSIWYG serializer's own escaping): strips the
+ *  backslash in front of any escaped character. A trailing lone backslash with nothing after it
+ *  is left untouched rather than dropped, same as literal/malformed text elsewhere in this parser. */
+export const unescapeAttachmentLabel = (label: string): string => label.replace(/\\(.)/g, '$1');
 
 type MarkType = 'strong' | 'em';
 
@@ -89,6 +113,19 @@ export const parseInlineMarkdown = (text: string): InlineNode[] => {
 
   while (i < n) {
     const ch = text[i];
+
+    if (ch === '[') {
+      const match = ATTACHMENT_LINK_RE.exec(text.slice(i));
+      if (match) {
+        topFrame().children.push({
+          kind: 'attachmentLink',
+          id: match[2],
+          label: unescapeAttachmentLabel(match[1]),
+        });
+        i += match[0].length;
+        continue;
+      }
+    }
 
     if (ch === '`') {
       // Count opening backticks

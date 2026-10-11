@@ -158,7 +158,11 @@ const inlineNodesToHtml = (nodes: InlineNode[]): string =>
       if (node.kind === 'text') return node.text;
       if (node.kind === 'code') return `<code>${node.text}</code>`;
       if (node.kind === 'strong') return `<strong>${inlineNodesToHtml(node.children)}</strong>`;
-      return `<em>${inlineNodesToHtml(node.children)}</em>`;
+      if (node.kind === 'em') return `<em>${inlineNodesToHtml(node.children)}</em>`;
+      // data-attachment-id drives the click delegation createDetailsElement wires up below;
+      // this is deliberately not a real <a href>, so there is nothing here for the OS/browser to
+      // navigate to on its own.
+      return `<span class="attachment-ref-link" data-attachment-id="${node.id}" role="button" tabindex="0">${node.label}</span>`;
     })
     .join('');
 
@@ -313,5 +317,48 @@ export const createDetailsElement = (
   }
 
   closeList();
+
+  // Flashes a brief visible error directly on the clicked reference itself -- this read-only
+  // Details view (outside Edit Task) has no error banner of its own to route a failure through.
+  const flashAttachmentError = (el: HTMLElement, message: string) => {
+    el.classList.add('attachment-ref-link--error');
+    el.title = message;
+    setTimeout(() => {
+      el.classList.remove('attachment-ref-link--error');
+      el.title = '';
+    }, 4000);
+  };
+
+  const openAttachmentRef = (el: HTMLElement) => {
+    const attachmentId = el.dataset.attachmentId;
+    if (!attachmentId) return;
+    window.electronAPI
+      .openAttachment(attachmentId)
+      .then((result) => {
+        if (result && (result as { error?: string }).error) {
+          flashAttachmentError(el, (result as { error: string }).error);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to open attachment', error);
+        flashAttachmentError(el, String(error));
+      });
+  };
+  container.addEventListener('click', (event) => {
+    const ref = (event.target as HTMLElement).closest<HTMLElement>('.attachment-ref-link');
+    if (!ref) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openAttachmentRef(ref);
+  });
+  container.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const ref = (event.target as HTMLElement).closest<HTMLElement>('.attachment-ref-link');
+    if (!ref) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openAttachmentRef(ref);
+  });
+
   return container;
 };

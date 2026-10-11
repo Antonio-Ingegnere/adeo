@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  Attachment,
+  AttachmentImportFailure,
   Board,
   BoardColumn,
   BoardColumnSourceKind,
@@ -139,6 +141,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('open-task-edit', listener);
   },
   notifyRendererReady: () => ipcRenderer.send('renderer-ready'),
+  selectAttachmentFiles: () => ipcRenderer.invoke('select-attachment-files') as Promise<string[]>,
+  importTaskAttachments: (taskId: number, sourcePaths: string[]) =>
+    ipcRenderer.invoke('import-task-attachments', taskId, sourcePaths) as Promise<
+      { attachments: Attachment[]; failures: AttachmentImportFailure[] } | { error: string }
+    >,
+  getTaskAttachments: (taskId: number) => ipcRenderer.invoke('get-task-attachments', taskId) as Promise<Attachment[]>,
+  deleteTaskAttachment: (taskId: number, attachmentId: string) =>
+    ipcRenderer.invoke('delete-task-attachment', taskId, attachmentId) as Promise<{ id: string } | { error: string }>,
+  openAttachment: (attachmentId: string) =>
+    ipcRenderer.invoke('open-attachment', attachmentId) as Promise<{ opened: true } | { error: string }>,
 } satisfies ElectronAPI);
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -1,4 +1,4 @@
-import type { Board, List, LocaleCode, SmartList, Tag, Task, Theme } from '../types';
+import type { Attachment, Board, List, LocaleCode, SmartList, Tag, Task, Theme } from '../types';
 import type { CompiledPredicate, ParseError } from './query.js';
 
 /**
@@ -97,6 +97,15 @@ export type UIState = {
   modalRepeat: string | null;
   modalRepeatRule: string | null;
   modalRepeatStart: string | null;
+  /** The task currently open in Edit Task's attachments, loaded on open and cleared on close. */
+  modalAttachments: Attachment[];
+  /**
+   * Ids imported into the task open in Edit Task during *this* dialog session, so Cancel/dismiss
+   * can unlink + clean them up again (Save leaves them alone -- see modals.ts). Save/open already
+   * persist attachment links immediately (there is no separate draft to discard on Save), so this
+   * list only ever matters for the discard path.
+   */
+  modalAttachmentsSessionAdded: string[];
   searchQuery: string;
   searchMode: 'simple' | 'advanced';
   queryPredicate: CompiledPredicate | null;
@@ -196,6 +205,8 @@ export const state: UIState = {
   modalRepeat: null,
   modalRepeatRule: null,
   modalRepeatStart: null,
+  modalAttachments: [],
+  modalAttachmentsSessionAdded: [],
   searchQuery: '',
   searchMode: 'simple',
   queryPredicate: null,

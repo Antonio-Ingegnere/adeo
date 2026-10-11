@@ -166,6 +166,13 @@ export const refs = {
   composePriorityValue: byId<HTMLSpanElement>('compose-priority-value'),
   composeReminderField: byId<HTMLDivElement>('compose-reminder-field'),
   composeReminderDate: byId<HTMLInputElement>('compose-reminder-date'),
+  attachmentsPicker: byId<HTMLButtonElement>('attachments-picker'),
+  attachmentsLabel: byId<HTMLSpanElement>('attachments-label'),
+  attachmentsMenu: byId<HTMLDivElement>('attachments-menu'),
+  attachmentsMenuList: byId<HTMLDivElement>('attachments-menu-list'),
+  attachmentsMenuEmpty: byId<HTMLDivElement>('attachments-menu-empty'),
+  attachmentsAddBtn: byId<HTMLButtonElement>('attachments-add-button'),
+  attachmentsError: byId<HTMLParagraphElement>('attachments-error'),
 };
 
 export const dropIndicator = (() => {

@@ -379,12 +379,21 @@ export type RichEditorHandle = Readonly<{
   isInlineCodeActive: () => boolean;
   isBlockquoteActive: () => boolean;
   isCodeBlockActive: () => boolean;
+  /** Inserts `label` as a link to `href` at the current selection/caret (one undo step). */
+  insertAttachmentLink: (label: string, href: string) => void;
 }>;
 
 export type RichEditorOptions = Readonly<{
   /** Fired on every selection/document transaction, so the shared toolbar can refresh its
    *  isXActive-driven highlighting live (semantic `editor.isActive(...)` state), not just on click. */
   onUpdate?: () => void;
+  /**
+   * Fired when the user clicks a rendered `attachment:<id>` link (the Link mark's `href` is
+   * parsed straight out of `attachment:<id>` -- see insertAttachmentLink below). Link's own
+   * `openOnClick: false` leaves every link otherwise inert, so this is the only way such a link
+   * is ever actionable in WYSIWYG mode.
+   */
+  onOpenAttachment?: (attachmentId: string) => void;
 }>;
 
 /**
@@ -415,7 +424,12 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
         // token, which is what keeps such content lossless through a Markdown -> WYSIWYG ->
         // Markdown round-trip (the data-loss rule) instead of risking the parser dropping/
         // mis-consuming it.
-        link: { openOnClick: false, autolink: false },
+        // `protocols: ['attachment']` extends the extension's default scheme allowlist (http(s),
+        // mailto, etc. -- see @tiptap/extension-link's isAllowedUri) to include attachment:<id>
+        // hrefs; without it, isAllowedUri rejects the scheme and renderHTML blanks the rendered
+        // <a>'s href to "" on every render, leaving every attachment reference unclickable (its
+        // mark attrs/Markdown serialization are unaffected either way -- only the rendered DOM).
+        link: { openOnClick: false, autolink: false, protocols: ['attachment'] },
         // Disabled here so the explicit `EmptyParagraphMarkdownParagraph` below (same node name,
         // `@tiptap/extension-paragraph` directly) is the one actually registered -- needed to
         // attach the D-007 empty-paragraph markdown storage (see its comment).
@@ -442,6 +456,18 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
     autofocus: false,
     onSelectionUpdate: () => options.onUpdate?.(),
     onTransaction: () => options.onUpdate?.(),
+  });
+
+  // Link's `openOnClick: false` above leaves every rendered <a> inert by default (see that
+  // option's comment); this re-enables exactly one specific case, a click on an attachment
+  // reference, by reading the id straight back out of its href rather than navigating anywhere.
+  element.addEventListener('click', (event) => {
+    const anchor = (event.target as HTMLElement | null)?.closest?.('a[href^="attachment:"]');
+    if (!anchor) return;
+    event.preventDefault();
+    const href = anchor.getAttribute('href') ?? '';
+    const attachmentId = href.slice('attachment:'.length);
+    if (attachmentId) options.onOpenAttachment?.(attachmentId);
   });
 
   // tiptap-markdown's `setContent` override already parses a plain Markdown string into the
@@ -474,5 +500,11 @@ export const createRichEditor = (element: HTMLElement, options: RichEditorOption
     isInlineCodeActive: () => editor.isActive('code'),
     isBlockquoteActive: () => editor.isActive('blockquote'),
     isCodeBlockActive: () => editor.isActive('codeBlock'),
+    insertAttachmentLink: (label: string, href: string) =>
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: 'text', text: label, marks: [{ type: 'link', attrs: { href } }] })
+        .run(),
   };
 };

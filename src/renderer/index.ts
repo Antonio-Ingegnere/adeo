@@ -34,6 +34,7 @@ import {
   toggleTaskDone,
 } from './tasks.js';
 import {
+  addEditingTaskAttachments,
   closeEditModal,
   closeListModal,
   closeTagModal,
@@ -42,6 +43,7 @@ import {
   openEditModal,
   openEditTagModal,
   openListModal,
+  renderAttachmentsMenu,
   renderModalLists,
   renderTagsMenu,
   saveEdit,
@@ -966,6 +968,25 @@ const setupEvents = () => {
     }
   });
 
+  refs.attachmentsPicker?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!refs.attachmentsMenu) return;
+    if (refs.attachmentsMenu.style.display === 'flex') {
+      refs.attachmentsMenu.style.display = 'none';
+    } else {
+      renderAttachmentsMenu();
+      positionDropdown(refs.attachmentsMenu, refs.attachmentsPicker ?? refs.attachmentsMenu);
+    }
+  });
+
+  refs.attachmentsMenu?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
+  refs.attachmentsAddBtn?.addEventListener('click', () => {
+    void addEditingTaskAttachments();
+  });
+
   // both panels show a count of open tasks, so both have to follow any change to the task
   // collection -- adding one, completing one, or moving one to another list. renderTasks
   // dispatches this after every one of those, which is why neither panel needs to know about
@@ -1657,6 +1678,9 @@ const setupEvents = () => {
     }
     if (refs.tagsMenu) {
       refs.tagsMenu.style.display = 'none';
+    }
+    if (refs.attachmentsMenu) {
+      refs.attachmentsMenu.style.display = 'none';
     }
     if (refs.tagSuggestMenu) {
       refs.tagSuggestMenu.style.display = 'none';

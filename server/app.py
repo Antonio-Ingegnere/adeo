@@ -1,7 +1,9 @@
 import logging
 import os
+import shutil
 import sqlite3
 import sys
+import uuid
 from datetime import datetime
 from typing import Any, Optional, List, Dict
 
@@ -11,7 +13,7 @@ from fastapi import FastAPI, HTTPException
 from dateutil.rrule import rrulestr
 from pydantic import BaseModel
 
-from reminders import get_conn, get_due_reminders, parse_dtstart
+from reminders import DB_PATH, get_conn, get_due_reminders, parse_dtstart
 
 app = FastAPI()
 
@@ -33,6 +35,37 @@ def has_table(conn: sqlite3.Connection, table: str) -> bool:
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
   ).fetchone()
   return row is not None
+
+
+# Co-located with the SQLite file rather than a fixed OS path, so it automatically follows
+# ADEO_DB_PATH -- including the isolated per-test paths the Electron test harness sets -- the same
+# way the database itself does.
+def attachments_dir() -> str:
+  directory = os.path.join(os.path.dirname(DB_PATH), "attachments")
+  os.makedirs(directory, exist_ok=True)
+  return directory
+
+
+def gc_attachment(conn: sqlite3.Connection, attachment_id: str) -> None:
+  """Deletes `attachment_id`'s row and stored file once no task references it any more."""
+  still_used = conn.execute(
+    "SELECT 1 FROM task_attachments WHERE attachment_id = ? LIMIT 1", (attachment_id,)
+  ).fetchone()
+  if still_used:
+    return
+  row = conn.execute(
+    "SELECT stored_name FROM attachments WHERE id = ?", (attachment_id,)
+  ).fetchone()
+  if row:
+    stored_path = os.path.join(attachments_dir(), row["stored_name"])
+    try:
+      if os.path.isfile(stored_path):
+        os.remove(stored_path)
+    except OSError:
+      # The row still being deleted below matters more than a single stray file on disk; a
+      # locked/already-missing file cannot be allowed to leave the row (and its name) stuck.
+      pass
+  conn.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
 
 
 def initialize_db() -> None:
@@ -158,6 +191,33 @@ def initialize_db() -> None:
         source_kind TEXT NOT NULL,
         source_id INTEGER NOT NULL,
         position INTEGER NOT NULL DEFAULT 0
+      )
+      """
+    )
+    # An attachment is an app-managed copy of a file the user picked, stored under
+    # attachments_dir() by a generated `stored_name` -- never by the original filename, so two
+    # different source files named the same thing never collide. `original_name` is display-only.
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS attachments (
+        id TEXT PRIMARY KEY,
+        original_name TEXT NOT NULL,
+        stored_name TEXT NOT NULL UNIQUE,
+        size INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+      """
+    )
+    # One attachment can be referenced by more than one task (a recurring task's next occurrence
+    # inherits its predecessor's attachments -- see update_task_done), so this is a join table, not
+    # a column on `tasks`. An attachment with no remaining row here is garbage and is deleted
+    # (row + stored file) the moment that happens -- see gc_attachment().
+    conn.execute(
+      """
+      CREATE TABLE IF NOT EXISTS task_attachments (
+        task_id INTEGER NOT NULL,
+        attachment_id TEXT NOT NULL,
+        PRIMARY KEY (task_id, attachment_id)
       )
       """
     )
@@ -290,6 +350,10 @@ class BoardColumnRef(BaseModel):
 
 class BoardColumns(BaseModel):
   columns: List[BoardColumnRef]
+
+
+class AttachmentImport(BaseModel):
+  sourcePaths: List[str]
 
 
 TAG_PALETTE = [
@@ -467,6 +531,13 @@ def update_task_done(task_id: int, payload: TaskDone) -> Dict[str, Any]:
           "INSERT INTO task_tags (task_id, tag_id) SELECT ?, tag_id FROM task_tags WHERE task_id = ?",
           (insert_cursor.lastrowid, row["id"]),
         )
+        # The next occurrence inherits the completed occurrence's attachments (working
+        # references, not copies -- see gc_attachment, which only reclaims a file once no task,
+        # including this new row, references it any more).
+        conn.execute(
+          "INSERT INTO task_attachments (task_id, attachment_id) SELECT ?, attachment_id FROM task_attachments WHERE task_id = ?",
+          (insert_cursor.lastrowid, row["id"]),
+        )
       conn.commit()
     else:
       conn.commit()
@@ -508,7 +579,19 @@ def delete_task(task_id: int) -> Dict[str, Any]:
     # task_tags first: there is no ON DELETE CASCADE on the join table, so skipping this
     # would strand rows pointing at a task that no longer exists.
     conn.execute("DELETE FROM task_tags WHERE task_id = ?", (task_id,))
+    attachment_ids = [
+      row["attachment_id"]
+      for row in conn.execute(
+        "SELECT attachment_id FROM task_attachments WHERE task_id = ?", (task_id,)
+      ).fetchall()
+    ]
+    conn.execute("DELETE FROM task_attachments WHERE task_id = ?", (task_id,))
     conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    # Releases this task's attachment associations; an attachment still referenced by another
+    # task (e.g. the next occurrence of a recurring series) survives -- only now-orphaned ones
+    # are actually deleted from disk.
+    for attachment_id in attachment_ids:
+      gc_attachment(conn, attachment_id)
     conn.commit()
     return {"id": task_id}
   finally:
@@ -768,6 +851,109 @@ def set_task_tags(task_id: int, payload: TaskTags) -> Dict[str, Any]:
         applied.append(tag_id)
     conn.commit()
     return {"id": task_id, "tagIds": applied}
+  finally:
+    conn.close()
+
+
+# ---------- Attachments ----------
+# An attachment is an app-managed copy (never the original selected file) of something the user
+# picked from the Edit Task dialog, referenced from `details` Markdown by stable id
+# (`attachment:<id>`) rather than by the original path/filename -- see attachments_dir()/
+# gc_attachment() above. File selection and the OS "open" dialog happen in the Electron main
+# process (src/main.ts); this section only ever receives already-chosen absolute paths.
+
+
+def attachment_row(row: sqlite3.Row) -> Dict[str, Any]:
+  return {"id": row["id"], "name": row["original_name"], "size": row["size"]}
+
+
+@app.post("/tasks/{task_id}/attachments/import")
+def import_task_attachments(task_id: int, payload: AttachmentImport) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    task = conn.execute("SELECT id FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if not task:
+      raise HTTPException(status_code=404, detail="Task not found")
+    directory = attachments_dir()
+    succeeded: List[Dict[str, Any]] = []
+    failures: List[Dict[str, str]] = []
+    for source_path in payload.sourcePaths:
+      display_name = os.path.basename(source_path) or source_path
+      try:
+        if not os.path.isfile(source_path):
+          raise OSError("File not found")
+        size = os.path.getsize(source_path)
+        attachment_id = uuid.uuid4().hex
+        ext = os.path.splitext(source_path)[1]
+        stored_name = f"{attachment_id}{ext}"
+        shutil.copyfile(source_path, os.path.join(directory, stored_name))
+        conn.execute(
+          "INSERT INTO attachments (id, original_name, stored_name, size) VALUES (?, ?, ?, ?)",
+          (attachment_id, display_name, stored_name, size),
+        )
+        conn.execute(
+          "INSERT INTO task_attachments (task_id, attachment_id) VALUES (?, ?)",
+          (task_id, attachment_id),
+        )
+        succeeded.append({"id": attachment_id, "name": display_name, "size": size})
+      except OSError as error:
+        failures.append({"name": display_name, "error": str(error)})
+    conn.commit()
+    return {"attachments": succeeded, "failures": failures}
+  finally:
+    conn.close()
+
+
+@app.get("/tasks/{task_id}/attachments")
+def get_task_attachments(task_id: int) -> List[Dict[str, Any]]:
+  conn = get_conn()
+  try:
+    rows = conn.execute(
+      """
+      SELECT a.id as id, a.original_name as original_name, a.size as size
+      FROM attachments a
+      JOIN task_attachments ta ON ta.attachment_id = a.id
+      WHERE ta.task_id = ?
+      ORDER BY a.created_at ASC, a.id ASC
+      """,
+      (task_id,),
+    ).fetchall()
+    return [attachment_row(row) for row in rows]
+  finally:
+    conn.close()
+
+
+@app.get("/attachments/{attachment_id}")
+def get_attachment(attachment_id: str) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    row = conn.execute(
+      "SELECT id, original_name, stored_name, size FROM attachments WHERE id = ?",
+      (attachment_id,),
+    ).fetchone()
+    if not row:
+      raise HTTPException(status_code=404, detail="Attachment not found")
+    return {
+      "id": row["id"],
+      "name": row["original_name"],
+      "size": row["size"],
+      "storedName": row["stored_name"],
+    }
+  finally:
+    conn.close()
+
+
+@app.delete("/tasks/{task_id}/attachments/{attachment_id}")
+def delete_task_attachment(task_id: int, attachment_id: str) -> Dict[str, Any]:
+  conn = get_conn()
+  try:
+    conn.execute(
+      "DELETE FROM task_attachments WHERE task_id = ? AND attachment_id = ?",
+      (task_id, attachment_id),
+    )
+    gc_attachment(conn, attachment_id)
+    conn.commit()
+    return {"id": attachment_id}
   finally:
     conn.close()
 

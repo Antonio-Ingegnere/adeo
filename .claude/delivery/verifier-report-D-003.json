@@ -1,0 +1,26 @@
+{
+  "verdict": "pass",
+  "domain_correctness": {
+    "assessment": "Transcribed from the targeted verifier's hand-back (claim V-1-6-1790458319). The human-decided rule (ring purely from real DOM focus, no roving pseudo-focus) is consistently upheld throughout.",
+    "evidence": ["commit a7fb743 at fingerprint 88c18822", "state.human_resume decision"]
+  },
+  "implementation_correctness": {
+    "assessment": "All three code changes (tabIndex distribution to every row, menu button tabbability via opacity-only, ring derivation strictly from real DOM focus) are correctly implemented and match the description. No regression detected.",
+    "evidence": ["src/renderer/tasks.ts buildTaskRow row.tabIndex = 0", "styles.css .task-menu-btn visibility: hidden removed", "quality gate passed at this fingerprint (86 self-test checks), not re-run per scope"]
+  },
+  "adversarial_scenarios": [
+    {
+      "scenario": "Focus lands on a child control (checkbox/expand/kebab) inside a row",
+      "result": "Row ring not shown; focusin handler enforces ring-only-on-row-focus via event.target === row",
+      "evidence": "attachTaskListKeyboard focusin: markCursorRow(row, event.target === row)"
+    },
+    {
+      "scenario": "Re-render while a child control holds focus",
+      "result": "Focus restored to the child without the row ring, preventing overlap with :focus-visible",
+      "evidence": "applyTaskFocus 'child' mode calls markCursorRow(target, false)"
+    }
+  ],
+  "residual_risks": [],
+  "observations": [],
+  "defects": []
+}

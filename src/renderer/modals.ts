@@ -1,4 +1,4 @@
-import type { List } from '../types.js';
+import type { Attachment, List } from '../types.js';
 import { renderListOptions, renderLists } from './lists.js';
 import { renderTags, sortTags } from './tags.js';
 import { deleteTask, renderTasks } from './tasks.js';
@@ -10,6 +10,21 @@ import { asPriority, setPriorityAttr } from './theme.js';
 import { TAG_PALETTE, makeTagDot } from './tagColor.js';
 import { onLocaleChange, t } from './i18n/index.js';
 import { initEditDetailsModeToggle, type EditDetailsController } from './editDetailsModeToggle.js';
+
+/** Opens attachmentId's stored copy via the main process; surfaces failures in the Attachments
+ *  panel the same way importing/adding already does. Shared by the panel's Open button, the
+ *  Markdown mode Ctrl/Cmd-click gesture and the WYSIWYG click handler. */
+const openAttachment = async (attachmentId: string): Promise<void> => {
+  try {
+    const result = await window.electronAPI.openAttachment(attachmentId);
+    if (result && (result as { error?: string }).error) {
+      showAttachmentsError((result as { error: string }).error);
+    }
+  } catch (error) {
+    console.error('Failed to open attachment', error);
+    showAttachmentsError(t('editModal.attachmentsOpenError'));
+  }
+};
 
 /**
  * Built once, lazily, the first time the Edit Task modal opens -- refs.editDetailsInput/
@@ -28,10 +43,15 @@ const getEditDetailsController = (): EditDetailsController | null => {
   ) {
     return null;
   }
-  editDetailsController = initEditDetailsModeToggle(refs.editDetailsInput, refs.editDetailsRich, {
-    markdown: refs.editDetailsModeMarkdown,
-    wysiwyg: refs.editDetailsModeWysiwyg,
-  });
+  editDetailsController = initEditDetailsModeToggle(
+    refs.editDetailsInput,
+    refs.editDetailsRich,
+    {
+      markdown: refs.editDetailsModeMarkdown,
+      wysiwyg: refs.editDetailsModeWysiwyg,
+    },
+    (attachmentId) => void openAttachment(attachmentId)
+  );
   refs.editDetailsToolbarSlot.appendChild(editDetailsController.toolbar);
   return editDetailsController;
 };
@@ -139,6 +159,144 @@ export const renderTagsMenu = () => {
   });
 };
 
+export const updateAttachmentsUI = () => {
+  if (!refs.attachmentsLabel) return;
+  const count = state.modalAttachments.length;
+  if (count === 0) {
+    refs.attachmentsLabel.textContent = t('editModal.valueNone');
+  } else if (count === 1) {
+    refs.attachmentsLabel.textContent = state.modalAttachments[0].name;
+  } else {
+    refs.attachmentsLabel.textContent = `${state.modalAttachments[0].name} +${count - 1}`;
+  }
+};
+
+const showAttachmentsError = (message: string) => {
+  if (!refs.attachmentsError) return;
+  refs.attachmentsError.textContent = message;
+  refs.attachmentsError.style.display = message ? 'block' : 'none';
+};
+
+const clearAttachmentsError = () => showAttachmentsError('');
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+};
+
+export const renderAttachmentsMenu = () => {
+  if (!refs.attachmentsMenuList || !refs.attachmentsMenu) return;
+  const container = refs.attachmentsMenuList;
+  container.innerHTML = '';
+  if (refs.attachmentsMenuEmpty) {
+    refs.attachmentsMenuEmpty.style.display = state.modalAttachments.length === 0 ? 'block' : 'none';
+  }
+  state.modalAttachments.forEach((attachment) => {
+    const item = document.createElement('div');
+    item.className = 'attachments-item';
+
+    const name = document.createElement('span');
+    name.className = 'attachments-item-name';
+    name.textContent = attachment.name;
+    name.title = `${attachment.name} (${formatFileSize(attachment.size)})`;
+
+    const actions = document.createElement('div');
+    actions.className = 'attachments-item-actions';
+
+    const insertBtn = document.createElement('button');
+    insertBtn.type = 'button';
+    insertBtn.className = 'attachments-item-action';
+    insertBtn.textContent = t('editModal.attachmentsInsert');
+    insertBtn.setAttribute('aria-label', `${t('editModal.attachmentsInsertAria')}: ${attachment.name}`);
+    insertBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      getEditDetailsController()?.insertAttachmentReference(attachment.id, attachment.name);
+    });
+
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'attachments-item-action';
+    openBtn.textContent = t('editModal.attachmentsOpen');
+    openBtn.setAttribute('aria-label', `${t('editModal.attachmentsOpenAria')}: ${attachment.name}`);
+    openBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void openAttachment(attachment.id);
+    });
+
+    actions.appendChild(insertBtn);
+    actions.appendChild(openBtn);
+    item.appendChild(name);
+    item.appendChild(actions);
+    container.appendChild(item);
+  });
+};
+
+/** Loads the attachments currently linked to `taskId` from the backend into the Edit Task
+ *  dialog's working state. Called on open, and after a successful import/add. */
+const loadTaskAttachments = async (taskId: number): Promise<void> => {
+  try {
+    const attachments = await window.electronAPI.getTaskAttachments(taskId);
+    state.modalAttachments = Array.isArray(attachments) ? attachments : [];
+  } catch (error) {
+    console.error('Failed to load task attachments', error);
+    state.modalAttachments = [];
+  }
+  renderAttachmentsMenu();
+  updateAttachmentsUI();
+};
+
+/**
+ * Add Files: opens the native file picker (main process) and, for whatever the user selected,
+ * imports + links each file to the task currently open in Edit Task, immediately (there is no
+ * separate "pending" draft for attachments -- see state.ts's modalAttachmentsSessionAdded doc
+ * comment for how Cancel still discards them). A canceled picker or an empty selection is a
+ * silent no-op, matching every other picker in the app.
+ */
+export const addEditingTaskAttachments = async (): Promise<void> => {
+  const taskId = state.editingTaskId;
+  if (!taskId) return;
+  clearAttachmentsError();
+  let sourcePaths: string[];
+  try {
+    sourcePaths = await window.electronAPI.selectAttachmentFiles();
+  } catch (error) {
+    console.error('Failed to open file picker', error);
+    return;
+  }
+  if (!sourcePaths || sourcePaths.length === 0) return;
+  try {
+    const result = await window.electronAPI.importTaskAttachments(taskId, sourcePaths);
+    if (!result || (result as { error?: string }).error) {
+      showAttachmentsError((result as { error?: string })?.error ?? t('editModal.attachmentsImportError'));
+      return;
+    }
+    const { attachments, failures } = result as {
+      attachments: Attachment[];
+      failures: { name: string; error: string }[];
+    };
+    // Stale-result guard: the dialog may have been closed (or reopened on a different task)
+    // while the native picker / import round trip was in flight.
+    if (state.editingTaskId !== taskId) return;
+    state.modalAttachments = [...state.modalAttachments, ...attachments];
+    state.modalAttachmentsSessionAdded.push(...attachments.map((a) => a.id));
+    renderAttachmentsMenu();
+    updateAttachmentsUI();
+    if (failures.length > 0) {
+      showAttachmentsError(`${t('editModal.attachmentsImportError')}: ${failures.map((f) => f.name).join(', ')}`);
+    }
+  } catch (error) {
+    console.error('Failed to import attachments', error);
+    showAttachmentsError(t('editModal.attachmentsImportError'));
+  }
+};
+
 /**
  * Re-paint value labels whenever the language changes. This runs on every setLocale call,
  * including the initial one at boot, so an open Edit dialog will reflow when the user
@@ -152,6 +310,8 @@ onLocaleChange(() => {
     updateRepeatUI(state.modalRepeat);
     renderTagsMenu();
     updateTagsUI();
+    renderAttachmentsMenu();
+    updateAttachmentsUI();
   }
 });
 
@@ -192,8 +352,12 @@ export const openEditModal = (taskId: number) => {
   state.modalRepeatStart = task.repeatStart ?? null;
   state.modalRepeat = deriveRepeatLabel(task.repeatRule ?? null);
   state.modalTagIds = [...(task.tagIds ?? [])];
+  state.modalAttachments = [];
+  state.modalAttachmentsSessionAdded = [];
   refs.editInput.value = task.text;
   getEditDetailsController()?.setMarkdown(task.details || '');
+  clearAttachmentsError();
+  void loadTaskAttachments(taskId);
   if (refs.reminderDateInput) {
     refs.reminderDateInput.value = state.modalReminderDate ?? '';
   }
@@ -228,14 +392,38 @@ export const openEditModal = (taskId: number) => {
   if (refs.tagsMenu) {
     refs.tagsMenu.style.display = 'none';
   }
+  if (refs.attachmentsMenu) {
+    refs.attachmentsMenu.style.display = 'none';
+  }
+  renderAttachmentsMenu();
+  updateAttachmentsUI();
   // Opening always focuses programmatically, not via a click on the field itself, so any
   // leftover pointer-focus class from a previous session should not suppress this focus's ring.
   refs.editInput.classList.remove('pointer-focus');
   setTimeout(() => refs.editInput?.focus(), 0);
 };
 
+/**
+ * Discards attachments imported (via Add Files) during the session now being abandoned --
+ * Cancel, the header ✕, Escape or an outside-overlay click, never Save (see saveEdit, which
+ * clears modalAttachmentsSessionAdded instead of calling this). Unlinking releases this task's
+ * reference; the server reclaims the stored copy once no task references it any more (see
+ * gc_attachment in server/app.py), so this never touches a copy a Save in some *other* dialog
+ * session already kept.
+ */
+const discardSessionAttachments = (taskId: number, attachmentIds: string[]): void => {
+  attachmentIds.forEach((attachmentId) => {
+    window.electronAPI.deleteTaskAttachment(taskId, attachmentId).catch((error) => {
+      console.error('Failed to discard attachment', error);
+    });
+  });
+};
+
 export const closeEditModal = () => {
   if (!refs.overlay || !refs.editInput || !refs.editDetailsInput) return;
+  if (state.editingTaskId && state.modalAttachmentsSessionAdded.length > 0) {
+    discardSessionAttachments(state.editingTaskId, state.modalAttachmentsSessionAdded);
+  }
   refs.overlay.classList.remove('open');
   refs.editInput.value = '';
   getEditDetailsController()?.setMarkdown('');
@@ -251,12 +439,17 @@ export const closeEditModal = () => {
   state.modalRepeatRule = null;
   state.modalRepeatStart = null;
   state.modalTagIds = [];
+  state.modalAttachments = [];
+  state.modalAttachmentsSessionAdded = [];
   if (refs.reminderDateInput) refs.reminderDateInput.value = '';
   if (refs.reminderTimeInput) refs.reminderTimeInput.value = '';
   updatePriorityUI('none');
   updateReminderUI(null, null);
   updateRepeatUI(null);
   updateTagsUI();
+  renderAttachmentsMenu();
+  updateAttachmentsUI();
+  clearAttachmentsError();
   renderModalLists();
   if (refs.priorityMenu) {
     refs.priorityMenu.style.display = 'none';
@@ -276,6 +469,9 @@ export const closeEditModal = () => {
   if (refs.tagsMenu) {
     refs.tagsMenu.style.display = 'none';
   }
+  if (refs.attachmentsMenu) {
+    refs.attachmentsMenu.style.display = 'none';
+  }
 };
 
 /**
@@ -291,6 +487,9 @@ export const deleteEditingTask = async (): Promise<void> => {
   await deleteTask(taskId);
   const after = state.tasks.some((t) => t.id === taskId);
   if (before && !after) {
+    // The task (and, server-side, its attachment links) is already gone; nothing left here for
+    // closeEditModal()'s own discard-on-cancel cleanup to usefully unlink.
+    state.modalAttachmentsSessionAdded = [];
     closeEditModal();
   }
 };
@@ -347,6 +546,10 @@ export const saveEdit = async () => {
       state.tasks[idx].tagIds = (tagsResult as { tagIds: number[] }).tagIds ?? newTagIds;
       renderTasks();
     }
+    // Attachments imported this session are already persisted (linked server-side at import
+    // time, not staged) -- clearing this before closeEditModal() is what keeps its Cancel-path
+    // cleanup (discardSessionAttachments) from unlinking what Save just successfully kept.
+    state.modalAttachmentsSessionAdded = [];
     closeEditModal();
   } catch (error) {
     console.error('Failed to update task text', error);

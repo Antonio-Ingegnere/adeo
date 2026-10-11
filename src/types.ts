@@ -134,6 +134,24 @@ export type Board = {
   columns: BoardColumn[];
 };
 
+/**
+ * An app-managed copy of a file the user attached to a task from the Edit Task dialog.
+ * Referenced from a task's `details` Markdown by `id` (`attachment:<id>`), never by `name` or
+ * any filesystem path -- see server/app.py's attachments table and main.ts's open-attachment
+ * handler, the only two places that ever resolve an id to an actual stored file.
+ */
+export type Attachment = {
+  id: string;
+  name: string;
+  size: number;
+};
+
+/** One failed file import, keyed by the source file's display name rather than its full path. */
+export type AttachmentImportFailure = {
+  name: string;
+  error: string;
+};
+
 /** Fields a smart list's derived template can seed on a newly added task. */
 export type TaskSeed = {
   priority?: Task['priority'];
@@ -218,6 +236,21 @@ export type ElectronAPI = {
   onFocusSearch: (callback: () => void) => () => void;
   onOpenTaskEdit: (callback: (taskId: number) => void) => () => void;
   notifyRendererReady: () => void;
+  /** Native "Open file(s)" dialog, run in the main process; `[]` when the user cancels it. */
+  selectAttachmentFiles: () => Promise<string[]>;
+  /**
+   * Copies each of `sourcePaths` (as returned by selectAttachmentFiles) into managed storage and
+   * links the copies to `taskId`. Per-file failures (unreadable source, copy error) are reported
+   * in `failures` without blocking the files that succeeded.
+   */
+  importTaskAttachments: (
+    taskId: number,
+    sourcePaths: string[]
+  ) => Promise<{ attachments: Attachment[]; failures: AttachmentImportFailure[] } | { error: string }>;
+  getTaskAttachments: (taskId: number) => Promise<Attachment[]>;
+  deleteTaskAttachment: (taskId: number, attachmentId: string) => Promise<{ id: string } | { error: string }>;
+  /** Opens the stored copy of `attachmentId` in its system-associated application. */
+  openAttachment: (attachmentId: string) => Promise<{ opened: true } | { error: string }>;
 };
 
 declare global {

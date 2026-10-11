@@ -23,12 +23,14 @@ import { markdownEditorTheme } from './markdownEditorTheme.js';
 import { markdownHighlightStyle } from './markdownEditorHighlighting.js';
 import {
   handleBlockquoteEnter,
+  insertLink,
   toggleBlockquote,
   toggleCodeBlock,
   toggleHeading,
   toggleInlineWrap,
   toggleListLines,
 } from './markdownEditorCommands.js';
+import { ATTACHMENT_LINK_RE_GLOBAL } from './markdownInline.js';
 
 export type MarkdownEditorHandle = Readonly<{
   getValue: () => string;
@@ -45,12 +47,21 @@ export type MarkdownEditorHandle = Readonly<{
   toggleCodeBlock: () => void;
   toggleBulletList: () => void;
   toggleTodoList: () => void;
+  /** Inserts `[label](href)` at the current selection/caret; see markdownEditorCommands.ts. */
+  insertLink: (label: string, href: string) => void;
 }>;
 
 export type MarkdownEditorOptions = Readonly<{
   initialValue: string;
   placeholder?: string;
   onChange?: (value: string) => void;
+  /**
+   * Fired on a Ctrl/Cmd-click landing inside an `[label](attachment:<id>)` reference's source
+   * text. Markdown mode has no rendered link to click (the document is plain text), so this is
+   * the explicit activation gesture the spec calls for here -- deliberately gated on a modifier
+   * so a plain click still only ever places the caret, never fighting normal text editing.
+   */
+  onOpenAttachment?: (attachmentId: string) => void;
 }>;
 
 export const createMarkdownEditor = (
@@ -91,6 +102,25 @@ export const createMarkdownEditor = (
           options.onChange?.(update.state.doc.toString());
         }
       }),
+      EditorView.domEventHandlers({
+        mousedown: (event, editorView) => {
+          if (!options.onOpenAttachment || !(event.ctrlKey || event.metaKey)) return false;
+          const pos = editorView.posAtCoords({ x: event.clientX, y: event.clientY });
+          if (pos == null) return false;
+          const line = editorView.state.doc.lineAt(pos);
+          const pattern = new RegExp(ATTACHMENT_LINK_RE_GLOBAL);
+          let match: RegExpExecArray | null;
+          while ((match = pattern.exec(line.text))) {
+            const start = line.from + match.index;
+            const end = start + match[0].length;
+            if (pos >= start && pos <= end) {
+              options.onOpenAttachment(match[2]);
+              return true;
+            }
+          }
+          return false;
+        },
+      }),
     ],
   });
 
@@ -120,6 +150,7 @@ export const createMarkdownEditor = (
     toggleCodeBlock: () => toggleCodeBlock(view),
     toggleBulletList: () => toggleListLines(view, 'bullet'),
     toggleTodoList: () => toggleListLines(view, 'todo'),
+    insertLink: (label: string, href: string) => insertLink(view, label, href),
   };
 };
 

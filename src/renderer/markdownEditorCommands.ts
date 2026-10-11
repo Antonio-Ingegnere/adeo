@@ -11,6 +11,7 @@
  */
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
+import { escapeAttachmentLabel } from './markdownInline.js';
 
 /** Bold/italic/inline-code marker used to wrap/unwrap a selection or an empty caret. */
 export type InlineMarker = '**' | '*' | '`';
@@ -76,6 +77,22 @@ export const toggleInlineWrap = (view: EditorView, marker: InlineMarker): void =
     };
   });
 
+  view.dispatch(transaction);
+  view.focus();
+};
+
+/**
+ * Inserts `[label](href)` at the current selection (replacing it if non-empty, matching every
+ * other command here), leaving the caret right after the inserted link -- one transaction, one
+ * undo step. Used to insert an attachment reference (`href` is `attachment:<id>`) at whatever
+ * selection/caret the Details field last had, not necessarily focused at the moment of the call.
+ */
+export const insertLink = (view: EditorView, label: string, href: string): void => {
+  const inserted = `[${escapeAttachmentLabel(label)}](${href})`;
+  const transaction = view.state.changeByRange((range) => ({
+    changes: { from: range.from, to: range.to, insert: inserted },
+    range: EditorSelection.cursor(range.from + inserted.length),
+  }));
   view.dispatch(transaction);
   view.focus();
 };

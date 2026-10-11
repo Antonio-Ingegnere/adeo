@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, screen } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, screen, shell } from 'electron';
 import { spawn, exec, type ChildProcess } from 'child_process';
 import net from 'net';
 import path from 'path';
@@ -490,9 +490,18 @@ const resolveServerScript = (scriptName: string): string | null => {
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 };
 
+// Shared with attachmentsDir() below so the two always agree on where the SQLite file (and thus
+// its co-located attachments/ directory) lives, including under the isolated test paths
+// ADEO_DB_PATH sets.
+const getDbPath = (): string => configuredDatabasePath ?? path.join(app.getPath('userData'), 'tasks.db');
+
+// Mirrors server/app.py's attachments_dir(): co-located with the database file, never a fixed OS
+// path, so it automatically follows the same isolated test paths the database does.
+const attachmentsDir = (): string => path.join(path.dirname(getDbPath()), 'attachments');
+
 const startApiProcess = async () => {
   const port = await getFreePort();
-  const dbPath = configuredDatabasePath ?? path.join(app.getPath('userData'), 'tasks.db');
+  const dbPath = getDbPath();
   const pythonBin = resolvePythonBin();
   const apiScript = resolveServerScript('app.py');
   if (!apiScript) {
@@ -1428,6 +1437,71 @@ ipcMain.handle('update-task-order', async (_event, orderedIds: number[]) => {
     method: 'POST',
     body: JSON.stringify({ orderedIds }),
   });
+});
+
+// Set only by the isolated Electron test harness (never in a real launch -- gated the same as
+// every other test-only seam in this file). A real native "openFile" dialog cannot be driven
+// from an automated test, so when this path is set, select-attachment-files reads (and consumes)
+// a one-shot JSON array of paths from it instead of calling dialog.showOpenDialog -- see
+// scripts/attachments-selftest.mjs's stubFilePicker.
+const testSelectFilesQueuePath = isUiTest ? process.env.ADEO_TEST_SELECT_FILES_QUEUE?.trim() : undefined;
+
+// File selection, copying and opening all happen here in the main process, never in the
+// renderer (see src/types.ts's ElectronAPI doc comments) -- the renderer only ever sees stable
+// attachment ids and display names, resolved against the Python API's attachments table.
+ipcMain.handle('select-attachment-files', async () => {
+  if (testSelectFilesQueuePath) {
+    if (!fs.existsSync(testSelectFilesQueuePath)) return [];
+    const paths = JSON.parse(fs.readFileSync(testSelectFilesQueuePath, 'utf8'));
+    fs.unlinkSync(testSelectFilesQueuePath);
+    return Array.isArray(paths) ? paths : [];
+  }
+  if (!mainWindow) return [];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+  });
+  if (result.canceled) return [];
+  return result.filePaths;
+});
+
+ipcMain.handle('import-task-attachments', async (_event, taskId: number, sourcePaths: string[]) => {
+  return apiRequest(`/tasks/${taskId}/attachments/import`, {
+    method: 'POST',
+    body: JSON.stringify({ sourcePaths }),
+  });
+});
+
+ipcMain.handle('get-task-attachments', async (_event, taskId: number) => {
+  return apiRequest(`/tasks/${taskId}/attachments`);
+});
+
+ipcMain.handle('delete-task-attachment', async (_event, taskId: number, attachmentId: string) => {
+  return apiRequest(`/tasks/${taskId}/attachments/${attachmentId}`, { method: 'DELETE' });
+});
+
+// Set only by the isolated Electron test harness (never in a real launch -- ADEO_UI_TEST gates
+// it the same as every other test-only seam in this file). Lets attachments-selftest.mjs assert
+// exactly which resolved path open-attachment would have asked the OS to open, without actually
+// launching a real external application during an automated test run.
+const testOpenLogPath = isUiTest ? process.env.ADEO_TEST_OPEN_LOG?.trim() : undefined;
+
+ipcMain.handle('open-attachment', async (_event, attachmentId: string) => {
+  const metadata = await apiRequest<{ storedName?: string; error?: string }>(`/attachments/${attachmentId}`);
+  if (!metadata || metadata.error || !metadata.storedName) {
+    return { error: metadata?.error ?? 'Attachment not found' };
+  }
+  // path.basename strips any directory components a (never expected, but untrusted-in-principle)
+  // response might contain, so this can never escape attachmentsDir() onto an arbitrary path.
+  const storedPath = path.join(attachmentsDir(), path.basename(metadata.storedName));
+  if (testOpenLogPath) {
+    fs.appendFileSync(testOpenLogPath, `${storedPath}\n`);
+    return { opened: true as const };
+  }
+  const openError = await shell.openPath(storedPath);
+  if (openError) {
+    return { error: openError };
+  }
+  return { opened: true as const };
 });
 
 ipcMain.handle('get-settings', async () => {

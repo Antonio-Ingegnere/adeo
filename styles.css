@@ -3474,6 +3474,88 @@ kbd {
   margin-top: 4px;
 }
 
+.attachments-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.attachments-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-m);
+}
+
+.attachments-item:hover {
+  background: var(--surface-hover);
+}
+
+.attachments-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-m);
+}
+
+.attachments-item-actions {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.attachments-item-action {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.attachments-item-action:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.attachments-add-button {
+  margin-top: 4px;
+  width: 100%;
+  justify-content: center;
+}
+
+.attachments-error {
+  padding: 4px 10px;
+  font-size: var(--font-s);
+  color: var(--danger, #c0392b);
+  margin: 0;
+}
+
+/* A task's rendered (read-only) Details view -- see helpers.ts's createDetailsElement -- and
+   the WYSIWYG editor both render an attachment:<id> reference as this same underlined, clickable
+   look; the Markdown source editor keeps it as plain `[label](attachment:id)` text (its
+   activation gesture is Ctrl/Cmd-click, not a different visual style -- see markdownEditor.ts). */
+.attachment-ref-link {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Briefly applied by helpers.ts's flashAttachmentError on an open failure -- the read-only
+   Details view has no separate error banner to route a failure through, so the reference itself
+   is the visible feedback. */
+.attachment-ref-link--error {
+  color: var(--danger, #c0392b);
+  text-decoration-style: wavy;
+}
+
 /* ---------- Search: mode switch, status, query help & autocomplete ---------- */
 
 /* Pinned to the content column's right edge by margin-left:auto, so both ends of the header

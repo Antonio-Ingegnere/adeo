@@ -15,11 +15,13 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-delivery.txt
 ```
 
-The existing `server/requirements.txt` also includes that pinned dependency.
-`switchyard-runtime` 2.2.0 is installed by ordinary pip from the revision in the
-requirements file. Delivery imports that installed package and verifies its package
-version and installation origin. No external Git checkout, PYTHONPATH injection or
-SWITCHYARD_ROOT is required. The local wrapper selects `.venv` automatically.
+`requirements-delivery.txt` is installed into `.venv` only, kept separate from
+`server/requirements.txt` so that packaged/bundled Python runtimes (which install from
+`server/requirements.txt`) never pull in Switchyard. `switchyard-runtime` 2.2.0 is
+installed by ordinary pip from the revision in the requirements file. Delivery imports
+that installed package and verifies its package version and installation origin. No
+external Git checkout, PYTHONPATH injection or SWITCHYARD_ROOT is required. The local
+wrapper selects `.venv` automatically.
 Provider CLI authentication stays outside YAML; no secrets are copied into state.
 
 Optional launch-path variables are SWITCHYARD_PYTHON, SWITCHYARD_CLAUDE,

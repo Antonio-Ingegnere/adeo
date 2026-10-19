@@ -457,10 +457,20 @@ const resolveBundledPython = (): string | null => {
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 };
 
-const resolvePythonBin = (): string =>
-  process.env.ADEO_PYTHON_BIN ||
-  resolveBundledPython() ||
-  (process.platform === 'win32' ? 'python' : 'python3');
+const resolvePythonBin = (): string => {
+  const override = process.env.ADEO_PYTHON_BIN?.trim();
+  if (override) return override;
+  if (app.isPackaged) {
+    const bundled = resolveBundledPython();
+    if (!bundled) {
+      throw new Error(
+        'Bundled Python runtime not found under resources/python. This Adeo build is incomplete; reinstall it.',
+      );
+    }
+    return bundled;
+  }
+  return process.platform === 'win32' ? 'python' : 'python3';
+};
 
 // python.exe is the console-subsystem build: launched detached (as Task
 // Scheduler does for the background reminder checker), Windows flashes a

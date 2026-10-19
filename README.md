@@ -110,9 +110,84 @@ npm run package:mac
 ```
 This produces both `release/mac-arm64/Adeo.app` and `release/mac-x64/Adeo.app` (dmg + zip), each with its matching bundled Python.
 
-### Known gap: Linux
+## Build a self-sufficient Linux app (bundled Python)
 
-`package:linux` does not bundle Python either — the same fix (a standalone runtime under `python/`, referenced from `build.linux.extraResources`) would be needed if that becomes necessary; it's currently out of scope.
+Like macOS, Linux packaging bundles a standalone Python runtime per architecture so end
+users don't need Python installed: `python/linux-x64/` and `python/linux-arm64/`.
+
+### 1) Download a standalone Python runtime per architecture
+
+Get the `install_only` build for Python 3.12.x from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone/releases),
+e.g.:
+```
+curl -L -o cpython-linux-x64.tar.gz \
+  https://github.com/astral-sh/python-build-standalone/releases/download/<tag>/cpython-3.12.x+<tag>-x86_64-unknown-linux-gnu-install_only.tar.gz
+tar -xzf cpython-linux-x64.tar.gz
+mv python python/linux-x64
+
+curl -L -o cpython-linux-arm64.tar.gz \
+  https://github.com/astral-sh/python-build-standalone/releases/download/<tag>/cpython-3.12.x+<tag>-aarch64-unknown-linux-gnu-install_only.tar.gz
+tar -xzf cpython-linux-arm64.tar.gz
+mv python python/linux-arm64
+```
+
+Expected layout:
+```
+python/
+  linux-x64/
+    bin/python3
+    ...
+  linux-arm64/
+    bin/python3
+    ...
+```
+
+The packaged app looks for `resources/python/bin/python3` — electron-builder copies the
+matching architecture's folder there at build time, the same way macOS does.
+
+### 2) Install site-packages into each runtime
+
+```
+python/linux-x64/bin/python3 -m pip install -r server/requirements.txt
+python/linux-arm64/bin/python3 -m pip install -r server/requirements.txt
+```
+Cross-architecture installs (e.g. installing into `linux-arm64` from an x64 build host)
+require either emulation (e.g. `binfmt_misc`/QEMU) to run that interpreter directly, or
+running this step on a matching native or CI host; `pip` has no cross-arch `--platform`
+wheel-targeting path for Linux manylinux wheels the way Windows does.
+
+### 3) Package for Linux
+
+```
+npm run package:linux
+```
+This produces `release/linux-x64/Adeo.AppImage` and `release/linux-arm64/Adeo.AppImage`
+for whichever `python/linux-*` bundles are present, each with its matching bundled
+Python. Running the AppImage requires a Linux desktop environment with the usual
+AppImage/FUSE prerequisites; Adeo does not depend on a system Python, pip or any other
+separately installed runtime.
+
+### Bundle verification
+
+All three `npm run package:*` entry points run `scripts/after-pack-verify.js` as an
+electron-builder `afterPack` hook after every architecture is packaged. It checks, for
+the architecture that was just built, that the bundled Python binary and its
+`site-packages` contain fastapi/uvicorn/pydantic/python-dateutil and their native/
+transitive dependencies, and that `server/app.py` and `server/reminder_notifier.py` were
+copied into the release's resources. When the host can run that architecture's
+interpreter directly (same OS/arch, or x64 under Rosetta 2 on Apple Silicon), it also
+spawns the bundled interpreter with a clean environment and imports those packages. Any
+gap fails the build with a specific list of what is missing, instead of silently
+producing an incomplete release.
+
+After packaging, `npm run test:packaged` launches the actual built app for the current OS
+(from `release/`, override with `ADEO_PACKAGED_APP`) with isolated user data, confirms its
+bundled Python serves a healthy local API with no `ADEO_PYTHON_BIN`/dev assistance, and
+exercises task create/read/update/restart-persistence against it directly — the same
+backend the window's UI calls. It does not drive the Electron UI itself: packaged
+(asar) Electron apps refuse the `NODE_OPTIONS` injection Playwright's Electron driver
+relies on, so this talks to the bundled FastAPI server over loopback HTTP instead.
 
 ## Background reminder notifications (macOS: bundling terminal-notifier)
 

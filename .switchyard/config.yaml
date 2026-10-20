@@ -5,35 +5,35 @@ agents:
   spec:
     provider: codex
     model: gpt-6-astra
-    effort: high
+    effort: medium
     workspace: read
     shell: true
     timeout: 600
   investigate:
     provider: claude
     model: haiku
-    effort: medium
+    effort: high
     workspace: read
     shell: true
     timeout: 600
   diagnose-deep:
     provider: claude
-    model: sonnet
-    effort: high
+    model: opus
+    effort: medium
     workspace: read
     shell: true
     timeout: 600
   independent:
     provider: codex
     model: gpt-6-astra
-    effort: high
+    effort: medium
     workspace: read
     shell: true
     timeout: 600
   code:
     provider: claude
     model: sonnet
-    effort: medium
+    effort: high
     workspace: write
     shell: true
     timeout: 1800

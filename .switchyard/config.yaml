@@ -1,6 +1,7 @@
 # Edit agents here; timeout is seconds. Write stages reserve one explicit resume invocation.
 # Verification is baseline-aware: the same verifier records the pre-delivery state before the
 # first write stage; later runs block only on new or changed failures (scripts/verify-delivery.py).
+version: 2
 agents:
   spec:
     provider: codex
@@ -111,6 +112,8 @@ flows:
           verifier_evidence: {format: markdown}
         on: {pass: READY_FOR_MANUAL_QA, fail: NEEDS_REDIAGNOSIS}
       # Explicit /deliver resume only: re-verify the retained work; budgets are not reset.
+      READY_FOR_MANUAL_QA: {terminal: true}
+      NEEDS_HUMAN: {terminal: true}
       NEEDS_REDIAGNOSIS: {terminal: true, resume_to: VERIFY}
   bugfix:
     start: TRIAGE
@@ -187,6 +190,8 @@ flows:
         produces:
           verifier_evidence: {format: markdown}
         on: {pass: READY_FOR_MANUAL_QA, fail: NEEDS_HUMAN}
+      READY_FOR_MANUAL_QA: {terminal: true}
+      NEEDS_HUMAN: {terminal: true}
 lifecycle:
   manual_qa: true
   accept: {commit: true}

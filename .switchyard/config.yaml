@@ -1,7 +1,6 @@
 # Edit agents here; timeout is seconds. Write stages reserve one explicit resume invocation.
 # Verification is baseline-aware: the same verifier records the pre-delivery state before the
 # first write stage; later runs block only on new or changed failures (scripts/verify-delivery.py).
-version: 2
 agents:
   spec:
     provider: codex

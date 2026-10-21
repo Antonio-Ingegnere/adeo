@@ -3,7 +3,7 @@
 // plain node script (scripts/query-selftest.mjs) — the repo has no test runner.
 import type { Task } from '../types.js';
 
-export type TokenKind = 'lparen' | 'rparen' | 'op' | 'word' | 'quoted' | 'eof';
+export type TokenKind = 'lparen' | 'rparen' | 'comma' | 'op' | 'word' | 'quoted' | 'eof';
 export type Token = { kind: TokenKind; text: string; start: number; end: number };
 
 export type Op = ':' | '~' | '!=' | '<' | '<=' | '>' | '>=';
@@ -60,9 +60,21 @@ const DATE_KEYWORDS = ['today', 'tomorrow', 'yesterday'];
 const isSpace = (ch: string) => ch === ' ' || ch === '\t' || ch === '\n';
 const SINGLE_OPS = new Set([':', '~', '<', '>']);
 
+// Keywords that follow a field name to form a predicate (`tag IN (...)`, `due IS NULL`). They are
+// only keywords in that position; anywhere else they are ordinary search words.
+const WORD_OPS = ['CONTAINS', 'IN', 'IS', 'BETWEEN'];
+
+// SQL operators this language does not have. After a field name they are reported instead of
+// quietly becoming search words (`priority LIKE high` would otherwise match nothing, silently).
+const UNSUPPORTED_WORD_OPS = ['LIKE', 'ILIKE', 'REGEXP', 'MATCHES'];
+
 export const tokenize = (input: string): { ok: true; tokens: Token[] } | { ok: false; error: ParseError } => {
   const tokens: Token[] = [];
   let i = 0;
+  // Commas only separate things inside the parentheses of `field IN (...)`. Everywhere else they
+  // stay part of the word, so legacy values such as `tag:a,b` keep their meaning.
+  let inList = false;
+  const last = () => tokens[tokens.length - 1];
   while (i < input.length) {
     const ch = input[i];
     if (isSpace(ch)) {
@@ -70,12 +82,28 @@ export const tokenize = (input: string): { ok: true; tokens: Token[] } | { ok: f
       continue;
     }
     if (ch === '(') {
+      const t1 = tokens[tokens.length - 1];
+      const t2 = tokens[tokens.length - 2];
+      if (
+        t1?.kind === 'word' &&
+        t1.text.toUpperCase() === 'IN' &&
+        t2?.kind === 'word' &&
+        fieldByName.has(t2.text.toLowerCase())
+      ) {
+        inList = true;
+      }
       tokens.push({ kind: 'lparen', text: '(', start: i, end: i + 1 });
       i += 1;
       continue;
     }
     if (ch === ')') {
+      inList = false;
       tokens.push({ kind: 'rparen', text: ')', start: i, end: i + 1 });
+      i += 1;
+      continue;
+    }
+    if (ch === ',' && inList) {
+      tokens.push({ kind: 'comma', text: ',', start: i, end: i + 1 });
       i += 1;
       continue;
     }
@@ -98,6 +126,13 @@ export const tokenize = (input: string): { ok: true; tokens: Token[] } | { ok: f
       i += 2;
       continue;
     }
+    // `=` is an operator only where a field name can precede it; a word that merely starts with
+    // or contains `=` (`=5`, `a=b`) stays a plain search word, as it always was
+    if (ch === '=' && last()?.kind === 'word') {
+      tokens.push({ kind: 'op', text: '=', start: i, end: i + 1 });
+      i += 1;
+      continue;
+    }
     if (SINGLE_OPS.has(ch)) {
       tokens.push({ kind: 'op', text: ch, start: i, end: i + 1 });
       i += 1;
@@ -109,6 +144,9 @@ export const tokenize = (input: string): { ok: true; tokens: Token[] } | { ok: f
       const c = input[i];
       if (isSpace(c) || c === '(' || c === ')' || c === '"' || SINGLE_OPS.has(c)) break;
       if (c === '!' && input[i + 1] === '=') break;
+      if (c === ',' && inList) break;
+      // compact equality: `priority=high`. Not when this word is itself a value (`text:a=b`).
+      if (c === '=' && last()?.kind !== 'op' && fieldByName.has(input.slice(start, i).toLowerCase())) break;
       i += 1;
     }
     tokens.push({ kind: 'word', text: input.slice(start, i), start, end: i });
@@ -130,9 +168,16 @@ class ParseFailure extends Error {
   }
 }
 
-const validateTermValue = (field: FieldSpec, op: Op, value: string, quoted: boolean, position: number) => {
+const validateTermValue = (
+  field: FieldSpec,
+  op: Op,
+  value: string,
+  quoted: boolean,
+  position: number,
+  shownOp: string = op
+) => {
   if (!field.ops.includes(op)) {
-    throw new ParseFailure(`"${op}" is not valid for ${field.name} (use ${field.ops.join(' or ')})`, position);
+    throw new ParseFailure(`"${shownOp}" is not valid for ${field.name} (use ${field.ops.join(' or ')})`, position);
   }
   const lower = value.toLowerCase();
   if (field.type === 'enum' && !field.values.includes(lower)) {
@@ -146,7 +191,7 @@ const validateTermValue = (field: FieldSpec, op: Op, value: string, quoted: bool
     const isDate = ISO_DATE_RE.test(lower) || DATE_KEYWORDS.includes(lower);
     if (isSpecial) {
       if (op !== ':' && op !== '!=') {
-        throw new ParseFailure(`"${op}" cannot be used with ${field.name}:${lower}`, position);
+        throw new ParseFailure(`"${shownOp}" cannot be used with ${field.name}:${lower}`, position);
       }
     } else if (!isDate) {
       throw new ParseFailure(
@@ -203,6 +248,115 @@ const parseTokens = (tokens: Token[]): QueryNode => {
     return parsePrimary();
   };
 
+  const makeTerm = (field: FieldSpec, op: Op, valueToken: Token): QueryNode => ({
+    kind: 'term',
+    field: field.name,
+    op,
+    value: valueToken.text,
+    quoted: valueToken.kind === 'quoted',
+  });
+
+  const isValueToken = (token: Token) => token.kind === 'word' || token.kind === 'quoted';
+
+  // `field CONTAINS v` | `field IN (v, ...)` | `field IS [NOT] NULL` | `field BETWEEN a AND b`,
+  // lowered onto the same term/and/or nodes the shorthand produces. The keyword is peek().
+  const parseWordPredicate = (field: FieldSpec): QueryNode => {
+    const keyword = next();
+    const word = keyword.text.toUpperCase();
+
+    if (word === 'CONTAINS') {
+      if (!field.ops.includes('~')) {
+        const containsFields = FIELDS.filter((f) => f.ops.includes('~')).map((f) => f.name);
+        throw new ParseFailure(
+          `CONTAINS is not valid for ${field.name} (use it with ${containsFields.join(', ')})`,
+          keyword.start
+        );
+      }
+      const valueToken = peek();
+      if (!isValueToken(valueToken)) {
+        throw new ParseFailure(`Expected value after "${field.name} CONTAINS"`, keyword.end);
+      }
+      next();
+      validateTermValue(field, '~', valueToken.text, valueToken.kind === 'quoted', valueToken.start);
+      return makeTerm(field, '~', valueToken);
+    }
+
+    if (word === 'IN') {
+      if (peek().kind !== 'lparen') {
+        throw new ParseFailure(`Expected "(" after "${field.name} IN"`, keyword.end);
+      }
+      next();
+      const members: Token[] = [];
+      while (true) {
+        const valueToken = peek();
+        if (!isValueToken(valueToken)) {
+          if (valueToken.kind === 'rparen' && members.length === 0) {
+            throw new ParseFailure('IN list needs at least one value', valueToken.start);
+          }
+          throw new ParseFailure(`Expected value in "${field.name} IN (...)"`, valueToken.start);
+        }
+        next();
+        validateTermValue(field, ':', valueToken.text, valueToken.kind === 'quoted', valueToken.start);
+        members.push(valueToken);
+        const delimiter = peek();
+        if (delimiter.kind === 'comma') {
+          next();
+          continue;
+        }
+        if (delimiter.kind === 'rparen') {
+          next();
+          break;
+        }
+        throw new ParseFailure(`Expected "," or ")" in "${field.name} IN (...)"`, delimiter.start);
+      }
+      return members
+        .map((m) => makeTerm(field, ':', m))
+        .reduce((left, right) => ({ kind: 'or', left, right }));
+    }
+
+    if (word === 'IS') {
+      if (field.name !== 'due') {
+        throw new ParseFailure(`IS NULL is only supported for due, not ${field.name}`, keyword.start);
+      }
+      let negated = false;
+      if (isKeyword(peek(), 'NOT')) {
+        next();
+        negated = true;
+      }
+      const nullToken = peek();
+      if (!isKeyword(nullToken, 'NULL')) {
+        throw new ParseFailure(
+          negated ? 'Expected NULL after "IS NOT"' : 'Expected NULL or NOT NULL after "IS"',
+          nullToken.start
+        );
+      }
+      next();
+      return { kind: 'term', field: 'due', op: negated ? '!=' : ':', value: 'none', quoted: false };
+    }
+
+    // BETWEEN: inclusive range, due only. The AND belongs to this predicate.
+    if (field.type !== 'date') {
+      throw new ParseFailure(`BETWEEN is only supported for due, not ${field.name}`, keyword.start);
+    }
+    const bound = (what: string, after: Token): Token => {
+      const t = peek();
+      if (!isValueToken(t) || (t.kind === 'word' && isKeyword(t, 'AND'))) {
+        throw new ParseFailure(`Expected ${what} date in "due BETWEEN … AND …"`, t.kind === 'eof' ? after.end : t.start);
+      }
+      next();
+      // none/any are not dates, so a range bound is checked as a comparison
+      validateTermValue(field, '>=', t.text, t.kind === 'quoted', t.start, 'BETWEEN');
+      return t;
+    };
+    const lower = bound('lower', keyword);
+    if (!isKeyword(peek(), 'AND')) {
+      throw new ParseFailure('Expected AND after the lower bound of BETWEEN', peek().kind === 'eof' ? lower.end : peek().start);
+    }
+    const andToken = next();
+    const upper = bound('upper', andToken);
+    return { kind: 'and', left: makeTerm(field, '>=', lower), right: makeTerm(field, '<=', upper) };
+  };
+
   const parsePrimary = (): QueryNode => {
     const token = peek();
     if (token.kind === 'lparen') {
@@ -227,20 +381,35 @@ const parseTokens = (tokens: Token[]): QueryNode => {
           throw new ParseFailure(`Unknown field "${token.text}"`, token.start);
         }
         const opToken = next();
-        const op = opToken.text as Op;
+        if (opToken.text === '<' && peek().kind === 'op' && peek().text === '>' && peek().start === opToken.end) {
+          throw new ParseFailure(`"<>" is not supported — use != for ${field.name}`, opToken.start);
+        }
+        // `=` is the SQL spelling of `:`; normalised here so the AST has one equality
+        const op = (opToken.text === '=' ? ':' : opToken.text) as Op;
         const valueToken = peek();
         if (valueToken.kind !== 'word' && valueToken.kind !== 'quoted') {
-          throw new ParseFailure(`Expected value after "${field.name} ${op}"`, opToken.end);
+          throw new ParseFailure(`Expected value after "${field.name} ${opToken.text}"`, opToken.end);
         }
         next();
-        validateTermValue(field, op, valueToken.text, valueToken.kind === 'quoted', valueToken.start);
-        return {
-          kind: 'term',
-          field: field.name,
-          op,
-          value: valueToken.text,
-          quoted: valueToken.kind === 'quoted',
-        };
+        validateTermValue(field, op, valueToken.text, valueToken.kind === 'quoted', valueToken.start, opToken.text);
+        return makeTerm(field, op, valueToken);
+      }
+      // SQL-style predicates: only a known field followed directly by a keyword operator.
+      // Anywhere else these words are ordinary search words.
+      const field = fieldByName.get(token.text.toLowerCase());
+      if (field && WORD_OPS.some((w) => isKeyword(after, w))) {
+        return parseWordPredicate(field);
+      }
+      if (field) {
+        const afterNot = isKeyword(after, 'NOT') ? tokens[pos + 1] : undefined;
+        const bad = UNSUPPORTED_WORD_OPS.find((w) => isKeyword(after, w));
+        if (bad || (afterNot && [...WORD_OPS, ...UNSUPPORTED_WORD_OPS].some((w) => isKeyword(afterNot, w)))) {
+          const shown = bad ?? `NOT ${afterNot!.text.toUpperCase()}`;
+          throw new ParseFailure(
+            `${shown} is not supported for ${field.name} (use ${field.ops.join(' ')}${field.ops.includes('~') ? ' or CONTAINS' : ''}, IN)`,
+            after.start
+          );
+        }
       }
       // #tag sugar
       if (token.text.startsWith('#') && token.text.length > 1) {

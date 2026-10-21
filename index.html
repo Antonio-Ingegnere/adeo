@@ -69,12 +69,12 @@
             <div id="search-help-advanced">
               <p class="search-help-title" data-i18n="search.help.querySyntaxTitle">Query syntax</p>
               <table class="search-help-table">
-                <tr><td><code>text</code>, <code>details</code></td><td><code>: ~ !=</code></td></tr>
-                <tr><td><code>list</code>, <code>tag</code></td><td><code>: ~ !=</code> · <code>none</code>, <code>any</code></td></tr>
-                <tr><td><code>priority</code></td><td>none / low / medium / high</td></tr>
-                <tr><td><code>done</code></td><td>true / false</td></tr>
-                <tr><td><code>due</code></td><td><code>: != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday</td></tr>
-                <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly</td></tr>
+                <tr><td><code>text</code>, <code>details</code></td><td><code>: = ~ !=</code> · <code>CONTAINS</code>, <code>IN (…)</code></td></tr>
+                <tr><td><code>list</code>, <code>tag</code></td><td><code>: = ~ !=</code> · <code>CONTAINS</code>, <code>IN (…)</code> · <code>none</code>, <code>any</code></td></tr>
+                <tr><td><code>priority</code></td><td>none / low / medium / high · <code>= !=</code>, <code>IN (…)</code></td></tr>
+                <tr><td><code>done</code></td><td>true / false · <code>= !=</code>, <code>IN (…)</code></td></tr>
+                <tr><td><code>due</code></td><td><code>: = != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday · <code>IS NULL</code>, <code>IS NOT NULL</code>, <code>BETWEEN a AND b</code></td></tr>
+                <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly · <code>= !=</code>, <code>IN (…)</code></td></tr>
               </table>
               <p class="search-help-note" data-i18n-html="search.help.syntaxHint">A term is <code>field:value</code>. <code>:</code> is exact,
                 <code>~</code> is contains. Combine with <code>AND</code>, <code>OR</code>, <code>NOT</code>
@@ -85,6 +85,11 @@
               <p class="search-help-example"><code>priority:high OR priority:medium</code></p>
               <p class="search-help-example"><code>NOT (list:Home OR done:true)</code></p>
               <p class="search-help-example"><code>milk due:none #errands</code></p>
+              <p class="search-help-example"><code>priority = high AND done = false</code></p>
+              <p class="search-help-example"><code>text CONTAINS "weekly review"</code></p>
+              <p class="search-help-example"><code>tag IN ("home", "errands")</code></p>
+              <p class="search-help-example"><code>due IS NOT NULL</code></p>
+              <p class="search-help-example"><code>due BETWEEN 2026-10-01 AND 2026-10-31</code></p>
             </div>
           </div>
         </div>

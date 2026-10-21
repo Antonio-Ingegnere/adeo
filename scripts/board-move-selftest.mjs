@@ -156,6 +156,56 @@ const smartRef = (id) => {
   );
 }
 
+// ---- 8. SQL-style destinations plan exactly like their shorthand equivalents (TQL-001) ---
+{
+  const pairs = [
+    ['tag = work AND priority = high', 'tag:work AND priority:high', 'deterministic'],
+    ['tag IN (work) AND priority IN (high)', 'tag:work AND priority:high', 'deterministic'],
+    ['list = Home AND due = 2026-09-05', 'list:Home AND due:2026-09-05', 'deterministic'],
+    ['tag = work AND due BETWEEN 2026-09-01 AND 2026-09-30', 'tag:work AND due>=2026-09-01 AND due<=2026-09-30', 'best-effort'],
+    ['tag = work AND priority IN (high, low)', 'tag:work AND (priority:high OR priority:low)', 'best-effort'],
+    ['tag = work AND text CONTAINS review', 'tag:work AND text~review', 'best-effort'],
+    ['tag = work AND due IS NOT NULL', 'tag:work AND due!=none', 'best-effort'],
+    ['text CONTAINS review', 'text~review', 'blocked'],
+    ['tag IN (work, urgent)', '(tag:work OR tag:urgent)', 'blocked'],
+    ['due BETWEEN 2026-09-01 AND 2026-09-30', 'due>=2026-09-01 AND due<=2026-09-30', 'blocked'],
+  ];
+  const source = listRef(2, 'Home');
+  for (const [fresh, legacy, verdict] of pairs) {
+    const dest = (query) => ({ kind: 'smart', smartListId: 99, query, label: 'tmp' });
+    const a = planBoardMove(task({ listId: 2 }), source, dest(fresh));
+    const b = planBoardMove(task({ listId: 2 }), source, dest(legacy));
+    check(a.verdict === verdict, `8: "${fresh}" is ${verdict} (got ${a.verdict})`);
+    check(a.verdict === b.verdict, `8: "${fresh}" verdict matches "${legacy}" (${a.verdict} vs ${b.verdict})`);
+    check(
+      JSON.stringify(a.changes) === JSON.stringify(b.changes),
+      `8: "${fresh}" changes match "${legacy}" (${JSON.stringify(a.changes)} vs ${JSON.stringify(b.changes)})`,
+    );
+    check(
+      JSON.stringify(a.skipped) === JSON.stringify(b.skipped),
+      `8: "${fresh}" skipped matches "${legacy}" (${JSON.stringify(a.skipped)} vs ${JSON.stringify(b.skipped)})`,
+    );
+  }
+  // a task that already satisfies the SQL-style destination is a no-op, like the shorthand
+  const noop = planBoardMove(
+    task({ listId: 1, tagIds: [1] }),
+    listRef(1, 'Work'),
+    { kind: 'smart', smartListId: 99, query: 'tag = work', label: 'tmp' },
+  );
+  check(noop.verdict === 'noop', `8: already-matching "tag = work" is noop (got ${noop.verdict})`);
+  // contradictory equalities are reported, not resolved
+  const conflict = planBoardMove(
+    task({ listId: 2 }),
+    listRef(2, 'Home'),
+    { kind: 'smart', smartListId: 99, query: 'priority = high AND priority = low', label: 'tmp' },
+  );
+  check(
+    !conflict.changes.some((c) => c.field === 'priority') &&
+      conflict.skipped.some((x) => x.includes('priority is constrained twice')),
+    `8: contradictory equalities keep conflict reporting (got ${JSON.stringify(conflict.skipped)})`,
+  );
+}
+
 if (failures) {
   console.error(`\nboard-move self-test FAILED: ${failures} of ${checks} checks failed`);
   process.exitCode = 1;

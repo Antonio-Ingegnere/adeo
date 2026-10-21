@@ -35,6 +35,7 @@ export const setSearchShortcutHint = (hint: string) => {
 
 const OP_HINTS: Record<string, string> = {
   ':': 'is',
+  '=': 'is',
   '~': 'contains',
   '!=': 'is not',
   '<': 'before',
@@ -176,6 +177,9 @@ const isPendingTail = (value: string, error: ParseError): boolean => {
   if (!tokenized.ok) return true; // e.g. an unclosed quote being typed right now
   const real = tokenized.tokens.filter((t) => t.kind !== 'eof');
   if (real.length === 0) return true;
+
+  // the parser ran out of input rather than hitting a mistake: `tag IN (a, `, `due BETWEEN x AND`
+  if (error.position >= value.trimEnd().length) return true;
 
   const last = real[real.length - 1];
   const head = value.slice(0, last.start);
@@ -378,9 +382,23 @@ const valueSuggestions = (field: FieldSpec, op: string, prefix: string, start: n
   return rankByPrefix(candidates, prefix, (i) => i.label).slice(0, 8);
 };
 
+// Keyword operators offered after a field: [label, inserted text, trailing space, hint].
+// CONTAINS follows the field's `~` support; the null and range forms exist for due only.
+const wordOpSpecs = (field: FieldSpec): [string, string, boolean, string][] => {
+  const specs: [string, string, boolean, string][] = [];
+  if (field.ops.includes('~')) specs.push(['CONTAINS', 'CONTAINS', true, 'contains']);
+  specs.push(['IN', 'IN (', false, 'any of a list']);
+  if (field.type === 'date') {
+    specs.push(['IS NULL', 'IS NULL', true, 'no due date']);
+    specs.push(['IS NOT NULL', 'IS NOT NULL', true, 'has due date']);
+    specs.push(['BETWEEN', 'BETWEEN', true, 'inclusive range']);
+  }
+  return specs;
+};
+
 const opSuggestions = (field: FieldSpec, prefix: string, start: number, end: number): SuggestItem[] => {
-  const ops = field.ops.filter((op) => op.startsWith(prefix));
-  return ops.map((op) => ({
+  const symbolic = [...field.ops, '='].filter((op) => op.startsWith(prefix));
+  const items: SuggestItem[] = symbolic.map((op) => ({
     label: op,
     hint: OP_HINTS[op],
     start,
@@ -388,7 +406,18 @@ const opSuggestions = (field: FieldSpec, prefix: string, start: number, end: num
     text: op,
     trailingSpace: false,
   }));
+  // words only make sense once the field is complete, never while an operator is half-typed
+  if (!prefix) {
+    const value = refs.listsSearchInput?.value ?? '';
+    const lead = start > 0 && !isSpaceChar(value[start - 1]) ? ' ' : '';
+    wordOpSpecs(field).forEach(([label, text, trailingSpace, hint]) =>
+      items.push({ label, hint, start, end, text: lead + text, trailingSpace })
+    );
+  }
+  return items;
 };
+
+const isSpaceChar = (ch: string | undefined) => ch === ' ' || ch === '\t' || ch === '\n';
 
 const termStartSuggestions = (
   prefix: string,
@@ -426,17 +455,78 @@ const computeSuggestions = (): SuggestItem[] => {
   if (!tokenized.ok) return []; // inside an unclosed quote — leave the user alone
   const tokens = tokenized.tokens.filter((t) => t.kind !== 'eof');
 
-  const cur = tokens.find((t) => t.start < caret && caret <= t.end);
+  let cur = tokens.find((t) => t.start < caret && caret <= t.end);
+  // a caret right after a one-character delimiter is past it, not inside it
+  if (cur && (cur.kind === 'comma' || cur.kind === 'lparen' || cur.kind === 'rparen')) cur = undefined;
   const before = tokens.filter((t) => t.end <= caret && t !== cur);
   const prev: Token | undefined = before[before.length - 1];
   const prev2: Token | undefined = before[before.length - 2];
+  const prev3: Token | undefined = before[before.length - 3];
+  const prev4: Token | undefined = before[before.length - 4];
 
   const isKeywordTok = (t: Token | undefined) =>
     t?.kind === 'word' && ['AND', 'OR', 'NOT'].includes(t.text.toUpperCase());
   const fieldOf = (t: Token | undefined): FieldSpec | undefined =>
     t?.kind === 'word' ? fieldByName.get(t.text.toLowerCase()) : undefined;
 
+  const isWordKw = (t: Token | undefined, word: string) =>
+    t?.kind === 'word' && t.text.toUpperCase() === word;
+  const isValueTok = (t: Token | undefined) => t?.kind === 'word' || t?.kind === 'quoted';
+  const wordItem = (label: string, hint: string | undefined, trailingSpace: boolean, text = label): SuggestItem => ({
+    label,
+    hint,
+    start: cur ? cur.start : caret,
+    end: cur ? cur.end : caret,
+    text,
+    trailingSpace,
+  });
+
   if (cur?.kind === 'quoted') return [];
+
+  if (cur?.kind !== 'op') {
+    // inside `field IN ( ... )`: values for that field, then the list delimiters
+    let listField: FieldSpec | undefined;
+    for (let i = before.length - 1; i >= 0; i -= 1) {
+      if (before[i].kind === 'rparen') break;
+      if (before[i].kind === 'lparen') {
+        if (isWordKw(before[i - 1], 'IN')) listField = fieldOf(before[i - 2]);
+        break;
+      }
+    }
+    if (listField) {
+      const startsValue = prev?.kind === 'lparen' || prev?.kind === 'comma';
+      if (cur?.kind === 'word') {
+        return startsValue ? valueSuggestions(listField, ':', cur.text, cur.start, cur.end) : [];
+      }
+      if (startsValue) return valueSuggestions(listField, ':', '', caret, caret);
+      if (isValueTok(prev)) return [wordItem(',', 'another value', true), wordItem(')', 'end of list', true)];
+      return [];
+    }
+
+    // `due BETWEEN lower AND upper`: date bounds, with AND offered between them
+    const dateField = (t: Token | undefined) => {
+      const f = fieldOf(t);
+      return f?.type === 'date' ? f : undefined;
+    };
+    const bound = isWordKw(prev, 'BETWEEN') ? dateField(prev2) : isWordKw(prev, 'AND') && isValueTok(prev2) && isWordKw(prev3, 'BETWEEN') ? dateField(prev4) : undefined;
+    if (bound && (!cur || cur.kind === 'word')) {
+      return valueSuggestions(bound, '>=', cur ? cur.text : '', cur ? cur.start : caret, cur ? cur.end : caret);
+    }
+    if (isValueTok(prev) && isWordKw(prev2, 'BETWEEN') && dateField(prev3)) {
+      if (!cur) return [wordItem('AND', undefined, true)];
+      if (cur.kind === 'word' && 'AND'.startsWith(cur.text.toUpperCase())) return [wordItem('AND', undefined, true)];
+    }
+
+    if (!cur && isWordKw(prev, 'IN') && fieldOf(prev2)) {
+      return [wordItem('(', 'start of list', false)];
+    }
+    if ((!cur || cur.kind === 'word') && isWordKw(prev, 'IS') && dateField(prev2)) {
+      const typed = cur ? cur.text.toUpperCase() : '';
+      return [wordItem('NULL', 'no due date', true), wordItem('NOT NULL', 'has due date', true)].filter((item) =>
+        item.label.startsWith(typed)
+      );
+    }
+  }
 
   if (cur?.kind === 'op') {
     const field = fieldOf(prev);
@@ -465,6 +555,15 @@ const computeSuggestions = (): SuggestItem[] => {
     if (curField && caret === cur.end) {
       // a fully typed field name — offer its operators next
       return opSuggestions(curField, '', caret, caret);
+    }
+    // a word typed right after a field may be the start of a keyword operator (`due BET`)
+    const afterField = fieldOf(prev);
+    if (afterField && !isKeywordTok(prev)) {
+      const typed = cur.text.toUpperCase();
+      const words = opSuggestions(afterField, '', cur.start, cur.end).filter(
+        (item) => /^[A-Za-z]/.test(item.label) && item.label.startsWith(typed)
+      );
+      if (words.length) return words;
     }
     const afterTerm = Boolean(prev && (prev.kind === 'quoted' || prev.kind === 'rparen' || (prev.kind === 'word' && !isKeywordTok(prev))));
     return termStartSuggestions(cur.text, cur.start, cur.end, afterTerm);

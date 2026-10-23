@@ -129,7 +129,13 @@ flows:
         consumes: [request, bug_spec]
         produces:
           reproduction_evidence: {format: markdown}
-        on: {ready: DIAGNOSE, inconclusive: NEEDS_HUMAN}
+        on: {ready: DIAGNOSE, inconclusive: REPRODUCTION_REVIEW}
+      REPRODUCTION_REVIEW:
+        wait_for: human_input
+        resume_to: [REPRODUCE, DIAGNOSE]
+        budget:
+          visits: 3
+          on_exceeded: NEEDS_HUMAN
       DIAGNOSE:
         run:
         - agent: investigate

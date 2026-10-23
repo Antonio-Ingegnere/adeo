@@ -1,2 +1,2 @@
-# VERIFICATION-RECOVERY-001; installed normally, never a runtime source-checkout bootstrap.
-switchyard-runtime @ git+https://github.com/Antonio-Ingegnere/switchyard.git@64904b2df0f25e4b10ecab441a7615a488b7f1f3
+# HUMAN-TRANSITION #18; installed normally, never a runtime source-checkout bootstrap.
+switchyard-runtime @ git+https://github.com/Antonio-Ingegnere/switchyard.git@233440fda2c25be9773bb2d86f11281fb73d0303

@@ -359,6 +359,14 @@ const valueItem = (
   trailingSpace: true,
 });
 
+const RELATIVE_DATE_EXAMPLES: [string, string][] = [
+  ['today+7d', '7 days from today'],
+  ['today-7d', '7 days ago'],
+  ['today+1w', '1 week from today'],
+  ['today+1m', '1 month from today'],
+  ['today-1y', '1 year ago'],
+];
+
 const valueSuggestions = (field: FieldSpec, op: string, prefix: string, start: number, end: number): SuggestItem[] => {
   let candidates: SuggestItem[] = [];
   if (field.type === 'list') {
@@ -376,6 +384,11 @@ const valueSuggestions = (field: FieldSpec, op: string, prefix: string, start: n
     if (!comparison) {
       candidates.push(valueItem('none', start, end, 'no due date'), valueItem('any', start, end, 'has due date'));
     }
+    // examples of today[+-]N[dwmy]; the '+' would otherwise force quotes around a valid value
+    RELATIVE_DATE_EXAMPLES.forEach(([value, hint]) =>
+      candidates.push({ ...valueItem(value, start, end, hint), text: value })
+    );
+    return rankByPrefix(candidates, prefix, (i) => i.label).slice(0, 12);
   } else {
     candidates = field.values.map((v) => valueItem(v, start, end));
   }

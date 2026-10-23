@@ -6,6 +6,7 @@
 // the wiring: mode toggle -> applySearchQuery -> parseQuery -> compilePredicate -> rendered list.
 // Same isolated-launch posture as quick-add-selftest.mjs.
 
+import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +37,19 @@ const iso = (offsetDays) => {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const taskRow = (text) => {
+  const script = [
+    'import sqlite3, sys, json',
+    'conn = sqlite3.connect(sys.argv[1])',
+    'row = conn.execute("SELECT reminder_date FROM tasks WHERE text = ?", (sys.argv[2],)).fetchone()',
+    'conn.close()',
+    'print(json.dumps(row[0] if row else "<no row>"))',
+  ].join('; ');
+  const result = spawnSync(pythonBin, ['-c', script, isolatedDatabase, text], { cwd: repoRoot, encoding: 'utf8' });
+  check(result.status === 0, `could not read the isolated database: ${result.stderr}`);
+  return JSON.parse(result.stdout.trim());
 };
 
 let electronApp = null;
@@ -149,6 +163,97 @@ try {
   await expectError('priority CONTAINS high', /CONTAINS is not valid for priority/);
   await expectError('done BETWEEN 1 AND 2', /BETWEEN is only supported for due/);
   await expectError('priority IS NULL', /IS NULL is only supported for due/);
+
+  // ---- TQL-002: relative dates (fixtures are due at -1, 0, +5 days from the real today) ----
+  await expectRows('due <= today+7d', 'inv-high', 'urgent-med', 'done-high');
+  await expectRows('due < today+5d', 'inv-high', 'urgent-med');
+  await expectRows('due = today+5d', 'done-high');
+  await expectRows('due:"today+5d"', 'done-high');
+  await expectRows('DUE >= TODAY-1D AND due <= Today+0d', 'inv-high', 'urgent-med');
+  await expectRows('due BETWEEN today AND today+7d', 'urgent-med', 'done-high');
+  await expectRows(`due BETWEEN ${iso(-1)} AND today+0d`, 'inv-high', 'urgent-med');
+  await expectRows('due IN (today-1d, today+5d)', 'inv-high', 'done-high');
+  await expectRows('due < today AND done = false', 'inv-high');
+  await expectError('due <= today+7 AND done = false', /Invalid relative date "today\+7" — use today\+Nd or today-Nd/);
+  await expectError('due:today+2h AND done = false', /Invalid relative date/);
+
+  // a saved Smart List keeps the relative text and is re-evaluated against the current date
+  await page.evaluate(async () => {
+    for (const [name, query] of [
+      ['Soon', 'due BETWEEN today AND today+2d'],
+      ['Week out', 'due = today+7d'],
+    ]) {
+      const r = await window.electronAPI.addSmartList(name, query);
+      if (r.error) throw new Error(r.error);
+    }
+  });
+  await page.reload();
+  await page.locator('#message-input').waitFor({ state: 'visible' });
+  const stored = await page.evaluate(async () => (await window.electronAPI.getSmartLists()).map((l) => [l.name, l.query]));
+  check(
+    JSON.stringify(stored) ===
+      JSON.stringify([['Soon', 'due BETWEEN today AND today+2d'], ['Week out', 'due = today+7d']]),
+    `saved queries stay symbolic after reload (got ${JSON.stringify(stored)})`,
+  );
+  await page.locator('label.segmented-option', { hasText: 'Query' }).click().catch(() => {});
+  const pill = (name) => page.locator('.smart-list-pill .list-pill-label', { hasText: name });
+  const openSmartList = async (name) => {
+    // clicking the running Smart List clears it, so close it first to re-run it from its saved query
+    const running = await page.locator('.smart-list-pill.selected .list-pill-label', { hasText: name }).count();
+    if (running) await pill(name).click();
+    await pill(name).click();
+    await settle();
+    return visibleTexts();
+  };
+  let rows = await openSmartList('Soon');
+  check(JSON.stringify(rows) === JSON.stringify(names('urgent-med')), `Soon today: ${JSON.stringify(rows)}`);
+
+  const at = async (offsetDays) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    d.setHours(12, 0, 0, 0);
+    await page.clock.setFixedTime(d);
+  };
+  await at(4); // fixed +5 is now inside [today, today+2d]; the other fixtures are in the past
+  rows = await openSmartList('Soon');
+  check(JSON.stringify(rows) === JSON.stringify(names('done-high')), `Soon at +4 days: ${JSON.stringify(rows)}`);
+  await at(-2); // -1 and 0 fall inside [today, today+2d] seen from two days earlier
+  rows = await openSmartList('Soon');
+  check(JSON.stringify(rows) === JSON.stringify(names('inv-high', 'urgent-med')), `Soon at -2 days: ${JSON.stringify(rows)}`);
+  await at(0);
+  rows = await openSmartList('Soon');
+  check(JSON.stringify(rows) === JSON.stringify(names('urgent-med')), `Soon back at today: ${JSON.stringify(rows)}`);
+
+  // adding a task under `due = today+7d` stores a resolved absolute date, resolved at action time
+  await at(3);
+  await openSmartList('Week out');
+  const chipText = (await page.locator('#add-task-template').textContent())?.trim() ?? '';
+  check(chipText.includes(iso(10)), `template hint shows the resolved date ${iso(10)} (got ${JSON.stringify(chipText)})`);
+  await page.locator('#message-input').fill('Relative seeded task');
+  await page.locator('#message-input').press('Enter');
+  await page.locator('.task-text', { hasText: 'Relative seeded task' }).waitFor({ state: 'visible' });
+  check(taskRow('Relative seeded task') === iso(10), `created task is due ${iso(10)} (got ${taskRow('Relative seeded task')})`);
+  await at(0);
+
+  // suggestions offer relative examples in comparison, IN and BETWEEN positions
+  const suggestLabels = async (text) => {
+    await search.fill('');
+    await search.pressSequentially(text);
+    await settle();
+    return (await page.locator('#query-suggest-menu [role="option"]').allTextContents()).join(' | ');
+  };
+  for (const text of ['due <= ', 'due = ', 'due IN (', 'due BETWEEN ', 'due BETWEEN today AND ']) {
+    const labels = await suggestLabels(text);
+    check(/today\+7d/.test(labels) && /today-7d/.test(labels), `"${text}": suggestions offer relative dates (got ${labels})`);
+  }
+  check(/today\+7d/.test(await suggestLabels('due <= today+')), 'a typed relative prefix narrows to relative examples');
+  await search.fill('');
+
+  // help documents the four units and both window shapes
+  const help = (await page.locator('#search-help-advanced').textContent()) ?? '';
+  for (const needle of ['today+Nd', 'today-Nd', 'days', 'weeks', 'months', 'years', 'due <= today+7d', 'due BETWEEN today AND today+7d']) {
+    check(help.includes(needle), `help mentions ${needle}`);
+  }
 
   assertProtectedFilesUnchanged(check);
   console.log(`All ${checks} query SQL end-to-end checks passed`);

@@ -2,7 +2,7 @@
 // shown in the bar, what defaults it implies, and how those defaults reach a newly created task.
 import type { SmartList, TaskSeed } from '../types';
 import { refs } from './dom.js';
-import { parseQuery } from './query.js';
+import { parseQuery, resolveRelativeDate } from './query.js';
 import { deriveTemplate } from './smartListTemplate.js';
 import type { SmartListTemplate } from './smartListTemplate.js';
 import { state } from './state.js';
@@ -108,12 +108,19 @@ const addDays = (iso: string, days: number): string => {
   ).padStart(2, '0')}`;
 };
 
-/** today/tomorrow/yesterday are relative to *now*, so they resolve at add time, not save time. */
-export const resolveDue = (due: string): string => {
+/**
+ * today/tomorrow/yesterday and today+Nd style offsets are relative to *now*, so they resolve at
+ * add time, not save time. Null when the date cannot be represented (a huge offset): the caller
+ * leaves the due date unset rather than storing relative text or a wrapped date.
+ */
+export const resolveDue = (due: string): string | null => {
   const today = isoToday();
-  if (due === 'today') return today;
-  if (due === 'tomorrow') return addDays(today, 1);
-  if (due === 'yesterday') return addDays(today, -1);
+  const lower = due.toLowerCase();
+  if (lower === 'today') return today;
+  if (lower === 'tomorrow') return addDays(today, 1);
+  if (lower === 'yesterday') return addDays(today, -1);
+  const relative = resolveRelativeDate(lower, today);
+  if (relative) return 'iso' in relative ? relative.iso : null;
   return due;
 };
 
@@ -130,7 +137,8 @@ export const templateSeed = (template: SmartListTemplate | null): TaskSeed | und
   const seed: TaskSeed = {};
   if (template.priority) seed.priority = template.priority;
   if (template.done) seed.done = true;
-  if (template.due) seed.reminderDate = resolveDue(template.due);
+  const due = template.due ? resolveDue(template.due) : null;
+  if (due) seed.reminderDate = due;
   if (template.repeat && RRULE_BY_FREQ[template.repeat]) {
     seed.repeatRule = RRULE_BY_FREQ[template.repeat];
     seed.repeatStart = seed.reminderDate ?? isoToday();
@@ -262,8 +270,9 @@ export const renderTemplateHints = (force = false) => {
     el.dataset.priority = template.priority;
     container.appendChild(el);
   }
-  if (template?.due) {
-    container.appendChild(chip(t('activeSmartList.due').replace('{date}', resolveDue(template.due))));
+  const resolvedDue = template?.due ? resolveDue(template.due) : null;
+  if (resolvedDue) {
+    container.appendChild(chip(t('activeSmartList.due').replace('{date}', resolvedDue)));
   }
 
   if (template?.repeat) container.appendChild(chip(t('activeSmartList.repeats').replace('{value}', t(('repeat.' + template.repeat) as any))));
@@ -272,6 +281,7 @@ export const renderTemplateHints = (force = false) => {
   if (template?.done) container.appendChild(chip(t('activeSmartList.done')));
 
   const notApplied = template ? [...template.skipped, ...missing] : [];
+  if (template?.due && !resolvedDue) notApplied.push(`due:${template.due}`);
   if (notApplied.length) {
     const note = document.createElement('span');
     note.className = 'template-warning';

@@ -54,6 +54,9 @@ const fieldByName = new Map(FIELDS.map((f) => [f.name, f]));
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_KEYWORDS = ['today', 'tomorrow', 'yesterday'];
+// One contiguous expression: `today+7d`, `today-1m`. ASCII digits only; matched on the lowercased value.
+const RELATIVE_DATE_RE = /^today([+-])([0-9]+)([dwmy])$/;
+const RELATIVE_DATE_HINT = 'today+Nd or today-Nd, with unit d, w, m or y (e.g. today+7d)';
 
 // ---------- Tokenizer ----------
 
@@ -188,14 +191,21 @@ const validateTermValue = (
   }
   if (field.type === 'date') {
     const isSpecial = !quoted && (lower === 'none' || lower === 'any');
-    const isDate = ISO_DATE_RE.test(lower) || DATE_KEYWORDS.includes(lower);
+    const relative = RELATIVE_DATE_RE.exec(lower);
+    const isDate = ISO_DATE_RE.test(lower) || DATE_KEYWORDS.includes(lower) || relative !== null;
+    if (!isSpecial && relative && !Number.isSafeInteger(Number(relative[2]))) {
+      throw new ParseFailure(`Offset in "${value}" is too large — use a smaller number`, position);
+    }
+    if (!isSpecial && !isDate && /^today[+-]/.test(lower)) {
+      throw new ParseFailure(`Invalid relative date "${value}" — use ${RELATIVE_DATE_HINT}`, position);
+    }
     if (isSpecial) {
       if (op !== ':' && op !== '!=') {
         throw new ParseFailure(`"${shownOp}" cannot be used with ${field.name}:${lower}`, position);
       }
     } else if (!isDate) {
       throw new ParseFailure(
-        `Invalid date "${value}" — use YYYY-MM-DD, today, tomorrow or yesterday`,
+        `Invalid date "${value}" — use YYYY-MM-DD, today, tomorrow, yesterday or ${RELATIVE_DATE_HINT}`,
         position
       );
     }
@@ -452,6 +462,79 @@ export const parseQuery = (input: string): ParseResult => {
   }
 };
 
+// ---------- Relative dates ----------
+
+// Calendar arithmetic on plain year/month/day numbers: no Date, so a daylight-saving change can
+// never shift a result and years below 100 are not remapped to 19xx.
+const MIN_YEAR = 1;
+const MAX_YEAR = 9999;
+// far beyond the representable span in any unit; also keeps every product below exact-integer range
+const MAX_OFFSET = 1e9;
+
+const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+const daysInMonth = (y: number, m: number) => [31, isLeap(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+
+// Howard Hinnant's days-from-civil / civil-from-days (proleptic Gregorian, day 0 = 1970-01-01)
+const daysFromCivil = (y: number, m: number, d: number): number => {
+  const yy = m <= 2 ? y - 1 : y;
+  const era = Math.floor(yy / 400);
+  const yoe = yy - era * 400;
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+};
+const civilFromDays = (z0: number): [number, number, number] => {
+  const z = z0 + 719468;
+  const era = Math.floor(z / 146097);
+  const doe = z - era * 146097;
+  const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  const mp = Math.floor((5 * doy + 2) / 153);
+  const d = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  const m = mp < 10 ? mp + 3 : mp - 9;
+  return [yoe + era * 400 + (m <= 2 ? 1 : 0), m, d];
+};
+
+const formatISO = (y: number, m: number, d: number) =>
+  `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+/**
+ * A relative date value resolved against a base day: the ISO date, or which way it falls off the
+ * representable range (0001-01-01..9999-12-31) / that the base itself is not a date.
+ */
+export type RelativeDateResult = { iso: string } | { beyond: 1 | -1 } | { invalid: true };
+
+/** Resolves `today[+-]N[dwmy]` against `todayISO`. Null when `value` is not a relative expression. */
+export const resolveRelativeDate = (value: string, todayISO: string): RelativeDateResult | null => {
+  const match = RELATIVE_DATE_RE.exec(value.toLowerCase());
+  if (!match) return null;
+  const sign = match[1] === '-' ? -1 : 1;
+  const amount = Number(match[2]);
+  if (!Number.isSafeInteger(amount)) return { beyond: sign };
+  const base = /^(\d{4})-(\d{2})-(\d{2})$/.exec(todayISO);
+  if (!base) return { invalid: true };
+  const y = Number(base[1]);
+  const m = Number(base[2]);
+  const d = Number(base[3]);
+  if (m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m)) return { invalid: true };
+  if (amount > MAX_OFFSET) return { beyond: sign };
+  const unit = match[3];
+  let ry: number;
+  let rm: number;
+  let rd: number;
+  if (unit === 'd' || unit === 'w') {
+    [ry, rm, rd] = civilFromDays(daysFromCivil(y, m, d) + sign * amount * (unit === 'w' ? 7 : 1));
+  } else {
+    const months = unit === 'm' ? y * 12 + (m - 1) + sign * amount : (y + sign * amount) * 12 + (m - 1);
+    ry = Math.floor(months / 12);
+    rm = months - ry * 12 + 1;
+    rd = Math.min(d, daysInMonth(ry, rm));
+  }
+  if (ry < MIN_YEAR) return { beyond: -1 };
+  if (ry > MAX_YEAR) return { beyond: 1 };
+  return { iso: formatISO(ry, rm, rd) };
+};
+
 // ---------- Evaluator ----------
 
 const addDays = (iso: string, days: number): string => {
@@ -524,6 +607,22 @@ const evalTerm = (node: Extract<QueryNode, { kind: 'term' }>, task: Task, ctx: E
       if (value === 'today') target = ctx.todayISO;
       else if (value === 'tomorrow') target = addDays(ctx.todayISO, 1);
       else if (value === 'yesterday') target = addDays(ctx.todayISO, -1);
+      else {
+        const relative = resolveRelativeDate(value, ctx.todayISO);
+        if (relative) {
+          if ('iso' in relative) {
+            target = relative.iso;
+          } else {
+            // No date to compare with. Equality can never hold; an ordering is decided by which
+            // side of every representable date the value falls on (an invalid base: nothing).
+            if (node.op === '!=') return true;
+            if (!('beyond' in relative) || due === null) return false;
+            if (node.op === '<' || node.op === '<=') return relative.beyond > 0;
+            if (node.op === '>' || node.op === '>=') return relative.beyond < 0;
+            return false;
+          }
+        }
+      }
       if (node.op === ':') return due === target;
       if (node.op === '!=') return due !== target;
       if (due === null) return false;

@@ -73,7 +73,7 @@
                 <tr><td><code>list</code>, <code>tag</code></td><td><code>: = ~ !=</code> · <code>CONTAINS</code>, <code>IN (…)</code> · <code>none</code>, <code>any</code></td></tr>
                 <tr><td><code>priority</code></td><td>none / low / medium / high · <code>= !=</code>, <code>IN (…)</code></td></tr>
                 <tr><td><code>done</code></td><td>true / false · <code>= !=</code>, <code>IN (…)</code></td></tr>
-                <tr><td><code>due</code></td><td><code>: = != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday · <code>IS NULL</code>, <code>IS NOT NULL</code>, <code>BETWEEN a AND b</code></td></tr>
+                <tr><td><code>due</code></td><td><code>: = != &lt; &lt;= &gt; &gt;=</code> · date, today, tomorrow, yesterday, <code>today+Nd</code> / <code>today-Nd</code> (units <code>d</code> days, <code>w</code> weeks, <code>m</code> months, <code>y</code> years) · <code>IS NULL</code>, <code>IS NOT NULL</code>, <code>BETWEEN a AND b</code></td></tr>
                 <tr><td><code>repeat</code></td><td>none / any / daily / weekly / monthly / yearly · <code>= !=</code>, <code>IN (…)</code></td></tr>
               </table>
               <p class="search-help-note" data-i18n-html="search.help.syntaxHint">A term is <code>field:value</code>. <code>:</code> is exact,
@@ -90,6 +90,9 @@
               <p class="search-help-example"><code>tag IN ("home", "errands")</code></p>
               <p class="search-help-example"><code>due IS NOT NULL</code></p>
               <p class="search-help-example"><code>due BETWEEN 2026-10-01 AND 2026-10-31</code></p>
+              <p class="search-help-example"><code>due &lt;= today+7d</code> — everything due by a week from today, overdue included</p>
+              <p class="search-help-example"><code>due BETWEEN today AND today+7d</code> — due from today through the next 7 days</p>
+              <p class="search-help-note">Relative dates follow the current date, so a saved query keeps working as days pass. Months and years keep the day of month, or use the last day of a shorter month.</p>
             </div>
           </div>
         </div>

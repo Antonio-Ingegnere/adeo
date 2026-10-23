@@ -34,6 +34,9 @@ const distUrl = (rel) => new URL(`file://${path.join(repoRoot, 'dist', 'renderer
 
 const { state } = await import(distUrl('state.js'));
 const { planBoardMove } = await import(distUrl('boardMove.js'));
+const { resolveDue, templateSeed } = await import(distUrl('activeSmartList.js'));
+const { parseQuery } = await import(distUrl('query.js'));
+const { deriveTemplate } = await import(distUrl('smartListTemplate.js'));
 
 const isoToday = () => {
   const now = new Date();
@@ -203,6 +206,55 @@ const smartRef = (id) => {
     !conflict.changes.some((c) => c.field === 'priority') &&
       conflict.skipped.some((x) => x.includes('priority is constrained twice')),
     `8: contradictory equalities keep conflict reporting (got ${JSON.stringify(conflict.skipped)})`,
+  );
+}
+
+// ---- 9. Relative dates (TQL-002): equality-derived dates resolve to absolute ISO at action time ----
+{
+  // independent local-calendar oracle (Date normalises the overflowing day/month)
+  const shifted = (dd, dm, dy) => {
+    const n = new Date();
+    const d = new Date(n.getFullYear() + dy, n.getMonth() + dm, n.getDate() + dd);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const dest = (query) => ({ kind: 'smart', smartListId: 99, query, label: 'tmp' });
+  const source = listRef(2, 'Home');
+  const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+  const plan7 = planBoardMove(task({ listId: 2 }), source, dest('due = today+7d'));
+  const rem7 = plan7.changes.find((c) => c.field === 'reminder');
+  const want7 = shifted(7, 0, 0);
+  check(plan7.verdict === 'deterministic', `9: due = today+7d is invertible (got ${plan7.verdict})`);
+  check(Boolean(rem7) && rem7.chip === `Due ${want7}`, `9: today+7d resolved to ${want7} (got ${rem7 && rem7.chip})`);
+  const applied7 = task({ listId: 2 });
+  if (rem7) rem7.apply(applied7);
+  check(ISO.test(applied7.reminderDate ?? ''), `9: the applied task date is absolute (got ${applied7.reminderDate})`);
+
+  check(resolveDue('today-1w') === shifted(-7, 0, 0), '9: resolveDue today-1w');
+  check(resolveDue('today+2w') === shifted(14, 0, 0), '9: resolveDue today+2w');
+  check(resolveDue('today+1m') === shifted(0, 1, 0) || new Date().getDate() > 28, '9: resolveDue today+1m');
+  check(resolveDue('today-1y') === shifted(0, 0, -1) || (new Date().getMonth() === 1 && new Date().getDate() === 29), '9: resolveDue today-1y');
+  check(resolveDue('TODAY+0D') === isoToday(), '9: resolveDue is case-insensitive');
+  check(resolveDue('today') === isoToday() && resolveDue('2026-09-05') === '2026-09-05', '9: keywords and absolute dates unchanged');
+  check(resolveDue('today+99999999d') === null, '9: an unrepresentable date resolves to null, not a wrapped date');
+
+  const seedOf = (query) => templateSeed(deriveTemplate(parseQuery(query).ast));
+  check(seedOf('due = today+7d')?.reminderDate === want7, '9: task creation seeds an absolute reminderDate');
+  check(seedOf('due = "today+7d"')?.reminderDate === want7, '9: quoted relative equality seeds the same date');
+  check(seedOf('due = today+7d AND repeat = weekly')?.repeatStart === want7, '9: repeatStart follows the resolved date');
+  check(seedOf('due <= today+7d') === undefined, '9: range templates still seed no date');
+  check(seedOf('due BETWEEN today AND today+7d') === undefined, '9: BETWEEN templates still seed no date');
+  check(seedOf('due IN (today+1d, today+2d)') === undefined, '9: IN templates still seed no date');
+  check(seedOf('due = today+99999999d') === undefined, '9: an unrepresentable equality seeds nothing');
+
+  const planRange = planBoardMove(task({ listId: 2 }), source, dest('due <= today+7d'));
+  check(planRange.verdict === 'blocked', `9: a relative range destination is still uninvertible (got ${planRange.verdict})`);
+  const planSame = planBoardMove(task({ listId: 2, reminderDate: want7 }), source, dest('due = today+7d'));
+  check(planSame.verdict === 'noop', `9: a task already due then is a noop (got ${planSame.verdict})`);
+  const planBad = planBoardMove(task({ listId: 2 }), source, dest('due = today+99999999d'));
+  check(
+    planBad.changes.length === 0 && planBad.skipped.some((x) => x.includes('today+99999999d')),
+    `9: an unrepresentable destination writes nothing and says so (got ${JSON.stringify(planBad.skipped)})`,
   );
 }
 

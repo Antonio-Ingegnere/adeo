@@ -1,6 +1,6 @@
 // Manual self-test for the advanced-search query engine.
 // Run after `npm run build`:  node scripts/query-selftest.mjs
-import { parseQuery, compilePredicate, queryUsesField } from '../dist/renderer/query.js';
+import { parseQuery, compilePredicate, queryUsesField, resolveRelativeDate } from '../dist/renderer/query.js';
 import { deriveTemplate } from '../dist/renderer/smartListTemplate.js';
 
 const ctx = {
@@ -517,7 +517,318 @@ for (const [query, expected] of sqlTemplateCases) {
   }
 }
 
+// ---- TQL-002: relative local dates (today+Nd, today-Nd; units d, w, m, y) ----
+const relIso = (value, today) => {
+  const r = resolveRelativeDate(value, today);
+  return r && 'iso' in r ? r.iso : r;
+};
+// [value, todayISO, expected]
+const relResolveCases = [
+  ['today+0d', '2026-08-08', '2026-08-08'],
+  ['today-0d', '2026-08-08', '2026-08-08'],
+  ['today+007d', '2026-08-08', '2026-08-15'],
+  ['today+1d', '2026-08-31', '2026-09-01'],
+  ['today-1d', '2026-09-01', '2026-08-31'],
+  ['today+1d', '2026-12-31', '2027-01-01'],
+  ['today-1d', '2027-01-01', '2026-12-31'],
+  ['today+1d', '2024-02-28', '2024-02-29'],
+  ['today+1d', '2026-02-28', '2026-03-01'],
+  ['today+7d', '2026-08-08', '2026-08-15'],
+  ['today-7d', '2026-08-08', '2026-08-01'],
+  ['today+1w', '2026-08-08', '2026-08-15'],
+  ['today-2w', '2026-08-08', '2026-07-25'],
+  ['today+52w', '2026-08-08', '2027-08-07'],
+  ['today+1m', '2026-01-31', '2026-02-28'],
+  ['today+1m', '2024-01-31', '2024-02-29'],
+  ['today+1m', '2026-08-08', '2026-09-08'],
+  ['today+5m', '2026-08-31', '2027-01-31'],
+  ['today+4m', '2026-10-31', '2027-02-28'],
+  ['today-1m', '2026-03-31', '2026-02-28'],
+  ['today-1m', '2024-03-31', '2024-02-29'],
+  ['today-1m', '2026-01-15', '2025-12-15'],
+  ['today+12m', '2026-08-08', '2027-08-08'],
+  ['today+1y', '2024-02-29', '2025-02-28'],
+  ['today+4y', '2024-02-29', '2028-02-29'],
+  ['today-1y', '2024-02-29', '2023-02-28'],
+  ['today-4y', '2024-02-29', '2020-02-29'],
+  ['today+1y', '2026-08-08', '2027-08-08'],
+  ['TODAY+1D', '2026-08-08', '2026-08-09'],
+  ['Today-1W', '2026-08-08', '2026-08-01'],
+  ['today+1M', '2026-08-08', '2026-09-08'],
+  ['today+0001y', '2026-08-08', '2027-08-08'],
+  // Europe/Warsaw DST changes (2026-03-29 has 23 hours, 2026-10-25 has 25): whole calendar days
+  ['today+1d', '2026-03-28', '2026-03-29'],
+  ['today+1d', '2026-03-29', '2026-03-30'],
+  ['today-1d', '2026-03-30', '2026-03-29'],
+  ['today+1w', '2026-03-25', '2026-04-01'],
+  ['today+1w', '2026-10-21', '2026-10-28'],
+  ['today-1w', '2026-10-28', '2026-10-21'],
+  ['today+1d', '2026-10-24', '2026-10-25'],
+  ['today+1d', '2026-10-25', '2026-10-26'],
+  ['today-1d', '2026-10-26', '2026-10-25'],
+  ['today+7d', '2026-03-23', '2026-03-30'],
+  ['today+1m', '2026-02-28', '2026-03-28'],
+  ['today+1m', '2026-03-29', '2026-04-29'],
+  ['today+1m', '2026-09-25', '2026-10-25'],
+  ['today+1y', '2025-10-25', '2026-10-25'],
+  ['today+1d', '0099-12-31', '0100-01-01'], // years below 100 are not remapped to 19xx
+  ['today+9999y', '2026-08-08', { beyond: 1 }],
+  ['today-9999y', '2026-08-08', { beyond: -1 }],
+  ['today+99999999d', '2026-08-08', { beyond: 1 }],
+  ['today-99999999d', '2026-08-08', { beyond: -1 }],
+  ['today+9007199254740991d', '2026-08-08', { beyond: 1 }],
+  ['today+3000000d', '2026-08-08', { beyond: 1 }],
+  ['today+1d', '9999-12-31', { beyond: 1 }],
+  ['today-1d', '0001-01-01', { beyond: -1 }],
+  ['today+1d', 'not-a-date', { invalid: true }],
+  ['tomorrow', '2026-08-08', null],
+];
+for (const [value, today, want] of relResolveCases) {
+  const got = relIso(value, today);
+  if (JSON.stringify(got) !== JSON.stringify(want)) {
+    failures += 1;
+    console.error(`FAIL  resolveRelativeDate(${value}, ${today}) — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  }
+}
+
+// Same data as `tasks`, with dates around ctx.todayISO (2026-08-08); ids 4/5/6 are -1/0/+1 days.
+const relTasks = [
+  task(21, { reminderDate: '2026-08-01' }), // -7d
+  task(22, { reminderDate: '2026-08-07' }), // -1d
+  task(23, { reminderDate: '2026-08-08' }), // today
+  task(24, { reminderDate: '2026-08-09' }), // +1d
+  task(25, { reminderDate: '2026-08-15' }), // +7d / +1w
+  task(26, { reminderDate: '2026-08-16' }), // +8d
+  task(27, { reminderDate: '2026-09-08' }), // +1m
+  task(28, { reminderDate: '2027-08-08' }), // +1y
+  task(29, { reminderDate: null }),
+];
+const runRel = (query, c = ctx, list = relTasks) => {
+  const parsed = parseQuery(query);
+  if (!parsed.ok) return { error: parsed.error };
+  const predicate = compilePredicate(parsed.ast);
+  return { ids: list.filter((t) => predicate(t, c)).map((t) => t.id) };
+};
+const relMatchCases = [
+  // every comparison operator, both spellings of equality
+  ['due:today+7d', [25]],
+  ['due=today+7d', [25]],
+  ['due = today+7d', [25]],
+  ['due:today+1w', [25]],
+  ['due:today-7d', [21]],
+  ['due!=today+7d', [21, 22, 23, 24, 26, 27, 28, 29]], // null due is "not equal"
+  ['due<today+7d', [21, 22, 23, 24]],
+  ['due<=today+7d', [21, 22, 23, 24, 25]],
+  ['due > today+7d', [26, 27, 28]],
+  ['due>=today+7d', [25, 26, 27, 28]],
+  ['due<today-0d', [21, 22]],
+  ['due>=today+0d', [23, 24, 25, 26, 27, 28]],
+  ['due:today+1m', [27]],
+  ['due:today+1y', [28]],
+  ['due<=today-1d', [21, 22]], // overdue
+  // case-insensitive keyword and units, quoted values, whitespace around operators
+  ['DUE:TODAY+7D', [25]],
+  ['due:"today+7d"', [25]],
+  ['due <= "Today+7D"', [21, 22, 23, 24, 25]],
+  ['due   >=   today-1d   AND   due   <=   today+1d', [22, 23, 24]],
+  // IN: members may mix absolute, keyword and relative values; null due never matches
+  ['due IN (today+7d, today-7d)', [21, 25]],
+  ['due IN (today+1w, 2026-08-09, tomorrow, "today+1m")', [24, 25, 27]],
+  ['due IN (today+0d)', [23]],
+  // BETWEEN: either bound relative, mixed with absolute, inclusive; reversed matches nothing
+  ['due BETWEEN today AND today+7d', [23, 24, 25]],
+  ['due BETWEEN today-7d AND today', [21, 22, 23]],
+  ['due BETWEEN today-1d AND today+1d', [22, 23, 24]],
+  ['due BETWEEN 2026-08-07 AND today+1d', [22, 23, 24]],
+  ['due BETWEEN yesterday AND today+8d', [22, 23, 24, 25, 26]],
+  ['due BETWEEN "today+1d" AND "today+7d"', [24, 25]],
+  ['due BETWEEN today+7d AND today', []],
+  ['due BETWEEN today+1d AND today-1d', []],
+  ['due between today+0d and today+0d', [23]],
+  // composition with the rest of the language is unchanged
+  ['due<=today+7d OR due>today+1y', [21, 22, 23, 24, 25]],
+  ['NOT due<=today+7d', [26, 27, 28, 29]], // a null due is not <= anything, so NOT keeps it
+  ['due IS NULL OR due>today+1m', [28, 29]],
+  ['due<today+7d due>today-7d', [22, 23, 24]], // implicit AND
+  // absolute dates and existing keywords still work next to the new values
+  ['due:2026-08-15', [25]],
+  ['due:tomorrow', [24]],
+  // beyond the representable range: deterministic, no crash, no string comparison
+  ['due<today+99999999d', [21, 22, 23, 24, 25, 26, 27, 28]],
+  ['due<=today+9999y', [21, 22, 23, 24, 25, 26, 27, 28]],
+  ['due>today+99999999d', []],
+  ['due:today+99999999d', []],
+  ['due!=today+99999999d', [21, 22, 23, 24, 25, 26, 27, 28, 29]],
+  ['due>today-99999999d', [21, 22, 23, 24, 25, 26, 27, 28]],
+  ['due<today-99999999d', []],
+  ['due BETWEEN today AND today+99999999d', [23, 24, 25, 26, 27, 28]],
+];
+for (const [query, expected] of relMatchCases) {
+  const result = runRel(query);
+  if (result.error) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — unexpected error: ${result.error.message}`);
+  } else if (JSON.stringify(result.ids) !== JSON.stringify(expected)) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — got ${JSON.stringify(result.ids)}, want ${JSON.stringify(expected)}`);
+  }
+}
+
+// An unusable base date never crashes and never string-compares: only `!=` can hold.
+{
+  const bad = { ...ctx, todayISO: 'garbage' };
+  const got = ['due<today+1d', 'due:today+1d', 'due>=today-1d', 'due!=today+1d'].map((q) => runRel(q, bad).ids);
+  const want = [[], [], [], [21, 22, 23, 24, 25, 26, 27, 28, 29]];
+  if (JSON.stringify(got) !== JSON.stringify(want)) {
+    failures += 1;
+    console.error(`FAIL  invalid todayISO — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  }
+}
+
+// One compiled predicate, reused as the date advances: no reparse, no recompile.
+{
+  const parsed = parseQuery('due <= today+7d AND due >= today-1d');
+  const predicate = compilePredicate(parsed.ast);
+  const dated = [
+    task(31, { reminderDate: '2026-12-31' }),
+    task(32, { reminderDate: '2027-01-01' }),
+    task(33, { reminderDate: '2027-01-07' }),
+    task(34, { reminderDate: '2027-01-08' }),
+    task(35, { reminderDate: '2027-01-09' }),
+  ];
+  const at = (todayISO) => dated.filter((t) => predicate(t, { ...ctx, todayISO })).map((t) => t.id);
+  const sequence = [
+    ['2026-12-31', [31, 32, 33]],
+    ['2027-01-01', [31, 32, 33, 34]],
+    ['2027-01-02', [32, 33, 34, 35]],
+    ['2027-01-09', [34, 35]],
+    ['2026-12-31', [31, 32, 33]], // going back is just as consistent
+  ];
+  for (const [todayISO, want] of sequence) {
+    const got = at(todayISO);
+    if (JSON.stringify(got) !== JSON.stringify(want)) {
+      failures += 1;
+      console.error(`FAIL  reused predicate at ${todayISO} — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+    }
+  }
+  // month-end rollover through the same compiled predicate
+  const monthly = compilePredicate(parseQuery('due = today+1m').ast);
+  const leap = task(36, { reminderDate: '2024-02-29' });
+  const plain = task(37, { reminderDate: '2026-02-28' });
+  const m = (t, todayISO) => monthly(t, { ...ctx, todayISO });
+  if (!m(leap, '2024-01-31') || m(plain, '2024-01-31') || !m(plain, '2026-01-31') || m(leap, '2026-01-31')) {
+    failures += 1;
+    console.error('FAIL  reused predicate month-end clamping');
+  }
+}
+
+// Malformed relative values: positioned (at the value), describing the supported syntax.
+const relErrorCases = [
+  ['due:today+', 'Invalid relative date', 4],
+  ['due:today-', 'Invalid relative date', 4],
+  ['due:today+7', 'Invalid relative date', 4],
+  ['due:today+1.5d', 'Invalid relative date', 4],
+  ['due:today++2d', 'Invalid relative date', 4],
+  ['due:today+-2d', 'Invalid relative date', 4],
+  ['due:today+2h', 'Invalid relative date', 4],
+  ['due:today+1d-2d', 'Invalid relative date', 4],
+  ['due:today+1d+2d', 'Invalid relative date', 4],
+  ['due:today+d', 'Invalid relative date', 4],
+  ['due:today+1dd', 'Invalid relative date', 4],
+  ['due:today+१d', 'Invalid relative date', 4],
+  ['due:"today + 7d"', 'Invalid date', 4],
+  ['due = today+', 'Invalid relative date', 6],
+  ['due >= today+7', 'Invalid relative date', 7],
+  ['due < today+1.5d', 'Invalid relative date', 6],
+  ['due:today+99999999999999999999d', 'too large', 4],
+  ['due:today+9007199254740992d', 'too large', 4],
+  ['due IN (today+1d, today+2h)', 'Invalid relative date', 18],
+  ['due IN (today+)', 'Invalid relative date', 8],
+  ['due BETWEEN today+ AND today', 'Invalid relative date', 12],
+  ['due BETWEEN today AND today+7', 'Invalid relative date', 22],
+  ['due BETWEEN today AND today+1d-2d', 'Invalid relative date', 22],
+  ['due:tomorrow+1d', 'Invalid date', 4],
+  ['due:yesterday-1d', 'Invalid date', 4],
+  ['due:now+1d', 'Invalid date', 4],
+  ['due:today1d', 'Invalid date', 4],
+  ['due:next+1d', 'Invalid date', 4],
+];
+for (const [query, substring, column] of relErrorCases) {
+  const result = run(query);
+  if (!result.error) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — expected error containing ${JSON.stringify(substring)}`);
+    continue;
+  }
+  if (!result.error.message.includes(substring)) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — error ${JSON.stringify(result.error.message)} does not contain ${JSON.stringify(substring)}`);
+  }
+  if (result.error.position !== column) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — error position ${result.error.position}, want ${column}`);
+  }
+  if (substring === 'Invalid relative date' && !/today\+Nd or today-Nd.*d, w, m or y/.test(result.error.message)) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — message does not describe the syntax: ${result.error.message}`);
+  }
+}
+
+// Template derivation keeps the expression symbolic; range/IN forms stay skipped as before.
+const relTemplateCases = [
+  ['due = today+7d', { due: 'today+7d', skipped: [] }],
+  ['due:TODAY-2W', { due: 'today-2w', skipped: [] }],
+  ['due = "today+1m" AND priority = high', { due: 'today+1m', priority: 'high', skipped: [] }],
+  ['due <= today+7d', { due: undefined, skipped: ['due<=today+7d'] }],
+  ['due BETWEEN today AND today+7d', { due: undefined, skipped: ['due>=today', 'due<=today+7d'] }],
+  ['due IN (today+1d, today+2d)', { due: undefined, skipped: ['(due:today+1d OR due:today+2d)'] }],
+  ['due = today+1d AND due = today+2d', { due: undefined, skipped: ['due is constrained twice (today+1d, today+2d)'] }],
+];
+for (const [query, expected] of relTemplateCases) {
+  const parsed = parseQuery(query);
+  if (!parsed.ok) {
+    failures += 1;
+    console.error(`FAIL  template ${JSON.stringify(query)} — unexpected parse error`);
+    continue;
+  }
+  const got = deriveTemplate(parsed.ast);
+  for (const [key, want] of Object.entries(expected)) {
+    if (JSON.stringify(got[key]) !== JSON.stringify(want)) {
+      failures += 1;
+      console.error(`FAIL  template ${JSON.stringify(query)} .${key} — got ${JSON.stringify(got[key])}, want ${JSON.stringify(want)}`);
+    }
+  }
+}
+
+// Equivalence with existing keywords: today+1d == tomorrow, today-1d == yesterday, today+0d == today
+for (const [rel, kw] of [['today+1d', 'tomorrow'], ['today-1d', 'yesterday'], ['today+0d', 'today']]) {
+  for (const op of [':', '!=', '<', '<=', '>', '>=']) {
+    const a = run(`due${op}${rel}`);
+    const b = run(`due${op}${kw}`);
+    if (JSON.stringify(a.ids) !== JSON.stringify(b.ids)) {
+      failures += 1;
+      console.error(`FAIL  due${op}${rel} vs due${op}${kw}: ${JSON.stringify(a.ids)} vs ${JSON.stringify(b.ids)}`);
+    }
+  }
+}
+// The issue's moving-window examples against the original fixtures (ids 4/5/6 = -1/0/+1 days)
+for (const [query, want] of [
+  ['due < today AND done = false', [4]],
+  ['due <= today+7d', [4, 5, 6]],
+  ['due BETWEEN today AND today+7d', [5, 6]],
+  ['due BETWEEN today+1d AND today-1d', []],
+]) {
+  const got = run(query).ids;
+  if (JSON.stringify(got) !== JSON.stringify(want)) {
+    failures += 1;
+    console.error(`FAIL  ${JSON.stringify(query)} — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  }
+}
+const relTotal =
+  relResolveCases.length + relMatchCases.length + relErrorCases.length + relTemplateCases.length + 1 + 5 + 1 + 18 + 4;
+
 const total =
+  relTotal +
   matchCases.length + errorCases.length + usesDoneCases.length + templateCases.length +
   equivalenceCases.length + sqlMatchCases.length + sqlErrorCases.length + sqlUsesDone.length +
   sqlTemplateEquivalence.length + sqlTemplateCases.length;

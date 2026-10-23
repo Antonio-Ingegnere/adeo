@@ -18,6 +18,9 @@ from uuid import uuid4
 
 SUPPORTED_VERSION = '2.2.0'
 
+HUMAN_STATUS_KEYS = ('resume_allowed','resume_to','resume_targets','human_input_pending','next_action',
+                     'selected_resume_to','human_input_request_id')
+
 class DeliveryError(ValueError):
     pass
 
@@ -65,7 +68,7 @@ def load_switchyard(config):
     global load_workflow_bundle, compile_workflow, execute_v2_workflow, ProviderRuntimeConfig
     global simple_config_from_text, compile_simple_config
     global create_qa_candidate, accept_v2_work, reopen_v2_work
-    global execute_recoverable_v2_work, resume_v2_work, rollback_v2_work, recovery_status, attach_qa_candidate, RecoveryBlocked
+    global execute_recoverable_v2_work, answer_v2_work, resume_v2_work, rollback_v2_work, recovery_status, attach_qa_candidate, RecoveryBlocked
     from runtime import RunResult
     from runtime.recording import JsonlRecorder
     from switchyard.observability import read_events, summarize_runs
@@ -76,9 +79,15 @@ def load_switchyard(config):
     from switchyard.workflow_execution import execute_v2_workflow
     from switchyard.provider_stages import ProviderRuntimeConfig
     from switchyard.qa_lifecycle import create_qa_candidate, accept_v2_work, reopen_v2_work
-    from switchyard.recovery import (execute_recoverable_v2_work,resume_v2_work,rollback_v2_work,
-                                    recovery_status,attach_qa_candidate,RecoveryBlocked)
-
+    from switchyard.recovery import (
+                execute_recoverable_v2_work,
+                answer_v2_work,
+                resume_v2_work,
+                rollback_v2_work,
+                recovery_status,
+                attach_qa_candidate,
+                RecoveryBlocked,
+            )
 
 def application_data(root, config):
     # Reuse Adeo's existing cross-platform normalUserDataDir; do not mirror OS policy.
@@ -160,7 +169,7 @@ class Delivery:
             recovery=None
             if (work/'recovery/manifest.jsonl').is_file():
                 recovery=recovery_status(work)
-                if recovery['phase'] in ('running','interrupted','rolled_back','rollback_running'):
+                if recovery['phase'] in ('running','interrupted','rolled_back','rollback_running','waiting_for_human','human_answer_ready'):
                     phase=recovery['phase'];terminal=recovery['terminal']
                     state.update(phase=phase,terminal=terminal)
                     if update_pointer:self.save(state)
@@ -193,7 +202,7 @@ class Delivery:
                             rung=binding.rung_index,provider=binding.provider,agent=binding.profile_name,model=binding.model,effort=binding.effort))
             if terminal != 'READY_FOR_MANUAL_QA':
                 # Human terminals continue only through a route the frozen workflow declares.
-                route={k:recovery[k] for k in ('resume_allowed','resume_to')} if recovery else {}
+                route={k:recovery[k] for k in HUMAN_STATUS_KEYS if k in recovery} if recovery else {}
                 return {**state,**progress,**route,'terminal':terminal,'status':'active','read_only':True,'workspace':str(work)}
             if project is not None and not project.lifecycle.manual_qa:
                 return {**state,**progress,'terminal':terminal,'status':'delivered','read_only':True,
@@ -233,7 +242,7 @@ class Delivery:
         except Exception:
             raise DeliveryError('Inconsistent current-work pointer or durable V2 state; inspect before recovery') from None
 
-    def execute(self, command, task='', *, kind=None, candidate_identity=None):
+    def execute(self, command, task='', *, kind=None, candidate_identity=None, request_id=None, resume_to=None):
         if command == 'repair':
             raise DeliveryError('/repair is retired: explicitly start /deliver bugfix for new work')
         if command == 'qa-fix': command = 'reopen'
@@ -282,7 +291,7 @@ class Delivery:
                     attach_qa_candidate(work,qa)
                     state.update(phase='qa',candidate_identity=candidate.identity); self.save(state)
                 return self.current()
-            if command in ('resume','rollback'):
+            if command in ('resume','rollback','answer'):
                 state=json.loads(self.pointer.read_text())
                 if state.get('engine')!='v2':raise DeliveryError('Historical delivery has no recovery baseline')
                 if state.get('repo_id')!=self.repo_id or not re.fullmatch('[a-f0-9]{32}',state.get('work_id','')):
@@ -291,6 +300,8 @@ class Delivery:
                 recovery=recovery_status(work)
                 if recovery['target']!=str(self.root) or recovery['flow']!=state.get('flow'):
                     raise DeliveryError('Recovery baseline does not belong to current project')
+                if command=='answer' and not (request_id and task.strip()):
+                    raise DeliveryError('Answer requires a request id and nonempty human feedback')
                 if command=='rollback':
                     result=rollback_v2_work(work,task)
                     state.update(phase='rolled_back',terminal='ROLLED_BACK');self.save(state)
@@ -299,7 +310,11 @@ class Delivery:
                 text=(self.directory/'config.yaml').read_text(encoding='utf-8')
                 state.update(phase='delivery_running',terminal='RUNNING');self.save(state)
                 try:
-                    execution=resume_v2_work(work,text,config,reason=task)  # Annotation only; never routing.
+                    if command=='answer':
+                        # Records the answer and continues this work; Switchyard validates the frozen wait route.
+                        execution=answer_v2_work(work,request_id,task,text,config,resume_to=resume_to)
+                    else:
+                        execution=resume_v2_work(work,text,config,reason=task)  # Annotation only; never routing.
                 except RecoveryBlocked:
                     recovery=recovery_status(work)
                     state.update(phase=recovery['phase'],terminal=recovery['terminal']);self.save(state)
@@ -342,6 +357,7 @@ def main(argv=None):
     for op in ('accept','reopen','qa-fix'):
         p=sub.add_parser(op);p.add_argument('--candidate',required=True)
         if op in ('reopen','qa-fix'):p.add_argument('--feedback',required=True)
+    a=sub.add_parser('answer');a.add_argument('--request-id',required=True);a.add_argument('--feedback',required=True);a.add_argument('--resume-to')
     sub.add_parser('status')
     sub.add_parser('repair').add_argument('--task',default='')
     args=parser.parse_args(argv);root=Path(__file__).resolve().parents[2]
@@ -361,7 +377,8 @@ def main(argv=None):
             command=operation if operation in ('resume','rollback') else args.command
             result=app.execute(command,getattr(args,'task',getattr(args,'feedback','')) or getattr(args,'request',''),
                                kind=getattr(args,'kind',None) or (operation if operation in ('feature','bugfix') else None),
-                               candidate_identity=getattr(args,'candidate',None))
+                               candidate_identity=getattr(args,'candidate',None),
+                               request_id=getattr(args,'request_id',None),resume_to=getattr(args,'resume_to',None))
         print(json.dumps(result,indent=2))
         return 0 if args.command=='status' or result.get('terminal',result.get('latest_terminal')) in ('READY_FOR_MANUAL_QA','ACCEPTED','REOPENED','ROLLED_BACK') else 1
     except DeliveryError as exc:

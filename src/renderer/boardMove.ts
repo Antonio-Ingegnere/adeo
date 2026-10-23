@@ -7,7 +7,7 @@
 //     column's query -- the same evaluator advanced search uses.
 //   - deriveTemplate / unparse (smartListTemplate.ts) invert the query into an assignable
 //     attribute set and report every constraint they cannot invert in `skipped`.
-//   - resolveDue (activeSmartList.ts) turns today/tomorrow/yesterday into an ISO date.
+//   - resolveDue (activeSmartList.ts) turns today/tomorrow/yesterday/today+Nd into an ISO date.
 //
 // The planner never writes; it simulates the changes on a cloned Task and re-runs the real
 // predicate. Applying the plan is boardApplyMove() below, which uses only the existing
@@ -222,8 +222,11 @@ export const planBoardMove = (
   }
 
   // due -> reminderDate
-  if (template.due) {
-    const resolved = resolveDue(template.due);
+  const resolvedDue = template.due ? resolveDue(template.due) : null;
+  if (template.due && !resolvedDue) {
+    skipped.push(`due:${template.due}`);
+  } else if (resolvedDue) {
+    const resolved = resolvedDue;
     if ((task.reminderDate ?? null) !== resolved) {
       changes.push({
         field: 'reminder',
@@ -241,7 +244,7 @@ export const planBoardMove = (
     const rule = RRULE_BY_FREQ[template.repeat];
     const currentFreq = /FREQ=([A-Z]+)/i.exec(task.repeatRule ?? '')?.[1]?.toUpperCase();
     if (currentFreq !== template.repeat.toUpperCase()) {
-      const start = template.due ? resolveDue(template.due) : (task.reminderDate ?? isoToday());
+      const start = resolvedDue ?? task.reminderDate ?? isoToday();
       changes.push({
         field: 'repeat',
         chip: `Repeats ${template.repeat}`,

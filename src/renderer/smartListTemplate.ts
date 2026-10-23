@@ -16,7 +16,7 @@ export type SmartListTemplate = {
   listName?: string | null;
   tagNames: string[];
   priority?: Task['priority'];
-  /** an ISO date or one of today/tomorrow/yesterday; the caller resolves keywords */
+  /** an ISO date, one of today/tomorrow/yesterday, or today+Nd style offset; the caller resolves keywords */
   due?: string;
   /** an RRULE frequency: daily | weekly | monthly | yearly */
   repeat?: string;

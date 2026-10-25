@@ -193,21 +193,41 @@ relies on, so this talks to the bundled FastAPI server over loopback HTTP instea
 
 Reminders fire even when Adeo isn't running via a per-OS background scheduler (a LaunchAgent on macOS, a Scheduled Task on Windows, a systemd user timer on Linux — see `ensureBackgroundReminderService()` in `src/main.ts`) that invokes `server/reminder_notifier.py`. On macOS, posting a *clickable* notification from that standalone script (one that can launch Adeo via `adeo://open-task/<id>` when clicked) requires the [terminal-notifier](https://github.com/julienXX/terminal-notifier) CLI, since plain `osascript display notification` has no click-action support.
 
+The bundled helper is a **universal (`arm64` + `x86_64`)** build of upstream [terminal-notifier](https://github.com/julienXX/terminal-notifier) **2.0.0** (tag `2.0.0`, commit `2a58126d83887d65ed8af3889567e5e7aa34f586`). The 2.0.0 release zip only ships an x86_64 binary, so build the executable from the pinned source and reuse the release's resources. Build it with the Xcode command line tools:
+
 ```
-curl -L -o terminal-notifier.zip \
+mkdir -p /tmp/tn-build && cd /tmp/tn-build
+git clone https://github.com/julienXX/terminal-notifier src
+git -C src checkout 2a58126d83887d65ed8af3889567e5e7aa34f586   # tag 2.0.0
+curl -L -o tn.zip \
   https://github.com/julienXX/terminal-notifier/releases/download/2.0.0/terminal-notifier-2.0.0.zip
-unzip terminal-notifier.zip -d vendor/mac
-rm terminal-notifier.zip
+unzip -q tn.zip -d rel     # official release: Info.plist + compiled MainMenu.nib + icon + strings
 
-# Required: the downloaded .app is completely unsigned, and macOS silently
-# drops notifications from unsigned bundles (no prompt, no error — it just
-# never appears). Ad-hoc signing it is enough:
-codesign --force --deep --sign - vendor/mac/terminal-notifier.app
+APP=terminal-notifier.app
+mkdir -p $APP/Contents/MacOS
+clang -fobjc-arc -fobjc-exceptions -std=gnu11 -Os -Wall \
+  -arch arm64 -arch x86_64 -mmacosx-version-min=10.13 \
+  -framework Cocoa -framework ScriptingBridge \
+  -o $APP/Contents/MacOS/terminal-notifier \
+  "src/Terminal Notifier/main.m" "src/Terminal Notifier/AppDelegate.m"
+cp rel/terminal-notifier.app/Contents/Info.plist rel/terminal-notifier.app/Contents/PkgInfo $APP/Contents/
+cp -R rel/terminal-notifier.app/Contents/Resources $APP/Contents/Resources
+
+# Required: macOS silently drops notifications from unsigned bundles (no
+# prompt, no error — it just never appears). Ad-hoc signing it is enough:
+codesign --force --deep --sign - $APP
+
+rm -rf <repo>/vendor/mac/terminal-notifier.app
+cp -R $APP <repo>/vendor/mac/
 ```
 
-Expected layout: `vendor/mac/terminal-notifier.app/Contents/MacOS/terminal-notifier`. `package:mac`'s `extraResources` copies this into the packaged app (see `mac.extraResources` in `package.json`); the signature survives that copy, so this only needs to be done once per download, not per build.
+(`xcodebuild`/`ibtool` aren't needed — the `.xib` is not recompiled; the release's `MainMenu.nib` is reused.) Verify with `lipo -archs vendor/mac/terminal-notifier.app/Contents/MacOS/terminal-notifier` (expect `x86_64 arm64`, in either order) and `codesign --verify --deep --strict vendor/mac/terminal-notifier.app`. The bundle identifier stays `fr.julienxx.oss.terminal-notifier`.
 
-`terminal-notifier`'s binary is x86_64-only (no arm64 build), so it runs under Rosetta 2 on Apple Silicon — `ensureBackgroundReminderService()` does a one-time synchronous invocation when installing the LaunchAgent specifically to surface any first-run Rosetta-install prompt during a normal interactive app launch, rather than silently inside the background LaunchAgent later.
+Expected layout: `vendor/mac/terminal-notifier.app/Contents/MacOS/terminal-notifier`. `package:mac`'s `extraResources` copies this into the packaged app (see `mac.extraResources` in `package.json`); the signature survives that copy, so this only needs to be done once per rebuild of the helper, not per build. The same universal bundle is used for both the `arm64` and `x64` packages, so the Apple Silicon build runs the helper natively (no Rosetta/Intel-software warning) and the Intel build keeps working.
+
+`vendor/` is gitignored, so the binary itself isn't committed; the commands above are the record of how to reproduce it. Replacement executable SHA-256 (reference build, Xcode 26.4.1 clang, ad-hoc signed): `1dbba2feab7abd6c0582d3b401b2013ec0e99569f628686ab6f8f525e6da0f0d` (the recipe above reproduced it byte-for-byte on the same toolchain).
+
+`ensureBackgroundReminderService()` still does a one-time `terminal-notifier -help` invocation when installing the LaunchAgent; it is harmless and kept as-is.
 
 Windows uses a bundled PowerShell script (`server/reminder_notify_windows.ps1`) instead — no extra download needed, since `New-ToastNotification`-style APIs are built into Windows. Linux's click-through support depends on the desktop environment's notification daemon and is best-effort (see `notify_linux()` in `reminder_notifier.py`).
 

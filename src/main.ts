@@ -772,9 +772,9 @@ const installMacLaunchAgent = (pythonBin: string, scriptPath: string) => {
     console.error('Failed to install reminder LaunchAgent', error);
   }
 
-  // Trigger any first-run Rosetta-install prompt for the bundled (Intel-only)
-  // terminal-notifier binary while we're in a normal interactive session,
-  // rather than the first time the background LaunchAgent invokes it silently.
+  // Warm up the bundled (universal) terminal-notifier binary while we're in a
+  // normal interactive session, rather than the first time the background
+  // LaunchAgent invokes it silently.
   const notifierBin = resolveMacNotifierBinary();
   if (notifierBin) {
     exec(`"${notifierBin}" -help`, () => {});
